@@ -12,7 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { CramIntelLogo } from '@/components/CramIntelLogo';
+import CramIntelLogo from '@/components/CramIntelLogo';
 import { Button } from '@/components/ui/button';
 
 const menuItems = [
