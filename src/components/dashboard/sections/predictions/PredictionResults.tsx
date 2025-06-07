@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, TrendingUp, MessageSquare, BookOpen, CheckCircle, Share, Download } from 'lucide-react';
@@ -18,7 +17,7 @@ interface PredictionData {
     topics: string[];
     lecturer?: string;
   };
-  style: 'bullet' | 'theory' | 'mixed';
+  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper';
 }
 
 interface PredictionResultsProps {
