@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -72,10 +73,26 @@ const ContactForm = () => {
       
       console.log('Form submitted:', data);
       
-      // Remove honeypot and timestamp fields before processing
-      const { honeypot, timestamp, ...contactData } = data;
+      // Extract contact data with proper typing
+      const contactData = {
+        name: data.name,
+        email: data.email,
+        message: data.message
+      };
       
-      // First, add contact to Mailchimp (async, don't wait for this)
+      // Validate that all required fields are present
+      if (!contactData.name || !contactData.email || !contactData.message) {
+        console.error('Missing required contact data fields');
+        toast({
+          title: "Error",
+          description: "Please fill in all required fields.",
+          variant: "destructive"
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Add contact to Mailchimp (async, don't wait for this)
       addContactToMailchimp(contactData).then(result => {
         if (result.success) {
           console.log('Contact added to Mailchimp successfully');
