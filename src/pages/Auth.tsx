@@ -10,12 +10,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -31,36 +30,19 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const { error } = await signIn(email, password);
-        if (error) {
-          toast({
-            title: "Login failed",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Welcome back!",
-            description: "You've been logged in successfully.",
-          });
-          navigate('/dashboard');
-        }
+      const { error } = await signIn(email, password);
+      if (error) {
+        toast({
+          title: "Login failed",
+          description: error.message,
+          variant: "destructive",
+        });
       } else {
-        const { error } = await signUp(email, password);
-        if (error) {
-          toast({
-            title: "Signup failed",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Account created!",
-            description: "Please check your email to verify your account.",
-          });
-          setIsLogin(true);
-        }
+        toast({
+          title: "Welcome back!",
+          description: "You've been logged in successfully.",
+        });
+        navigate('/dashboard');
       }
     } catch (error: any) {
       toast({
@@ -93,13 +75,10 @@ const Auth = () => {
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold">
-              {isLogin ? 'Welcome back' : 'Create account'}
+              Welcome back
             </CardTitle>
             <p className="text-gray-600">
-              {isLogin 
-                ? 'Sign in to access your study materials' 
-                : 'Join CramIntel to start studying smarter'
-              }
+              Sign in to access your study materials
             </p>
           </CardHeader>
           <CardContent>
@@ -122,7 +101,7 @@ const Auth = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  autoComplete={isLogin ? 'current-password' : 'new-password'}
+                  autoComplete="current-password"
                   className="pr-10"
                 />
                 <button
@@ -142,53 +121,30 @@ const Auth = () => {
                 {loading ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                 ) : null}
-                {isLogin ? 'Sign In' : 'Create Account'}
+                Sign In
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
-              <p className="text-gray-600">
-                {isLogin ? "Don't have an account?" : "Already have an account?"}
-                <button
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="ml-2 text-gray-800 hover:text-gray-600 font-medium"
+            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+              <div className="text-center space-y-3">
+                <h3 className="font-semibold text-gray-900">New to CramIntel?</h3>
+                <p className="text-sm text-gray-700">
+                  🚀 Get the complete guided setup experience designed to maximize your study success
+                </p>
+                <Button
+                  onClick={() => navigate('/onboarding')}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
                 >
-                  {isLogin ? 'Sign up' : 'Sign in'}
-                </button>
-              </p>
+                  Start Your Journey →
+                </Button>
+              </div>
             </div>
 
-            {!isLogin && (
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  💡 New to CramIntel? Get the full guided experience
-                </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate('/onboarding')}
-                  className="mt-2 text-blue-700 hover:text-blue-800 p-0 h-auto"
-                >
-                  Start guided setup →
-                </Button>
-              </div>
-            )}
-
-            {isLogin && (
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-700">
-                  🆕 First time using CramIntel?
-                </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate('/onboarding')}
-                  className="mt-2 text-gray-700 hover:text-gray-800 p-0 h-auto"
-                >
-                  Get the full guided experience →
-                </Button>
-              </div>
-            )}
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-700 text-center">
+                💡 The guided onboarding helps you set up your profile, courses, and study preferences for a personalized experience
+              </p>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
