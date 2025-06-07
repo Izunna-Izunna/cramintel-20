@@ -1,9 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import WelcomeStep from '@/components/onboarding/WelcomeStep';
 import NameStep from '@/components/onboarding/NameStep';
+import EmailStep from '@/components/onboarding/EmailStep';
+import PasswordStep from '@/components/onboarding/PasswordStep';
 import SchoolStep from '@/components/onboarding/SchoolStep';
 import DepartmentStep from '@/components/onboarding/DepartmentStep';
 import CoursesStep from '@/components/onboarding/CoursesStep';
@@ -14,9 +15,12 @@ import ProgressBar from '@/components/onboarding/ProgressBar';
 import AnimatedBackground from '@/components/onboarding/AnimatedBackground';
 import EncouragingMessage from '@/components/onboarding/EncouragingMessage';
 import ParticleCelebration from '@/components/onboarding/ParticleCelebration';
+import { supabase } from '@/lib/supabase';
 
 export interface OnboardingData {
   name: string;
+  email: string;
+  password: string;
   school: string;
   department: string;
   courses: string[];
@@ -28,6 +32,8 @@ const Onboarding = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [data, setData] = useState<OnboardingData>({
     name: '',
+    email: '',
+    password: '',
     school: '',
     department: '',
     courses: [],
@@ -37,7 +43,7 @@ const Onboarding = () => {
   const [showCelebration, setShowCelebration] = useState(false);
   const navigate = useNavigate();
 
-  const totalSteps = 8;
+  const totalSteps = 10;
 
   // Save progress to localStorage
   useEffect(() => {
@@ -74,12 +80,64 @@ const Onboarding = () => {
     setData(prev => ({ ...prev, ...updates }));
   };
 
-  const completeOnboarding = () => {
-    localStorage.setItem('cramIntelUser', JSON.stringify(data));
-    localStorage.removeItem('onboardingProgress');
-    setTimeout(() => {
-      navigate('/dashboard');
-    }, 3000);
+  const completeOnboarding = async () => {
+    try {
+      // First, try to sign up with Supabase
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: {
+            name: data.name,
+            school: data.school,
+            department: data.department,
+            courses: data.courses,
+            study_style: data.studyStyle,
+            first_action: data.firstAction
+          }
+        }
+      });
+
+      if (signUpError) {
+        console.error('Signup error:', signUpError);
+        // Fallback to localStorage if signup fails
+        localStorage.setItem('cramIntelUser', JSON.stringify(data));
+      } else if (authData.user) {
+        // Create user profile in our custom table
+        const { error: profileError } = await supabase
+          .from('cramintel_user_profiles')
+          .insert({
+            id: authData.user.id,
+            email: data.email,
+            name: data.name,
+            school: data.school,
+            department: data.department,
+            courses: data.courses,
+            study_style: data.studyStyle,
+            first_action: data.firstAction
+          });
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          // Still save to localStorage as fallback
+          localStorage.setItem('cramIntelUser', JSON.stringify(data));
+        }
+      }
+      
+      localStorage.removeItem('onboardingProgress');
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 3000);
+    } catch (error) {
+      console.error('Onboarding completion error:', error);
+      // Fallback to localStorage
+      localStorage.setItem('cramIntelUser', JSON.stringify(data));
+      localStorage.removeItem('onboardingProgress');
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 3000);
+    }
   };
 
   const stepVariants = {
@@ -114,16 +172,20 @@ const Onboarding = () => {
       case 2:
         return <NameStep {...stepProps} />;
       case 3:
-        return <SchoolStep {...stepProps} />;
+        return <EmailStep {...stepProps} />;
       case 4:
-        return <DepartmentStep {...stepProps} />;
+        return <PasswordStep {...stepProps} />;
       case 5:
-        return <CoursesStep {...stepProps} />;
+        return <SchoolStep {...stepProps} />;
       case 6:
-        return <StudyStyleStep {...stepProps} />;
+        return <DepartmentStep {...stepProps} />;
       case 7:
-        return <FirstActionStep {...stepProps} />;
+        return <CoursesStep {...stepProps} />;
       case 8:
+        return <StudyStyleStep {...stepProps} />;
+      case 9:
+        return <FirstActionStep {...stepProps} />;
+      case 10:
         return <CompletionStep {...stepProps} onComplete={completeOnboarding} />;
       default:
         return <WelcomeStep {...stepProps} />;

@@ -140,6 +140,382 @@ export type Database = {
         }
         Relationships: []
       }
+      cramintel_chat_conversations: {
+        Row: {
+          course: string | null
+          created_at: string | null
+          id: string
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          course?: string | null
+          created_at?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          course?: string | null
+          created_at?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      cramintel_chat_messages: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          id: string
+          role: string
+          timestamp: string | null
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          id?: string
+          role: string
+          timestamp?: string | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          id?: string
+          role?: string
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cramintel_chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "cramintel_chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cramintel_deck_flashcards: {
+        Row: {
+          added_at: string | null
+          deck_id: string
+          flashcard_id: string
+        }
+        Insert: {
+          added_at?: string | null
+          deck_id: string
+          flashcard_id: string
+        }
+        Update: {
+          added_at?: string | null
+          deck_id?: string
+          flashcard_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cramintel_deck_flashcards_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "cramintel_decks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cramintel_deck_flashcards_flashcard_id_fkey"
+            columns: ["flashcard_id"]
+            isOneToOne: false
+            referencedRelation: "cramintel_flashcards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cramintel_decks: {
+        Row: {
+          cards_mastered: number | null
+          course: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          total_cards: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          cards_mastered?: number | null
+          course?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          total_cards?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          cards_mastered?: number | null
+          course?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          total_cards?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      cramintel_flashcards: {
+        Row: {
+          answer: string
+          course: string | null
+          created_at: string | null
+          difficulty_level: string | null
+          id: string
+          last_reviewed: string | null
+          mastery_level: number | null
+          material_id: string | null
+          next_review: string | null
+          question: string
+          times_reviewed: number | null
+          user_id: string | null
+        }
+        Insert: {
+          answer: string
+          course?: string | null
+          created_at?: string | null
+          difficulty_level?: string | null
+          id?: string
+          last_reviewed?: string | null
+          mastery_level?: number | null
+          material_id?: string | null
+          next_review?: string | null
+          question: string
+          times_reviewed?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          answer?: string
+          course?: string | null
+          created_at?: string | null
+          difficulty_level?: string | null
+          id?: string
+          last_reviewed?: string | null
+          mastery_level?: number | null
+          material_id?: string | null
+          next_review?: string | null
+          question?: string
+          times_reviewed?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cramintel_flashcards_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "cramintel_materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cramintel_materials: {
+        Row: {
+          course: string | null
+          file_name: string
+          file_path: string | null
+          file_size: number | null
+          file_type: string | null
+          id: string
+          material_type: string | null
+          name: string
+          processed: boolean | null
+          tags: string[] | null
+          upload_date: string | null
+          user_id: string | null
+        }
+        Insert: {
+          course?: string | null
+          file_name: string
+          file_path?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          material_type?: string | null
+          name: string
+          processed?: boolean | null
+          tags?: string[] | null
+          upload_date?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          course?: string | null
+          file_name?: string
+          file_path?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          material_type?: string | null
+          name?: string
+          processed?: boolean | null
+          tags?: string[] | null
+          upload_date?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      cramintel_predictions: {
+        Row: {
+          confidence_score: number | null
+          course: string
+          exam_date: string | null
+          generated_at: string | null
+          id: string
+          prediction_type: string | null
+          questions: Json | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          course: string
+          exam_date?: string | null
+          generated_at?: string | null
+          id?: string
+          prediction_type?: string | null
+          questions?: Json | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          confidence_score?: number | null
+          course?: string
+          exam_date?: string | null
+          generated_at?: string | null
+          id?: string
+          prediction_type?: string | null
+          questions?: Json | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      cramintel_study_analytics: {
+        Row: {
+          accuracy_rate: number | null
+          courses_studied: string[] | null
+          created_at: string | null
+          date: string | null
+          flashcards_studied: number | null
+          id: string
+          streak_days: number | null
+          total_study_time: number | null
+          user_id: string | null
+        }
+        Insert: {
+          accuracy_rate?: number | null
+          courses_studied?: string[] | null
+          created_at?: string | null
+          date?: string | null
+          flashcards_studied?: number | null
+          id?: string
+          streak_days?: number | null
+          total_study_time?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          accuracy_rate?: number | null
+          courses_studied?: string[] | null
+          created_at?: string | null
+          date?: string | null
+          flashcards_studied?: number | null
+          id?: string
+          streak_days?: number | null
+          total_study_time?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      cramintel_study_sessions: {
+        Row: {
+          cards_correct: number | null
+          cards_studied: number | null
+          course: string | null
+          duration_minutes: number | null
+          ended_at: string | null
+          id: string
+          session_type: string | null
+          started_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          cards_correct?: number | null
+          cards_studied?: number | null
+          course?: string | null
+          duration_minutes?: number | null
+          ended_at?: string | null
+          id?: string
+          session_type?: string | null
+          started_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          cards_correct?: number | null
+          cards_studied?: number | null
+          course?: string | null
+          duration_minutes?: number | null
+          ended_at?: string | null
+          id?: string
+          session_type?: string | null
+          started_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      cramintel_user_profiles: {
+        Row: {
+          avatar_url: string | null
+          courses: string[] | null
+          created_at: string | null
+          department: string | null
+          email: string
+          first_action: string | null
+          id: string
+          name: string
+          school: string | null
+          study_style: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          courses?: string[] | null
+          created_at?: string | null
+          department?: string | null
+          email: string
+          first_action?: string | null
+          id: string
+          name: string
+          school?: string | null
+          study_style?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          courses?: string[] | null
+          created_at?: string | null
+          department?: string | null
+          email?: string
+          first_action?: string | null
+          id?: string
+          name?: string
+          school?: string | null
+          study_style?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       faqs: {
         Row: {
           answer: string
