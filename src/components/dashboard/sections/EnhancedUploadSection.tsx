@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Upload, FileText, Image, BookOpen, Camera, CheckCircle, X } from 'lucide-react';
 import { TagChip } from '../TagChip';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UploadedFile {
   file: File;
@@ -20,7 +22,9 @@ export function EnhancedUploadSection() {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedType, setSelectedType] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const courseOptions = ['CSC 202', 'PHY 101', 'ENG 301', 'MTH 201', 'CHE 205'];
   const typeOptions = [
@@ -68,16 +72,55 @@ export function EnhancedUploadSection() {
   };
 
   const handleSubmit = async () => {
-    if (!uploadedFile || !selectedCourse || !selectedType) return;
+    if (!uploadedFile || !selectedCourse || !selectedType || !user) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields and ensure you're logged in.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setIsProcessing(true);
+    setUploadProgress(10);
     
-    // Simulate processing time
-    setTimeout(() => {
-      setIsProcessing(false);
+    try {
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
+      setUploadProgress(30);
+
+      // Create FormData for upload
+      const formData = new FormData();
+      formData.append('file', uploadedFile.file);
+      formData.append('fileName', fileName);
+      formData.append('course', selectedCourse);
+      formData.append('materialType', selectedType);
+
+      setUploadProgress(50);
+
+      // Call the upload edge function
+      const { data, error } = await supabase.functions.invoke('upload-material', {
+        body: formData,
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        }
+      });
+
+      setUploadProgress(80);
+
+      if (error) {
+        throw error;
+      }
+
+      setUploadProgress(100);
+
       toast({
-        title: "Uploaded!",
-        description: "This will now power your predictions and flashcards.",
+        title: "Upload Successful!",
+        description: "Your material has been uploaded and is being processed. You'll see it in your recent uploads soon.",
       });
       
       // Reset form
@@ -85,7 +128,18 @@ export function EnhancedUploadSection() {
       setFileName('');
       setSelectedCourse('');
       setSelectedType('');
-    }, 2000);
+      setUploadProgress(0);
+      
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload Failed",
+        description: error.message || "There was an error uploading your file. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const resetUpload = () => {
@@ -93,6 +147,7 @@ export function EnhancedUploadSection() {
     setFileName('');
     setSelectedCourse('');
     setSelectedType('');
+    setUploadProgress(0);
   };
 
   return (
@@ -103,7 +158,7 @@ export function EnhancedUploadSection() {
       </div>
 
       <Card className="max-w-2xl mx-auto">
-        <CardContent className="p-8">
+        <CardContent className="p-8 relative">
           <AnimatePresence mode="wait">
             {!uploadedFile ? (
               <motion.div
@@ -186,10 +241,26 @@ export function EnhancedUploadSection() {
                         `${(uploadedFile.file.size / 1024).toFixed(0)} KB`}
                     </p>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={resetUpload}>
+                  <Button variant="ghost" size="icon" onClick={resetUpload} disabled={isProcessing}>
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
+
+                {/* Upload Progress */}
+                {isProcessing && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Uploading...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
 
                 {/* File Name */}
                 <div>
@@ -199,6 +270,7 @@ export function EnhancedUploadSection() {
                     onChange={(e) => setFileName(e.target.value)}
                     placeholder="e.g., Thermodynamics Week 4 Notes"
                     className="text-base"
+                    disabled={isProcessing}
                   />
                 </div>
 
@@ -211,7 +283,7 @@ export function EnhancedUploadSection() {
                         key={course}
                         label={course}
                         color={selectedCourse === course ? 'blue' : 'default'}
-                        onClick={() => setSelectedCourse(course)}
+                        onClick={() => !isProcessing && setSelectedCourse(course)}
                       />
                     ))}
                   </div>
@@ -226,7 +298,7 @@ export function EnhancedUploadSection() {
                         key={type.id}
                         label={`${type.icon} ${type.label}`}
                         color={selectedType === type.id ? 'green' : 'default'}
-                        onClick={() => setSelectedType(type.id)}
+                        onClick={() => !isProcessing && setSelectedType(type.id)}
                       />
                     ))}
                   </div>
@@ -234,12 +306,12 @@ export function EnhancedUploadSection() {
 
                 {/* Submit Button */}
                 <div className="flex gap-3 pt-4">
-                  <Button variant="outline" onClick={resetUpload}>
+                  <Button variant="outline" onClick={resetUpload} disabled={isProcessing}>
                     Cancel
                   </Button>
                   <Button 
                     onClick={handleSubmit}
-                    disabled={!selectedCourse || !selectedType || isProcessing}
+                    disabled={!selectedCourse || !selectedType || isProcessing || !user}
                     className="bg-gray-800 hover:bg-gray-700 flex-1"
                   >
                     {isProcessing ? (
@@ -254,23 +326,6 @@ export function EnhancedUploadSection() {
                       </>
                     )}
                   </Button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Processing Success State */}
-          <AnimatePresence>
-            {isProcessing && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="absolute inset-0 bg-white/90 flex items-center justify-center rounded-lg"
-              >
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mx-auto mb-4" />
-                  <p className="text-gray-600">Processing your material...</p>
                 </div>
               </motion.div>
             )}
