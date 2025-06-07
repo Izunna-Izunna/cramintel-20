@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Brain, Scan, Users, Volume2, VolumeX } from 'lucide-react';
+import { Brain, Scan, Users, Volume2, VolumeX, GraduationCap, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
@@ -17,7 +17,7 @@ interface PredictionData {
     topics: string[];
     lecturer?: string;
   };
-  style: 'bullet' | 'theory' | 'mixed';
+  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper';
 }
 
 interface GenerationStepProps {
@@ -31,12 +31,23 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
   const [currentPhase, setCurrentPhase] = useState(0);
   const [audioEnabled, setAudioEnabled] = useState(false);
 
-  const phases = [
+  const isExamPaper = predictionData.style === 'exam-paper';
+
+  const examPaperPhases = [
+    { text: "Analyzing exam structure patterns...", icon: GraduationCap, duration: 2000 },
+    { text: "Extracting calculation problems...", icon: Calculator, duration: 2500 },
+    { text: "Formatting mathematical expressions...", icon: Brain, duration: 2000 },
+    { text: "Generating full exam paper...", icon: Scan, duration: 2000 }
+  ];
+
+  const standardPhases = [
     { text: "Looking at your past questions...", icon: Scan, duration: 2000 },
     { text: "Scanning for assignment patterns...", icon: Brain, duration: 2500 },
     { text: "Factoring in what students are saying...", icon: Users, duration: 2000 },
     { text: "Generating predictions...", icon: Brain, duration: 1500 }
   ];
+
+  const phases = isExamPaper ? examPaperPhases : standardPhases;
 
   useEffect(() => {
     let totalTime = 0;
@@ -57,12 +68,12 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
         }
         return prev + 1;
       });
-    }, 80);
+    }, isExamPaper ? 100 : 80); // Slightly longer for exam paper generation
 
     return () => {
       clearInterval(progressInterval);
     };
-  }, [onNext]);
+  }, [onNext, isExamPaper]);
 
   const CurrentIcon = phases[currentPhase]?.icon || Brain;
 
@@ -73,9 +84,13 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
           key={currentPhase}
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6"
+          className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${
+            isExamPaper ? 'bg-orange-100' : 'bg-purple-100'
+          }`}
         >
-          <CurrentIcon className="w-10 h-10 text-purple-600" />
+          <CurrentIcon className={`w-10 h-10 ${
+            isExamPaper ? 'text-orange-600' : 'text-purple-600'
+          }`} />
         </motion.div>
 
         <motion.h3
@@ -88,13 +103,16 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
         </motion.h3>
 
         <p className="text-gray-600 mb-8">
-          Our AI is analyzing your materials to create targeted predictions
+          {isExamPaper 
+            ? "Creating a professional exam paper with proper mathematical formatting"
+            : "Our AI is analyzing your materials to create targeted predictions"
+          }
         </p>
       </div>
 
       <div className="mb-8">
         <div className="flex justify-between text-sm mb-2">
-          <span>Generating Predictions</span>
+          <span>{isExamPaper ? 'Generating Exam Paper' : 'Generating Predictions'}</span>
           <span>{Math.round(progress)}%</span>
         </div>
         <Progress value={progress} className="h-3" />
@@ -121,6 +139,12 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
               <span>Lecturer behavioral patterns</span>
+            </div>
+          )}
+          {isExamPaper && (
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+              <span>Mathematical equation formatting</span>
             </div>
           )}
         </div>

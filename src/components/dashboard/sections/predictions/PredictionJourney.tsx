@@ -11,6 +11,7 @@ import { TagContextStep } from './TagContextStep';
 import { StyleSelectionStep } from './StyleSelectionStep';
 import { GenerationStep } from './GenerationStep';
 import { PredictionResults } from './PredictionResults';
+import { ExamPaperView } from './ExamPaperView';
 
 interface PredictionJourneyProps {
   onClose: () => void;
@@ -30,7 +31,7 @@ interface PredictionData {
     topics: string[];
     lecturer?: string;
   };
-  style: 'bullet' | 'theory' | 'mixed';
+  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper';
 }
 
 export function PredictionJourney({ onClose }: PredictionJourneyProps) {
@@ -112,7 +113,13 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
           />
         );
       case 'results':
-        return (
+        return predictionData.style === 'exam-paper' ? (
+          <ExamPaperView
+            predictionData={predictionData}
+            onBack={handleBack}
+            onClose={onClose}
+          />
+        ) : (
           <PredictionResults
             predictionData={predictionData}
             onBack={handleBack}
@@ -130,7 +137,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-auto"
+        className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-auto"
       >
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-4">

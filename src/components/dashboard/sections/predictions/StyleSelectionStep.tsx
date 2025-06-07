@@ -1,12 +1,12 @@
 
 import React from 'react';
-import { Zap, FileText, Target } from 'lucide-react';
+import { Zap, FileText, Target, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface StyleSelectionStepProps {
-  selectedStyle: 'bullet' | 'theory' | 'mixed';
-  onStyleChange: (style: 'bullet' | 'theory' | 'mixed') => void;
+  selectedStyle: 'bullet' | 'theory' | 'mixed' | 'exam-paper';
+  onStyleChange: (style: 'bullet' | 'theory' | 'mixed' | 'exam-paper') => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -36,17 +36,25 @@ export function StyleSelectionStep({ selectedStyle, onStyleChange, onNext, onBac
       description: 'Smart summary with bold guesses + rationale',
       example: '🔮 95% confident: "Define entropy" (appears in 4/5 past papers)\n📌 78% confident: "Binary mixture problems" (matches assignment pattern)',
       color: 'purple'
+    },
+    {
+      id: 'exam-paper' as const,
+      icon: GraduationCap,
+      title: 'Full Exam Paper Format',
+      description: 'Complete exam with calculations & proper formatting',
+      example: 'SECTION A - Theory + Short Calculations\n1. Define thermal efficiency for a Rankine cycle.\n2. Calculate volume using PV = nRT\n   Given: m = 2kg, T = 27°C, P = 1.5 bar\n   [Show all working]',
+      color: 'orange'
     }
   ];
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       <div className="text-center mb-8">
         <h3 className="text-xl font-bold text-gray-800 mb-2">Choose Your Prediction Style</h3>
         <p className="text-gray-600">How would you like your predictions delivered?</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {styles.map((style) => (
           <Card
             key={style.id}
@@ -61,11 +69,13 @@ export function StyleSelectionStep({ selectedStyle, onStyleChange, onNext, onBac
               <div className="text-center mb-4">
                 <div className={`w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3 ${
                   style.color === 'blue' ? 'bg-blue-100' :
-                  style.color === 'green' ? 'bg-green-100' : 'bg-purple-100'
+                  style.color === 'green' ? 'bg-green-100' :
+                  style.color === 'orange' ? 'bg-orange-100' : 'bg-purple-100'
                 }`}>
                   <style.icon className={`w-6 h-6 ${
                     style.color === 'blue' ? 'text-blue-600' :
-                    style.color === 'green' ? 'text-green-600' : 'text-purple-600'
+                    style.color === 'green' ? 'text-green-600' :
+                    style.color === 'orange' ? 'text-orange-600' : 'text-purple-600'
                   }`} />
                 </div>
                 <h4 className="font-semibold text-gray-800 mb-2">{style.title}</h4>
