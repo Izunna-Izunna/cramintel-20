@@ -85,7 +85,6 @@ export function PdfViewer({
         },
       },
       printPlugin: {},
-      propertiesPlugin: {},
       rotatePlugin: {},
       scrollModePlugin: {},
       selectionModePlugin: {},
