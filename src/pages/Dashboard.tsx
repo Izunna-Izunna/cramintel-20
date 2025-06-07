@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SidebarProvider } from '@/components/ui/sidebar';
@@ -19,8 +18,9 @@ import { PredictionsSection } from '@/components/dashboard/sections/PredictionsS
 import { AIChatSection } from '@/components/dashboard/sections/AIChatSection';
 import { CommunitySection } from '@/components/dashboard/sections/CommunitySection';
 import { ProfileSection } from '@/components/dashboard/sections/ProfileSection';
+import { EnhancedPdfViewer } from '@/components/dashboard/sections/EnhancedPdfViewer';
 
-export type DashboardSection = 'dashboard' | 'upload' | 'flashcards' | 'predictions' | 'ai-chat' | 'community' | 'profile';
+export type DashboardSection = 'dashboard' | 'upload' | 'flashcards' | 'predictions' | 'ai-chat' | 'community' | 'profile' | 'pdf-viewer';
 
 const Dashboard = () => {
   const userData = JSON.parse(localStorage.getItem('cramIntelUser') || '{}');
@@ -40,6 +40,8 @@ const Dashboard = () => {
         return <CommunitySection />;
       case 'profile':
         return <ProfileSection />;
+      case 'pdf-viewer':
+        return <EnhancedPdfViewer />;
       default:
         return (
           <div className="space-y-6">
