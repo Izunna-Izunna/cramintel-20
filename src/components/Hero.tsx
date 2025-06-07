@@ -1,11 +1,13 @@
-
 import { ArrowRight, Code, Cpu, Layers, MessageSquare } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const Hero = () => {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  
   const containerVariants = {
     hidden: {
       opacity: 0
@@ -43,6 +45,10 @@ const Hero = () => {
     }
   };
   
+  const handleGetStarted = () => {
+    navigate('/onboarding');
+  };
+  
   return <motion.div className="relative mt-16 md:mt-0 w-full max-w-[100vw]" initial="hidden" animate="visible" variants={containerVariants}>
       <div className="banner-container bg-black relative overflow-hidden h-[700px] md:h-[750px] w-full">
         <div className="absolute inset-0 bg-black w-full">
@@ -75,10 +81,10 @@ const Hero = () => {
                   <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
                 </button>
                 
-                {/* Using the Button component from shadcn but with custom styling to match the explore button */}
+                {/* Updated to navigate to onboarding instead of scrolling to contact */}
                 <button 
                   className="px-6 md:px-8 py-2 md:py-3 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl hover:shadow-gray-300/20 flex items-center justify-center group text-sm md:text-base"
-                  onClick={scrollToContact}
+                  onClick={handleGetStarted}
                 >
                   Get Started
                   <MessageSquare className="ml-2 w-4 h-4 md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
