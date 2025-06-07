@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Crystal, TrendingUp, Clock } from 'lucide-react';
+import { Sparkles, TrendingUp, Clock } from 'lucide-react';
 
 export function PredictionsSection() {
   return (
@@ -19,7 +19,7 @@ export function PredictionsSection() {
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
-                    <Crystal className="w-5 h-5 text-purple-500" />
+                    <Sparkles className="w-5 h-5 text-purple-500" />
                     <CardTitle className="text-lg">High Probability Question #{prediction}</CardTitle>
                   </div>
                   <Badge variant="secondary" className="bg-purple-100 text-purple-700">
