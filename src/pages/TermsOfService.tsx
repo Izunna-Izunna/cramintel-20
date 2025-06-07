@@ -202,10 +202,10 @@ const TermsOfService = () => {
                 If you have questions about these Terms of Service, please contact us:
               </p>
               <ul className="list-none mb-4 text-gray-600">
-                <li><strong>Email:</strong> legal@cramintel.com</li>
+                <li><strong>Email:</strong> paschalugwuanyi98@gmail.com</li>
                 <li><strong>Student Support:</strong> support@cramintel.com</li>
-                <li><strong>WhatsApp:</strong> +234 801 234 5678</li>
-                <li><strong>Address:</strong> CramIntel Technologies, Lagos, Nigeria</li>
+                <li><strong>WhatsApp:</strong> +234 7037778497</li>
+                <li><strong>Address:</strong> CramIntel Technologies, Enugu, Nigeria</li>
               </ul>
               
               <p className="text-gray-600 mt-8">

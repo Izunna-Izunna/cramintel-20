@@ -1,4 +1,3 @@
-
 import { ArrowLeft, MessageCircle, Mail, Phone, HelpCircle, BookOpen, Users, Shield, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect } from 'react';
@@ -62,7 +61,7 @@ const StudentSupport = () => {
                 <CardContent>
                   <p className="text-gray-600 mb-4">Quick support via WhatsApp</p>
                   <Button variant="outline" className="w-full" asChild>
-                    <a href="https://wa.me/2348012345678" target="_blank" rel="noopener noreferrer">
+                    <a href="https://wa.me/2347037778497" target="_blank" rel="noopener noreferrer">
                       Chat on WhatsApp
                     </a>
                   </Button>
@@ -336,8 +335,8 @@ const StudentSupport = () => {
                   Having academic difficulties or need immediate help before an exam?
                 </p>
                 <div className="space-y-2">
-                  <p className="text-sm"><strong>WhatsApp:</strong> +234 801 234 5678 (24/7)</p>
-                  <p className="text-sm"><strong>Email:</strong> urgent@cramintel.com</p>
+                  <p className="text-sm"><strong>WhatsApp:</strong> +234 7037778497 (24/7)</p>
+                  <p className="text-sm"><strong>Email:</strong> paschalugwuanyi98@gmail.com</p>
                   <p className="text-sm text-red-600">
                     We prioritize urgent academic support requests and aim to respond within 30 minutes.
                   </p>
