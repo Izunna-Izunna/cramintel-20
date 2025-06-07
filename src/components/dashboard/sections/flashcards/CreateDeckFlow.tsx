@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { X, FileText, Plus, Wand2 } from 'lucide-react';
+import { X, FileText, Plus, Wand2, AlertTriangle } from 'lucide-react';
 import { useFlashcardDecks } from '@/hooks/useFlashcardDecks';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,6 +41,7 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
   const [loadingMaterials, setLoadingMaterials] = useState(true);
   const [creating, setCreating] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'testing' | 'connected' | 'error' | null>(null);
   const [processingStatus, setProcessingStatus] = useState<{
     status: 'pending' | 'extracting_text' | 'processing_content' | 'generating_flashcards' | 'saving_flashcards' | 'completed' | 'error';
     progress: number;
@@ -54,12 +54,50 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
 
   useEffect(() => {
     fetchMaterials();
+    testConnection();
   }, [user]);
+
+  const testConnection = async () => {
+    if (!user) return;
+    
+    console.log('Testing Supabase connection...');
+    setConnectionStatus('testing');
+    
+    try {
+      const { data, error } = await supabase
+        .from('cramintel_materials')
+        .select('count')
+        .limit(1);
+        
+      if (error) {
+        console.error('Connection test failed:', error);
+        setConnectionStatus('error');
+        toast({
+          title: "Connection Error",
+          description: "Unable to connect to the database. Please check your internet connection.",
+          variant: "destructive"
+        });
+      } else {
+        console.log('Connection test passed');
+        setConnectionStatus('connected');
+      }
+    } catch (error) {
+      console.error('Network error during connection test:', error);
+      setConnectionStatus('error');
+      toast({
+        title: "Network Error",
+        description: "Network connection failed. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const fetchMaterials = async () => {
     if (!user) return;
 
     try {
+      console.log('Fetching materials for user:', user.id);
+      
       const { data, error } = await supabase
         .from('cramintel_materials')
         .select('id, name, course, material_type')
@@ -69,12 +107,23 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
 
       if (error) {
         console.error('Error fetching materials:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load materials",
+          variant: "destructive"
+        });
         return;
       }
 
+      console.log('Successfully fetched materials:', data?.length || 0);
       setMaterials(data || []);
     } catch (error) {
-      console.error('Error fetching materials:', error);
+      console.error('Network error fetching materials:', error);
+      toast({
+        title: "Network Error",
+        description: "Unable to load materials. Please check your connection.",
+        variant: "destructive"
+      });
     } finally {
       setLoadingMaterials(false);
     }
@@ -129,7 +178,8 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
       });
 
       try {
-        // Create a specialized processing request for deck generation
+        console.log(`Processing material ${i + 1}/${deckData.selectedMaterials.length}: ${material.name}`);
+        
         const { data: processResult, error: processError } = await supabase.functions.invoke('generate-deck-flashcards', {
           body: { 
             materialId,
@@ -190,13 +240,28 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
       return;
     }
 
+    if (connectionStatus === 'error') {
+      toast({
+        title: "Connection Error",
+        description: "Cannot create deck due to connection issues. Please refresh and try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setCreating(true);
     setProcessing(true);
 
     try {
+      console.log('Starting deck creation process...');
+      console.log('Deck data:', deckData);
+      console.log('User:', user?.id);
+
       const selectedMaterialNames = materials
         .filter(m => deckData.selectedMaterials.includes(m.id))
         .map(m => m.name);
+
+      console.log('Selected materials:', selectedMaterialNames);
 
       // Create the deck first
       const deck = await createDeck({
@@ -209,8 +274,10 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
       });
 
       if (!deck) {
-        throw new Error('Failed to create deck');
+        throw new Error('Failed to create deck - createDeck returned null');
       }
+
+      console.log('Deck created successfully:', deck.id);
 
       setProcessingStatus({
         status: 'processing_content',
@@ -221,22 +288,29 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
       // Process materials to generate flashcards
       const flashcardsGenerated = await processFlashcardsForDeck(deck.id);
       
+      console.log(`Total flashcards generated: ${flashcardsGenerated}`);
+      
       toast({
         title: "Success",
         description: `Deck created with ${flashcardsGenerated} flashcards generated from your materials`,
       });
       
       onComplete();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating deck:', error);
       setProcessingStatus({
         status: 'error',
         progress: 0,
         currentMaterial: ''
       });
+      
+      // Enhanced error reporting
+      const errorMessage = error.message || 'Unknown error occurred';
+      const errorDetails = error.details || error.code || '';
+      
       toast({
         title: "Error",
-        description: "Failed to create deck and generate flashcards",
+        description: `Failed to create deck: ${errorMessage}${errorDetails ? ` (${errorDetails})` : ''}`,
         variant: "destructive"
       });
     } finally {
@@ -269,7 +343,17 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
         <CardTitle className="flex items-center gap-2">
           <Wand2 className="w-5 h-5" />
           Create New Deck - Basic Info
+          {connectionStatus === 'error' && (
+            <AlertTriangle className="w-5 h-5 text-red-500" />
+          )}
         </CardTitle>
+        {connectionStatus === 'error' && (
+          <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
+            <p className="text-red-700 text-sm">
+              Connection issues detected. Please check your internet connection and try refreshing the page.
+            </p>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
@@ -346,7 +430,10 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => setStep(2)}>
+          <Button 
+            onClick={() => setStep(2)}
+            disabled={connectionStatus === 'error'}
+          >
             Next: Select Materials
           </Button>
         </div>
@@ -360,6 +447,9 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
         <CardTitle className="flex items-center gap-2">
           <FileText className="w-5 h-5" />
           Select Source Materials
+          {connectionStatus === 'connected' && (
+            <span className="text-green-600 text-sm">✓ Connected</span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -404,7 +494,7 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
           </Button>
           <Button 
             onClick={handleCreateDeck} 
-            disabled={creating || deckData.selectedMaterials.length === 0}
+            disabled={creating || deckData.selectedMaterials.length === 0 || connectionStatus === 'error'}
           >
             {creating ? "Creating..." : "Create Deck & Generate Flashcards"}
           </Button>

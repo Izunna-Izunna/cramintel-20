@@ -42,6 +42,8 @@ export const useFlashcardDecks = () => {
     if (!user) return;
 
     try {
+      console.log('Fetching decks for user:', user.id);
+      
       const { data, error } = await supabase
         .from('cramintel_decks')
         .select('*')
@@ -58,12 +60,13 @@ export const useFlashcardDecks = () => {
         return;
       }
 
+      console.log('Successfully fetched decks:', data?.length || 0);
       setDecks(data || []);
     } catch (error) {
-      console.error('Error fetching decks:', error);
+      console.error('Network error fetching decks:', error);
       toast({
-        title: "Error",
-        description: "Failed to load flashcard decks",
+        title: "Network Error",
+        description: "Unable to connect to the server. Please check your internet connection.",
         variant: "destructive"
       });
     } finally {
@@ -72,12 +75,37 @@ export const useFlashcardDecks = () => {
   };
 
   const createDeck = async (deckData: Partial<FlashcardDeck> & { name: string }) => {
-    if (!user) return null;
+    if (!user) {
+      console.error('No user found when creating deck');
+      return null;
+    }
 
-    try {
-      const { data, error } = await supabase
-        .from('cramintel_decks')
-        .insert({
+    console.log('Creating deck with data:', deckData);
+    console.log('User ID:', user.id);
+
+    // Retry logic for network failures
+    const MAX_RETRIES = 3;
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`Deck creation attempt ${attempt}/${MAX_RETRIES}`);
+        
+        // Test connection first
+        const { data: connectionTest, error: connectionError } = await supabase
+          .from('cramintel_decks')
+          .select('count')
+          .eq('user_id', user.id)
+          .limit(1);
+
+        if (connectionError) {
+          console.error('Connection test failed:', connectionError);
+          throw new Error(`Connection test failed: ${connectionError.message}`);
+        }
+
+        console.log('Connection test passed, proceeding with deck creation');
+
+        const insertData = {
           name: deckData.name,
           description: deckData.description || '',
           course: deckData.course || '',
@@ -88,36 +116,57 @@ export const useFlashcardDecks = () => {
           total_cards: 0,
           cards_mastered: 0,
           study_streak: 0
-        })
-        .select()
-        .single();
+        };
 
-      if (error) {
-        console.error('Error creating deck:', error);
+        console.log('Insert data prepared:', insertData);
+
+        const { data, error } = await supabase
+          .from('cramintel_decks')
+          .insert(insertData)
+          .select()
+          .single();
+
+        if (error) {
+          console.error(`Database error on attempt ${attempt}:`, error);
+          lastError = error;
+          
+          if (attempt === MAX_RETRIES) {
+            throw new Error(`Database error after ${MAX_RETRIES} attempts: ${error.message}`);
+          }
+          
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          continue;
+        }
+
+        console.log('Deck created successfully:', data);
         toast({
-          title: "Error",
-          description: "Failed to create deck",
-          variant: "destructive"
+          title: "Success",
+          description: "Deck created successfully",
         });
-        return null;
+
+        await fetchDecks();
+        return data;
+      } catch (error: any) {
+        console.error(`Error on attempt ${attempt}:`, error);
+        lastError = error;
+        
+        if (attempt === MAX_RETRIES) {
+          console.error('All retry attempts failed');
+          toast({
+            title: "Error",
+            description: `Failed to create deck after ${MAX_RETRIES} attempts: ${error.message}`,
+            variant: "destructive"
+          });
+          return null;
+        }
+        
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
       }
-
-      toast({
-        title: "Success",
-        description: "Deck created successfully",
-      });
-
-      await fetchDecks();
-      return data;
-    } catch (error) {
-      console.error('Error creating deck:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create deck",
-        variant: "destructive"
-      });
-      return null;
     }
+
+    return null;
   };
 
   const deleteDeck = async (deckId: string) => {
