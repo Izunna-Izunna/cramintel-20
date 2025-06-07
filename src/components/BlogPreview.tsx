@@ -1,6 +1,6 @@
 
 import { Link } from 'react-router-dom';
-import { ArrowRight, Newspaper } from 'lucide-react';
+import { ArrowRight, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import BlogPostCard from '@/components/BlogPostCard';
 import { blogPosts } from '@/data/blogPosts';
@@ -18,12 +18,12 @@ const BlogPreview = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 md:mb-12">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <Newspaper size={20} className="text-black" />
-              <span className="text-black font-medium">Our Blog</span>
+              <BookOpen size={20} className="text-black" />
+              <span className="text-black font-medium">Study Smart Blog</span>
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-black">Latest Updates</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-black">Latest Study Tips</h2>
             <p className="text-gray-800 max-w-xl">
-              Explore our latest insights on smart textile technology, industry trends, and innovation.
+              Discover proven study techniques, AI-powered learning strategies, and exam success tips to help you excel in university.
             </p>
           </div>
           <Link to="/blog" className="mt-4 md:mt-0">

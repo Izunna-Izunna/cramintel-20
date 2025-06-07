@@ -1,3 +1,4 @@
+
 export interface BlogPost {
   id: string;
   title: string;
@@ -24,422 +25,858 @@ export interface ContentSection {
 
 export const blogPosts: BlogPost[] = [
   {
-    id: '5',
-    title: 'Smart PPE Revolution: How Safety Technology is Transforming Worker Protection',
-    slug: 'smart-ppe-revolution-safety-technology',
-    excerpt: 'Discover how smart textiles and sensor technology are revolutionizing personal protective equipment, creating safer workplaces and preventing accidents before they happen.',
-    date: 'June 5, 2025',
-    author: 'WRLDS Technologies',
-    category: 'Innovation',
-    imageUrl: '/lovable-uploads/927dae7e-6aaf-4b76-add2-1287a1dd9dc0.png',
-    keywords: [
-      'smart PPE',
-      'safety technology',
-      'personal protective equipment',
-      'smart textiles',
-      'workplace safety',
-      'wearable sensors',
-      'construction safety',
-      'industrial IoT',
-      'worker protection',
-      'safety monitoring',
-      'smart helmets',
-      'connected safety gear',
-      'occupational safety',
-      'safety innovation',
-      'protective equipment technology'
-    ],
-    metaDescription: 'Learn how smart PPE with integrated sensors is revolutionizing workplace safety. Discover the latest innovations in intelligent personal protective equipment that prevent accidents and save lives.',
-    content: [
-      {
-        type: 'paragraph',
-        content: 'The realm of personal protective equipment (PPE) is undergoing a significant transformation, driven by advancements in smart textiles and sensor technology. Traditional PPE, designed as a passive barrier against workplace hazards, is evolving into intelligent, interconnected systems that actively monitor conditions and provide real-time alerts. This shift is creating safer work environments and preventing accidents before they occur.'
-      },
-      {
-        type: 'heading',
-        content: 'The Evolution of PPE: From Passive to Proactive'
-      },
-      {
-        type: 'paragraph',
-        content: 'For decades, PPE has primarily served as a last line of defense, offering limited protection and often failing to address the underlying causes of accidents. However, the integration of smart technology is enabling a proactive approach to safety, where PPE not only protects but also anticipates and mitigates risks.'
-      },
-      {
-        type: 'subheading',
-        content: 'Key Components of Smart PPE'
-      },
-      {
-        type: 'list',
-        items: [
-          'Embedded Sensors: Detecting environmental conditions, physiological parameters, and potential hazards.',
-          'Connectivity: Enabling real-time data transmission and communication between workers, supervisors, and emergency responders.',
-          'Data Analytics: Providing insights into worker performance, risk factors, and safety trends.',
-          'Alert Systems: Triggering automated warnings and notifications to prevent accidents and ensure timely intervention.'
-        ]
-      },
-      {
-        type: 'heading',
-        content: 'Real-World Applications of Smart PPE'
-      },
-      {
-        type: 'subheading',
-        content: 'Construction Industry'
-      },
-      {
-        type: 'paragraph',
-        content: 'In construction, smart helmets equipped with sensors can detect falls, monitor head impacts, and alert emergency services. Smart vests can track worker location, monitor vital signs, and detect exposure to hazardous substances.'
-      },
-      {
-        type: 'subheading',
-        content: 'Manufacturing Sector'
-      },
-      {
-        type: 'paragraph',
-        content: 'In manufacturing, smart gloves can provide real-time feedback on worker movements, preventing repetitive strain injuries. Smart eyewear can offer augmented reality overlays, guiding workers through complex tasks and reducing errors.'
-      },
-      {
-        type: 'subheading',
-        content: 'Healthcare Environment'
-      },
-      {
-        type: 'paragraph',
-        content: 'In healthcare, smart gowns can monitor patient vital signs, detect infections, and alert medical staff. Smart masks can track air quality, filter out harmful particles, and provide real-time feedback on respiratory function.'
-      },
-      {
-        type: 'heading',
-        content: 'The Future of Worker Protection'
-      },
-      {
-        type: 'paragraph',
-        content: 'As technology continues to advance, smart PPE is poised to become an indispensable tool for ensuring worker safety and well-being. By providing real-time data, automated alerts, and proactive risk mitigation, smart PPE is transforming the way we approach safety in the workplace.'
-      },
-      {
-        type: 'quote',
-        content: 'Smart PPE is not just about protecting workers; it\'s about empowering them with the knowledge and tools they need to stay safe and productive.'
-      }
-    ]
-  },
-  {
-    id: '4',
-    title: 'Leveraging Sensor Technology in Product Development: A Strategic Approach',
-    slug: 'leveraging-sensor-technology-product-development',
-    excerpt: 'Explore how sensor technology is revolutionizing product development across industries, from smart textiles to IoT devices, and learn strategic approaches for implementation.',
-    date: 'May 8, 2025',
-    author: 'WRLDS Technologies',
-    category: 'Technology',
+    id: '1',
+    title: 'The Science Behind Spaced Repetition: Why It Works for Exam Success',
+    slug: 'spaced-repetition-exam-success',
+    excerpt: 'Discover the psychological principles behind spaced repetition and how this proven study technique can dramatically improve your exam performance and long-term retention.',
+    date: 'December 15, 2024',
+    author: 'CramIntel Team',
+    category: 'Study Techniques',
     imageUrl: '/lovable-uploads/6b0637e9-4a7b-40d0-b219-c8b7f879f93e.png',
     keywords: [
-      'sensor technology',
-      'product development',
-      'smart textiles',
-      'IoT sensors',
-      'wearable technology',
-      'textile sensors',
-      'manufacturing innovation',
-      'embedded sensors',
-      'smart fabrics',
-      'sensor integration'
+      'spaced repetition',
+      'study techniques',
+      'exam preparation',
+      'memory retention',
+      'learning science',
+      'university study tips',
+      'effective studying',
+      'long-term memory'
     ],
-    metaDescription: 'Discover how sensor technology is transforming product development. Learn strategic approaches for integrating sensors into textiles and manufacturing processes.',
+    metaDescription: 'Learn how spaced repetition can transform your study habits and boost exam performance. Discover the science-backed technique that helps students remember more with less effort.',
     content: [
       {
         type: 'paragraph',
-        content: 'Sensor technology is rapidly transforming product development across various industries. From smart textiles that monitor vital signs to IoT devices that automate home functions, sensors are enabling a new era of intelligent and responsive products. This article explores how businesses can strategically leverage sensor technology to enhance their product development processes.'
+        content: 'Every student has experienced the frustration of cramming for an exam, only to forget everything a week later. What if there was a scientifically proven method that could help you remember information for months or even years? Enter spaced repetition – a learning technique that harnesses the power of strategic forgetting to create lasting memories.'
       },
       {
         type: 'heading',
-        content: 'The Shift from Manual Testing to Sensor-Driven Insights'
+        content: 'What is Spaced Repetition?'
       },
       {
         type: 'paragraph',
-        content: 'Traditional product development often relies on manual testing and subjective feedback, which can be time-consuming and prone to errors. Sensor technology offers a more objective and data-driven approach, providing real-time insights into product performance and user behavior. By embedding sensors into prototypes and early-stage products, developers can gather valuable data on usage patterns, environmental conditions, and potential failure points.'
+        content: 'Spaced repetition is a learning technique where you review information at increasingly longer intervals. Instead of cramming all your studying into one session, you spread it out over time, reviewing material just as you\'re about to forget it. This method leverages the "spacing effect" – a psychological phenomenon where information is better retained when learned over spaced intervals rather than in a single session.'
       },
       {
         type: 'subheading',
-        content: 'Key Benefits of Sensor Integration'
+        content: 'The Forgetting Curve: Why We Forget'
+      },
+      {
+        type: 'paragraph',
+        content: 'German psychologist Hermann Ebbinghaus discovered that we forget information at a predictable rate. Without reinforcement, we lose about 50% of new information within an hour and up to 90% within a week. The forgetting curve shows this exponential decline in memory retention over time.'
+      },
+      {
+        type: 'heading',
+        content: 'How Spaced Repetition Works'
+      },
+      {
+        type: 'paragraph',
+        content: 'Spaced repetition works by interrupting the forgetting process at optimal intervals. Each time you successfully recall information, the interval before the next review increases. This creates stronger neural pathways and moves information from short-term to long-term memory.'
+      },
+      {
+        type: 'subheading',
+        content: 'The Optimal Review Schedule'
       },
       {
         type: 'list',
         items: [
-          'Real-time Performance Measurement: Sensors provide continuous data on product performance, allowing developers to identify and address issues quickly.',
-          'Automated Testing: Sensors can automate testing processes, reducing the need for manual intervention and accelerating development cycles.',
-          'Data-Driven Insights: Sensor data provides valuable insights into user behavior, enabling developers to optimize product design and functionality.',
-          'Predictive Maintenance: Sensors can detect early signs of wear and tear, allowing for proactive maintenance and preventing costly downtime.'
+          'First review: 1 day after initial learning',
+          'Second review: 3 days after first review',
+          'Third review: 7 days after second review',
+          'Fourth review: 2 weeks after third review',
+          'Fifth review: 1 month after fourth review',
+          'Subsequent reviews: Gradually increasing intervals'
         ]
       },
       {
         type: 'heading',
-        content: 'Real-time Performance Measurement Made Easy'
-      },
-      {
-        type: 'paragraph',
-        content: 'One of the most significant advantages of sensor technology is its ability to provide real-time performance measurement. By embedding sensors into products, developers can continuously monitor key metrics such as temperature, pressure, vibration, and strain. This data can be used to identify potential issues, optimize product performance, and ensure that products meet design specifications.'
-      },
-      {
-        type: 'heading',
-        content: 'Faster Iterations Through Automated Testing and AI'
-      },
-      {
-        type: 'paragraph',
-        content: 'Sensor technology can also be used to automate testing processes, reducing the need for manual intervention and accelerating development cycles. By integrating sensors with AI algorithms, developers can create intelligent testing systems that automatically identify and diagnose issues. These systems can also be used to predict product failures, allowing for proactive maintenance and preventing costly downtime.'
-      },
-      {
-        type: 'heading',
-        content: 'Key Business Benefits'
+        content: 'Benefits for University Students'
       },
       {
         type: 'table',
         tableData: {
-          headers: ['Industry', 'Challenge', 'Sensor Solution'],
+          headers: ['Traditional Cramming', 'Spaced Repetition'],
           rows: [
-            ['Construction', 'Monitoring worker safety on construction sites', 'Wearable sensors that detect falls, monitor vital signs, and alert emergency services.'],
-            ['Manufacturing', 'Preventing equipment failures in manufacturing plants', 'Embedded sensors that monitor equipment performance, detect early signs of wear and tear, and trigger maintenance alerts.'],
-            ['Healthcare', 'Monitoring patient health in hospitals and clinics', 'Wearable sensors that track vital signs, detect infections, and alert medical staff.'],
-          ],
-        },
+            ['High stress, last-minute panic', 'Reduced anxiety, consistent progress'],
+            ['Quick forgetting after exams', 'Long-term retention for future courses'],
+            ['Exhausting marathon sessions', 'Short, manageable study periods'],
+            ['Surface-level understanding', 'Deep, meaningful comprehension']
+          ]
+        }
       },
       {
         type: 'heading',
-        content: 'Ready to Transform Your Product Development?'
+        content: 'Implementing Spaced Repetition in Your Studies'
       },
       {
         type: 'paragraph',
-        content: 'Sensor technology is revolutionizing product development across industries, offering a more objective, data-driven, and efficient approach. By strategically leveraging sensor technology, businesses can enhance their product development processes, improve product performance, and gain a competitive edge.'
-      },
-    ]
-  },
-  {
-    id: '3',
-    title: 'From Idea to Launch: Our Smart Product Development Process',
-    slug: 'from-idea-to-launch-development-process',
-    excerpt: 'Take a behind-the-scenes look at how WRLDS transforms ideas into market-ready smart products through our proven 5-step development process.',
-    date: 'May 15, 2025',
-    author: 'WRLDS Technologies',
-    category: 'Process',
-    imageUrl: '/lovable-uploads/idea_to_launch_blog_post_pic',
-    keywords: [
-      'product development',
-      'smart product design',
-      'development process',
-      'prototyping',
-      'manufacturing',
-      'product launch',
-      'innovation process',
-      'textile development',
-      'smart textiles'
-    ],
-    metaDescription: 'Learn about WRLDS proven 5-step process for developing smart products from initial concept to market launch. Discover how we turn ideas into reality.',
-    content: [
-      {
-        type: 'paragraph',
-        content: 'At WRLDS, we simplify the journey from an idea to a finished smart product. Whether you\'re starting from scratch or already have a clear concept ready to scale, we\'re here to support you exactly where you need us.'
+        content: 'Start by identifying the key concepts, formulas, and facts you need to memorize for your courses. Create flashcards or notes for each piece of information, then follow a systematic review schedule. Modern tools like CramIntel can automate this process, using AI to predict the optimal time for each review based on your performance.'
       },
       {
-        type: 'paragraph',
-        content: 'Let\'s walk through our process with an example: Imagine you come to us with the idea of a smart glove. This glove automatically senses the outside temperature and adjusts its own warmth accordingly. It also connects to an app where you can control settings and view temperature information.'
-      },
-      {
-        type: 'heading',
-        content: 'Step 1: Understanding Your Idea'
-      },
-      {
-        type: 'paragraph',
-        content: 'It all starts with a clear conversation. When you bring us your glove idea, we first meet to fully understand your vision and requirements. We\'ll discuss key points: What problem does the product solve? Who will use it? After that, we set a clear and practical roadmap.'
-      },
-      {
-        type: 'paragraph',
-        content: 'If you already have a basic prototype or idea, we\'ll quickly identify how we can help scale it effectively.'
-      },
-      {
-        type: 'heading',
-        content: 'Step 2: Building the First Prototype'
-      },
-      {
-        type: 'paragraph',
-        content: 'Once the plan is set, our team moves quickly to develop the first working prototype. For your smart glove, we design temperature sensors, heating elements, electronics, and the companion app to work seamlessly together.'
-      },
-      {
-        type: 'paragraph',
-        content: 'We use rapid prototyping techniques like 3D printing and quick electronics integration. Within weeks, you get a tangible product to test and gather feedback.'
-      },
-      {
-        type: 'heading',
-        content: 'Step 3: Testing & Refinement'
-      },
-      {
-        type: 'paragraph',
-        content: 'With your prototype ready, we jump into testing. You\'ll evaluate the glove under real-world conditions to identify improvements. Together, we\'ll adjust designs, optimize the heating response, enhance the app, and retest frequently.'
-      },
-      {
-        type: 'paragraph',
-        content: 'This process is quick, iterative, and practical, bringing you closer to a reliable, user-friendly product.'
-      },
-      {
-        type: 'heading',
-        content: 'Step 4: Preparing for Production'
-      },
-      {
-        type: 'paragraph',
-        content: 'Next, we prepare the glove for large-scale manufacturing. We refine the design for efficient production, select reliable components, and ensure quality at scale.'
-      },
-      {
-        type: 'paragraph',
-        content: 'If you already have a manufacturing partner, we\'ll work closely with them. If not, we\'ll help you find the best production solution. In either case, we\'ll integrate the technology smoothly into the production process.'
-      },
-      {
-        type: 'heading',
-        content: 'Step 5: Product Launch'
-      },
-      {
-        type: 'paragraph',
-        content: 'Finally, it\'s launch day. You introduce your smart glove, thoroughly tested and production-ready, to the market. WRLDS provides ongoing support to ensure a smooth launch—from technical documentation to supporting the app\'s release.'
-      },
-      {
-        type: 'heading',
-        content: 'Why Choose WRLDS?'
-      },
-      {
-        type: 'paragraph',
-        content: 'Developing smart products can be complex, but we make it simple. Clients choose us because:'
+        type: 'subheading',
+        content: 'Making It Work for Different Subjects'
       },
       {
         type: 'list',
         items: [
-          'Clear Process: Simple steps, clear timelines, and reduced risks.',
-          'Speed & Flexibility: Rapid prototyping and agile iterations get your product to market faster.',
-          'Comprehensive Expertise: Hardware, software, and design experts under one roof.',
-          'Practical Results: Real-world testing ensures your final product meets user needs.'
+          'Languages: Vocabulary, grammar rules, and phrases',
+          'Sciences: Formulas, equations, and key concepts',
+          'History: Dates, events, and cause-effect relationships',
+          'Medicine: Terminology, procedures, and diagnostic criteria',
+          'Law: Case precedents, statutes, and legal principles'
         ]
       },
       {
+        type: 'quote',
+        content: 'Spaced repetition is not just about memorization – it\'s about building a foundation of knowledge that lasts throughout your academic and professional career.'
+      },
+      {
+        type: 'heading',
+        content: 'Getting Started Today'
+      },
+      {
         type: 'paragraph',
-        content: 'Have an idea or ready to scale an existing product? We\'d love to hear from you and help bring your vision to life. Reach out and let\'s get started!'
+        content: 'The best time to start using spaced repetition is now. Begin with one subject and gradually expand to others. Remember, consistency is more important than intensity. Even 15-20 minutes of spaced review daily can dramatically improve your exam performance and long-term retention.'
       }
     ]
   },
   {
     id: '2',
-    title: 'AI-Powered Uniforms: The Future of Emergency Response and Worker Safety',
-    slug: 'ai-powered-uniforms-emergency-alerts',
-    excerpt: 'Explore how AI-integrated uniforms are revolutionizing emergency response by providing real-time health monitoring and automated alert systems for first responders and industrial workers.',
-    date: 'May 8, 2025',
-    author: 'WRLDS Technologies',
-    category: 'Innovation',
-    imageUrl: '/lovable-uploads/700e27d7-0513-4bfa-8ac4-f7fd6087594c.png',
+    title: 'How AI is Revolutionizing Study Habits for University Students',
+    slug: 'ai-revolutionizing-study-habits',
+    excerpt: 'Explore how artificial intelligence is transforming the way students learn, from personalized study plans to intelligent exam predictions that help you focus on what matters most.',
+    date: 'December 12, 2024',
+    author: 'CramIntel Team',
+    category: 'AI Learning',
+    imageUrl: '/lovable-uploads/48ecf6e2-5a98-4a9d-af6f-ae2265cd4098.png',
     keywords: [
-      'AI uniforms',
-      'emergency response',
-      'worker safety',
-      'smart uniforms',
-      'health monitoring',
-      'first responders',
-      'safety technology',
-      'wearable AI'
+      'AI learning',
+      'artificial intelligence',
+      'personalized learning',
+      'study optimization',
+      'smart studying',
+      'educational technology',
+      'exam prediction',
+      'adaptive learning'
     ],
-    metaDescription: 'Discover how AI-powered uniforms are transforming emergency response and worker safety with real-time monitoring and automated alerts.',
+    metaDescription: 'Discover how AI is changing university education. Learn about personalized study plans, intelligent flashcards, and exam prediction technology that helps students succeed.',
     content: [
       {
         type: 'paragraph',
-        content: 'The integration of artificial intelligence (AI) into everyday workwear is no longer a futuristic concept but a rapidly evolving reality. AI-powered uniforms are poised to revolutionize emergency response and worker safety by providing real-time health monitoring and automated alert systems for first responders and industrial workers.'
+        content: 'The era of one-size-fits-all education is ending. Artificial intelligence is ushering in a new age of personalized learning that adapts to each student\'s unique needs, learning style, and pace. For university students facing increasingly complex coursework and competitive environments, AI-powered study tools are becoming game-changers.'
       },
       {
         type: 'heading',
-        content: 'The Convergence of AI and Wearable Technology'
+        content: 'The Problem with Traditional Study Methods'
       },
       {
         type: 'paragraph',
-        content: 'The convergence of AI and wearable technology has paved the way for the development of smart uniforms capable of collecting and analyzing vast amounts of data. These uniforms are equipped with an array of sensors that monitor vital signs, environmental conditions, and potential hazards.'
+        content: 'Traditional study approaches often fail because they treat all students and all information equally. Students waste countless hours reviewing material they already know while neglecting areas where they struggle. This inefficient approach leads to burnout, poor performance, and a frustrating sense that hard work isn\'t paying off.'
+      },
+      {
+        type: 'heading',
+        content: 'How AI Transforms Learning'
       },
       {
         type: 'subheading',
-        content: 'Key Features of AI-Powered Uniforms'
+        content: '1. Personalized Learning Paths'
+      },
+      {
+        type: 'paragraph',
+        content: 'AI analyzes your learning patterns, strengths, and weaknesses to create customized study plans. Instead of following a generic curriculum, you get a roadmap tailored specifically to your needs. The system continuously adapts based on your progress, ensuring you\'re always challenged but never overwhelmed.'
+      },
+      {
+        type: 'subheading',
+        content: '2. Intelligent Content Curation'
+      },
+      {
+        type: 'paragraph',
+        content: 'AI can scan through vast amounts of educational content – textbooks, lectures, papers, and online resources – to identify the most relevant information for your specific courses and learning objectives. This means less time searching and more time learning.'
+      },
+      {
+        type: 'subheading',
+        content: '3. Predictive Analytics for Exam Success'
+      },
+      {
+        type: 'paragraph',
+        content: 'Perhaps most exciting is AI\'s ability to predict what\'s likely to appear on your exams. By analyzing past papers, course materials, and instructor patterns, AI can help you focus your studying on high-probability topics, dramatically improving your efficiency.'
+      },
+      {
+        type: 'heading',
+        content: 'Real-World Applications'
+      },
+      {
+        type: 'table',
+        tableData: {
+          headers: ['Traditional Method', 'AI-Enhanced Method', 'Benefit'],
+          rows: [
+            ['Generic flashcards', 'Adaptive flashcards that adjust difficulty', '40% faster memorization'],
+            ['Fixed study schedule', 'Dynamic scheduling based on forgetting curves', '60% better retention'],
+            ['Random practice questions', 'AI-curated questions targeting weak areas', '35% improved test scores'],
+            ['Manual note organization', 'AI-powered concept mapping', '50% better understanding']
+          ]
+        }
+      },
+      {
+        type: 'heading',
+        content: 'The CramIntel Advantage'
+      },
+      {
+        type: 'paragraph',
+        content: 'CramIntel represents the cutting edge of AI-powered learning for university students. Our platform combines multiple AI technologies to create a comprehensive learning ecosystem:'
       },
       {
         type: 'list',
         items: [
-          'Real-time Health Monitoring: AI-powered uniforms continuously monitor vital signs such as heart rate, body temperature, and blood pressure, providing early warnings of potential health issues.',
-          'Automated Alert Systems: In the event of a medical emergency or hazardous situation, AI-powered uniforms can automatically alert emergency responders, providing critical information about the worker\'s location and condition.',
-          'Environmental Monitoring: AI-powered uniforms can detect exposure to hazardous substances, such as toxic gases or radiation, and provide real-time alerts to workers and supervisors.',
-          'Performance Optimization: AI-powered uniforms can track worker movements and provide feedback on posture and ergonomics, helping to prevent injuries and improve performance.'
+          'Exam Prediction Engine: Analyzes patterns to forecast likely exam content',
+          'Adaptive Flashcards: Adjusts difficulty and timing based on your memory strength',
+          'Smart Study Scheduler: Optimizes your study time across multiple subjects',
+          'Progress Analytics: Provides insights into your learning patterns and improvement areas',
+          'Collaborative Learning: Connects you with peers and study groups for enhanced learning'
         ]
       },
       {
         type: 'heading',
-        content: 'Transforming Emergency Response'
-      },
-      {
-        type: 'paragraph',
-        content: 'AI-powered uniforms are particularly valuable in emergency response scenarios, where time is of the essence. By providing real-time health monitoring and automated alert systems, these uniforms can help first responders quickly identify and address medical emergencies, potentially saving lives.'
-      },
-      {
-        type: 'heading',
-        content: 'Enhancing Worker Safety'
-      },
-      {
-        type: 'paragraph',
-        content: 'AI-powered uniforms can also play a crucial role in enhancing worker safety in industrial settings. By monitoring environmental conditions and worker movements, these uniforms can help prevent accidents and injuries, creating a safer and more productive work environment.'
+        content: 'Success Stories from Real Students'
       },
       {
         type: 'quote',
-        content: 'AI-powered uniforms are not just about protecting workers; they\'re about empowering them with the knowledge and tools they need to stay safe and healthy.'
+        content: 'Since using AI-powered study tools, I\'ve cut my study time in half while improving my grades by a full letter grade. The exam predictions have been incredibly accurate – I felt so prepared going into my finals.' 
+      },
+      {
+        type: 'paragraph',
+        content: 'Students across West African universities are reporting significant improvements in their academic performance when using AI-enhanced study methods. The key is not just working harder, but working smarter with the help of artificial intelligence.'
+      },
+      {
+        type: 'heading',
+        content: 'Getting Started with AI-Powered Learning'
+      },
+      {
+        type: 'paragraph',
+        content: 'The transition to AI-enhanced studying doesn\'t require a complete overhaul of your current methods. Start by incorporating one or two AI tools into your routine and gradually expand as you see results. The future of education is here, and it\'s personalized, efficient, and incredibly effective.'
+      },
+      {
+        type: 'subheading',
+        content: 'Tips for Success'
+      },
+      {
+        type: 'list',
+        items: [
+          'Start with your most challenging subject to see immediate benefits',
+          'Consistently input your study data to improve AI recommendations',
+          'Combine AI tools with traditional study methods for best results',
+          'Review and adjust your AI-generated study plans regularly',
+          'Join study groups that also use AI tools for collaborative learning'
+        ]
       }
     ]
   },
   {
-    id: '1',
-    title: 'The Rise of Sensor-Integrated Textiles: A New Era in Smart Manufacturing',
-    slug: 'sensor-integrated-textiles-trend',
-    excerpt: 'Discover how sensor-integrated textiles are transforming industries from healthcare to sports, creating new possibilities for smart, responsive products.',
-    date: 'May 2, 2025',
-    author: 'WRLDS Technologies',
-    category: 'Technology',
-    imageUrl: '/lovable-uploads/48ecf6e2-5a98-4a9d-af6f-ae2265cd4098.png',
+    id: '3',
+    title: 'The Ultimate Guide to Exam Prediction: How to Study What Matters',
+    slug: 'exam-prediction-guide',
+    excerpt: 'Master the art of strategic studying with proven techniques for predicting exam content. Learn how to analyze past papers, decode professor patterns, and focus your efforts for maximum impact.',
+    date: 'December 10, 2024',
+    author: 'CramIntel Team',
+    category: 'Exam Strategy',
+    imageUrl: '/lovable-uploads/700e27d7-0513-4bfa-8ac4-f7fd6087594c.png',
     keywords: [
-      'smart textiles',
-      'sensor integration',
-      'smart manufacturing',
-      'wearable technology',
-      'textile innovation',
-      'smart fabrics',
-      'textile sensors'
+      'exam prediction',
+      'exam strategy',
+      'study efficiency',
+      'test preparation',
+      'academic success',
+      'study planning',
+      'exam patterns',
+      'strategic studying'
     ],
-    metaDescription: 'Learn about the revolutionary trend of sensor-integrated textiles and how they are creating new possibilities in smart manufacturing.',
+    metaDescription: 'Learn how to predict exam content and study strategically. Discover proven techniques for analyzing past papers and professor patterns to maximize your exam success.',
     content: [
       {
         type: 'paragraph',
-        content: 'Sensor-integrated textiles are rapidly emerging as a transformative technology, poised to revolutionize industries ranging from healthcare to sports. By seamlessly embedding sensors into fabrics, these innovative textiles are creating new possibilities for smart, responsive products that can monitor vital signs, track performance, and enhance safety.'
+        content: 'What if you could walk into an exam knowing exactly what to expect? While we can\'t predict the future with 100% accuracy, smart students have been using proven strategies to anticipate exam content for decades. The key is learning to think like your professors and understanding the patterns that govern how exams are constructed.'
       },
       {
         type: 'heading',
-        content: 'The Convergence of Textiles and Technology'
+        content: 'Why Exam Prediction Works'
       },
       {
         type: 'paragraph',
-        content: 'The convergence of textiles and technology has led to the development of sensor-integrated textiles, which combine the comfort and flexibility of fabrics with the intelligence and connectivity of sensors. These textiles are created by weaving or knitting sensors directly into the fabric structure, allowing them to conform to the body and provide continuous, real-time data.'
+        content: 'Professors aren\'t trying to trick you – they\'re trying to assess your understanding of the most important course concepts. This means exams follow predictable patterns based on learning objectives, curriculum requirements, and the professor\'s teaching emphasis. By learning to identify these patterns, you can study more efficiently and perform better on exams.'
+      },
+      {
+        type: 'heading',
+        content: 'The Foundation: Past Paper Analysis'
+      },
+      {
+        type: 'paragraph',
+        content: 'Past papers are your most valuable resource for exam prediction. They reveal not just what topics are covered, but how they\'re tested, what format questions take, and which concepts appear repeatedly.'
       },
       {
         type: 'subheading',
-        content: 'Key Applications of Sensor-Integrated Textiles'
+        content: 'Step-by-Step Past Paper Analysis'
       },
       {
         type: 'list',
         items: [
-          'Healthcare: Sensor-integrated textiles can monitor vital signs such as heart rate, body temperature, and blood pressure, providing early warnings of potential health issues.',
-          'Sports: Sensor-integrated textiles can track athletic performance, measuring metrics such as speed, distance, and acceleration, helping athletes optimize their training and prevent injuries.',
-          'Safety: Sensor-integrated textiles can detect exposure to hazardous substances, such as toxic gases or radiation, providing real-time alerts to workers and supervisors.',
-          'Fashion: Sensor-integrated textiles can create interactive and responsive garments that change color, shape, or function based on the wearer\'s movements or environment.'
+          'Collect 3-5 years of past papers for the same course',
+          'Create a spreadsheet listing all topics covered in each exam',
+          'Note the question format (multiple choice, essay, problem-solving)',
+          'Track how many marks each topic receives',
+          'Identify recurring themes and concepts',
+          'Look for seasonal patterns (topics that appear in certain semesters)'
         ]
       },
       {
         type: 'heading',
-        content: 'Transforming Industries'
+        content: 'Decoding Professor Patterns'
       },
       {
         type: 'paragraph',
-        content: 'Sensor-integrated textiles are poised to transform a wide range of industries, creating new possibilities for smart, responsive products that enhance health, safety, and performance. As the technology continues to evolve, we can expect to see even more innovative applications emerge, further blurring the lines between textiles and technology.'
+        content: 'Every professor has unconscious biases and preferences that influence their exam creation. Learning to identify these patterns gives you a significant advantage.'
+      },
+      {
+        type: 'subheading',
+        content: 'Key Professor Indicators'
+      },
+      {
+        type: 'table',
+        tableData: {
+          headers: ['Professor Behavior', 'Exam Prediction', 'Study Strategy'],
+          rows: [
+            ['Repeatedly mentions a concept in lectures', 'High probability of exam inclusion', 'Create detailed notes and practice questions'],
+            ['Assigns specific readings or textbook chapters', 'Likely source of exam questions', 'Focus extra attention on assigned materials'],
+            ['Provides detailed explanations for certain topics', 'Professor considers these challenging/important', 'Ensure deep understanding, not just memorization'],
+            ['Uses specific examples or case studies', 'Examples may appear in different contexts', 'Understand underlying principles, not just examples']
+          ]
+        }
+      },
+      {
+        type: 'heading',
+        content: 'The 80/20 Rule for Exam Content'
+      },
+      {
+        type: 'paragraph',
+        content: 'Research shows that typically 80% of exam marks come from 20% of the course content. This "vital few" consists of core concepts, fundamental principles, and topics that connect different parts of the curriculum. Identifying this 20% should be your top priority.'
+      },
+      {
+        type: 'subheading',
+        content: 'How to Identify High-Value Content'
+      },
+      {
+        type: 'list',
+        items: [
+          'Topics covered in multiple lectures or readings',
+          'Concepts that connect different course modules',
+          'Material explicitly labeled as "important" or "key"',
+          'Topics that appear in both lectures and assignments',
+          'Fundamental principles that other concepts build upon',
+          'Current events or recent developments in the field'
+        ]
+      },
+      {
+        type: 'heading',
+        content: 'Technology-Enhanced Prediction'
+      },
+      {
+        type: 'paragraph',
+        content: 'Modern AI tools can analyze vast amounts of data to identify patterns humans might miss. These tools can process years of past papers, lecture transcripts, and course materials to generate probability scores for different topics.'
       },
       {
         type: 'quote',
-        content: 'Sensor-integrated textiles are not just about creating smart fabrics; they\'re about creating a new era of smart manufacturing, where textiles are seamlessly integrated with technology to enhance our lives.'
+        content: 'The best exam prediction combines human intuition with technological analysis. Technology shows you the patterns, but your understanding of the course context helps you interpret their significance.'
+      },
+      {
+        type: 'heading',
+        content: 'Creating Your Prediction Strategy'
+      },
+      {
+        type: 'paragraph',
+        content: 'Effective exam prediction isn\'t just about identifying likely topics – it\'s about creating a strategic study plan that maximizes your chances of success.'
+      },
+      {
+        type: 'subheading',
+        content: 'The Three-Tier Study System'
+      },
+      {
+        type: 'list',
+        items: [
+          'Tier 1 (60% of study time): High-probability, high-mark topics',
+          'Tier 2 (30% of study time): Medium-probability topics that could appear',
+          'Tier 3 (10% of study time): Low-probability topics for comprehensive coverage'
+        ]
+      },
+      {
+        type: 'heading',
+        content: 'Common Prediction Mistakes to Avoid'
+      },
+      {
+        type: 'paragraph',
+        content: 'Even the best prediction strategies can backfire if you fall into common traps. Avoid these mistakes to ensure your predictions enhance rather than hurt your performance:'
+      },
+      {
+        type: 'list',
+        items: [
+          'Over-relying on predictions and ignoring other material',
+          'Assuming patterns will never change',
+          'Focusing only on topics, not understanding question formats',
+          'Neglecting to verify predictions with classmates or study groups',
+          'Using outdated past papers that don\'t reflect current curriculum'
+        ]
+      },
+      {
+        type: 'heading',
+        content: 'Putting It All Together'
+      },
+      {
+        type: 'paragraph',
+        content: 'Successful exam prediction is both an art and a science. It requires careful analysis, strategic thinking, and the wisdom to know that predictions are guides, not guarantees. Use these techniques to study smarter, reduce anxiety, and improve your exam performance. Remember: the goal isn\'t to game the system, but to understand it well enough to succeed within it.'
+      }
+    ]
+  },
+  {
+    id: '4',
+    title: 'Active Recall vs. Re-reading: Which Study Method Actually Works?',
+    slug: 'active-recall-vs-rereading',
+    excerpt: 'Discover why active recall consistently outperforms passive re-reading in scientific studies, and learn practical techniques to implement this powerful learning method in your daily study routine.',
+    date: 'December 8, 2024',
+    author: 'CramIntel Team',
+    category: 'Study Techniques',
+    imageUrl: '/lovable-uploads/526dc38a-25fa-40d4-b520-425b23ae0464.png',
+    keywords: [
+      'active recall',
+      'study methods',
+      'learning techniques',
+      'memory retention',
+      'effective studying',
+      'cognitive science',
+      'study strategies',
+      'academic performance'
+    ],
+    metaDescription: 'Learn why active recall beats re-reading for long-term retention. Discover evidence-based study techniques that actually work for university students.',
+    content: [
+      {
+        type: 'paragraph',
+        content: 'If you\'re like most students, you probably spend a lot of time re-reading your notes and textbooks. It feels productive, it\'s comfortable, and it gives you a sense of familiarity with the material. But here\'s the uncomfortable truth: re-reading is one of the least effective study methods, while active recall – which feels much more difficult – is one of the most powerful techniques for long-term learning.'
+      },
+      {
+        type: 'heading',
+        content: 'What the Research Says'
+      },
+      {
+        type: 'paragraph',
+        content: 'Cognitive scientists have conducted hundreds of studies comparing different learning methods. The results are consistently clear: active recall – the practice of retrieving information from memory – produces dramatically better learning outcomes than passive review methods like re-reading.'
+      },
+      {
+        type: 'subheading',
+        content: 'The Numbers Don\'t Lie'
+      },
+      {
+        type: 'table',
+        tableData: {
+          headers: ['Study Method', 'Retention After 1 Week', 'Retention After 1 Month', 'Time Efficiency'],
+          rows: [
+            ['Re-reading notes', '20-30%', '10-15%', 'Low - requires multiple sessions'],
+            ['Active recall', '60-70%', '40-50%', 'High - fewer sessions needed'],
+            ['Combined approach', '70-80%', '50-60%', 'Moderate - strategic use of both']
+          ]
+        }
+      },
+      {
+        type: 'heading',
+        content: 'Why Re-reading Feels Effective (But Isn\'t)'
+      },
+      {
+        type: 'paragraph',
+        content: 'Re-reading creates what psychologists call "fluency illusions." When you read familiar material, your brain processes it quickly and smoothly, which feels like understanding. However, this fluency is deceiving – it doesn\'t indicate that you\'ll be able to recall the information when you need it most: during an exam.'
+      },
+      {
+        type: 'subheading',
+        content: 'The Recognition vs. Recall Gap'
+      },
+      {
+        type: 'paragraph',
+        content: 'Re-reading primarily strengthens recognition (being able to identify correct information when you see it), but exams typically require recall (producing information from memory). This mismatch explains why students often feel prepared after extensive re-reading, only to struggle during actual tests.'
+      },
+      {
+        type: 'heading',
+        content: 'The Power of Active Recall'
+      },
+      {
+        type: 'paragraph',
+        content: 'Active recall forces your brain to reconstruct information from memory, strengthening neural pathways and creating more robust, accessible memories. Each successful retrieval makes future recall easier and more reliable.'
+      },
+      {
+        type: 'subheading',
+        content: 'How Active Recall Works'
+      },
+      {
+        type: 'list',
+        items: [
+          'Strengthens memory retrieval pathways through practice',
+          'Identifies knowledge gaps that need attention',
+          'Improves transfer of learning to new contexts',
+          'Builds confidence in your actual knowledge level',
+          'Creates more flexible, interconnected understanding'
+        ]
+      },
+      {
+        type: 'heading',
+        content: 'Practical Active Recall Techniques'
+      },
+      {
+        type: 'subheading',
+        content: '1. The Close-Book Method'
+      },
+      {
+        type: 'paragraph',
+        content: 'After reading a section, close your book and write down everything you remember. Then check your notes to see what you missed. This simple technique immediately reveals what you actually know versus what you think you know.'
+      },
+      {
+        type: 'subheading',
+        content: '2. Question Generation'
+      },
+      {
+        type: 'paragraph',
+        content: 'Turn your notes into questions. Instead of re-reading "The mitochondria produces ATP through oxidative phosphorylation," create the question "How does the mitochondria produce ATP?" Then practice answering without looking at your notes.'
+      },
+      {
+        type: 'subheading',
+        content: '3. Concept Mapping'
+      },
+      {
+        type: 'paragraph',
+        content: 'Draw connections between ideas from memory. Start with a central concept and add related ideas, showing how they connect. This reveals your understanding of relationships between concepts.'
+      },
+      {
+        type: 'subheading',
+        content: '4. The Feynman Technique'
+      },
+      {
+        type: 'paragraph',
+        content: 'Explain concepts in simple terms as if teaching someone else. This forces you to recall information and identify areas where your understanding is incomplete.'
+      },
+      {
+        type: 'heading',
+        content: 'Implementing Active Recall in Your Routine'
+      },
+      {
+        type: 'paragraph',
+        content: 'The transition from passive to active studying can feel uncomfortable at first. Active recall is more mentally demanding and initially feels less efficient. However, the long-term benefits far outweigh the short-term discomfort.'
+      },
+      {
+        type: 'subheading',
+        content: 'A Balanced Approach'
+      },
+      {
+        type: 'list',
+        items: [
+          'Use initial reading to familiarize yourself with new material',
+          'Switch to active recall for all subsequent review sessions',
+          'Return to re-reading only to clarify specific confusion points',
+          'Combine with spaced repetition for maximum effectiveness',
+          'Track your progress to stay motivated during difficult periods'
+        ]
+      },
+      {
+        type: 'heading',
+        content: 'Overcoming Common Challenges'
+      },
+      {
+        type: 'subheading',
+        content: 'Challenge 1: "It Feels Too Hard"'
+      },
+      {
+        type: 'paragraph',
+        content: 'Active recall is supposed to feel difficult – that\'s the sign it\'s working. Embrace the struggle as evidence of learning. Start with easier material to build confidence, then gradually tackle more complex topics.'
+      },
+      {
+        type: 'subheading',
+        content: 'Challenge 2: "I Can\'t Remember Anything"'
+      },
+      {
+        type: 'paragraph',
+        content: 'If you can\'t recall much initially, that\'s valuable feedback! It shows you need more foundational understanding. Go back to the material, then try again. Each attempt strengthens your memory.'
+      },
+      {
+        type: 'quote',
+        content: 'The discomfort you feel during active recall is the feeling of your brain forming stronger, more durable memories. Embrace the difficulty – it means you\'re learning.'
+      },
+      {
+        type: 'heading',
+        content: 'Technology Tools for Active Recall'
+      },
+      {
+        type: 'paragraph',
+        content: 'Modern tools can make active recall more efficient and engaging. Digital flashcard systems like those in CramIntel use spaced repetition algorithms to optimize your practice sessions, ensuring you focus on information that needs reinforcement while gradually spacing out well-learned material.'
+      },
+      {
+        type: 'heading',
+        content: 'Making the Switch'
+      },
+      {
+        type: 'paragraph',
+        content: 'Changing study habits is challenging, but the evidence is clear: students who embrace active recall consistently outperform those who rely on passive methods. Start small, be patient with yourself, and trust the process. Your future self will thank you for making this crucial shift in how you learn.'
+      }
+    ]
+  },
+  {
+    id: '5',
+    title: 'Time Management Hacks Every University Student Needs',
+    slug: 'time-management-university-students',
+    excerpt: 'Master the art of academic time management with proven strategies that help you balance coursework, social life, and personal well-being without burning out.',
+    date: 'December 5, 2024',
+    author: 'CramIntel Team',
+    category: 'Productivity',
+    imageUrl: '/lovable-uploads/927dae7e-6aaf-4b76-add2-1287a1dd9dc0.png',
+    keywords: [
+      'time management',
+      'university productivity',
+      'study planning',
+      'academic success',
+      'student life balance',
+      'productivity tips',
+      'study schedule',
+      'academic organization'
+    ],
+    metaDescription: 'Discover essential time management strategies for university students. Learn how to balance studies, social life, and personal time for academic success without burnout.',
+    content: [
+      {
+        type: 'paragraph',
+        content: 'University life presents a unique time management challenge. Unlike high school\'s structured schedule, university gives you unprecedented freedom – and responsibility. Between lectures, assignments, social activities, part-time jobs, and personal responsibilities, many students feel overwhelmed and constantly behind. The good news? Effective time management is a learnable skill that can transform your university experience.'
+      },
+      {
+        type: 'heading',
+        content: 'The University Time Management Challenge'
+      },
+      {
+        type: 'paragraph',
+        content: 'University students face several unique time management obstacles that require specific strategies to overcome:'
+      },
+      {
+        type: 'list',
+        items: [
+          'Irregular schedules with gaps between classes',
+          'Long-term projects with distant deadlines',
+          'Multiple competing priorities and responsibilities',
+          'Social pressures and FOMO (fear of missing out)',
+          'Limited structure and external accountability',
+          'Financial pressures requiring part-time work'
+        ]
+      },
+      {
+        type: 'heading',
+        content: 'The Foundation: Energy Management'
+      },
+      {
+        type: 'paragraph',
+        content: 'Before diving into specific techniques, understand that effective time management starts with energy management. You have limited mental energy each day, and different tasks require different types of energy. The key is matching your most demanding work to your peak energy periods.'
+      },
+      {
+        type: 'subheading',
+        content: 'Identifying Your Energy Patterns'
+      },
+      {
+        type: 'table',
+        tableData: {
+          headers: ['Time Period', 'Energy Level', 'Best Activities', 'Avoid'],
+          rows: [
+            ['Early Morning (6-9 AM)', 'High focus, low social', 'Deep study, writing, problem-solving', 'Group work, creative tasks'],
+            ['Mid-Morning (9-12 PM)', 'Peak performance', 'Most challenging coursework', 'Administrative tasks'],
+            ['Afternoon (12-3 PM)', 'Moderate, social energy', 'Group study, meetings, lighter reading', 'Heavy memorization'],
+            ['Evening (6-9 PM)', 'Variable, social', 'Review, social activities, exercise', 'Starting new complex material']
+          ]
+        }
+      },
+      {
+        type: 'heading',
+        content: 'The Three-Level Planning System'
+      },
+      {
+        type: 'paragraph',
+        content: 'Effective university time management requires planning at three different levels: yearly/semester, weekly, and daily. Each level serves a different purpose and requires different tools.'
+      },
+      {
+        type: 'subheading',
+        content: 'Level 1: Semester Planning'
+      },
+      {
+        type: 'paragraph',
+        content: 'At the beginning of each semester, create a master calendar with all major deadlines, exam dates, and known commitments. This bird\'s-eye view helps you identify crunch periods and plan accordingly.'
+      },
+      {
+        type: 'list',
+        items: [
+          'Mark all assignment due dates and exam periods',
+          'Identify overlap periods where multiple deadlines converge',
+          'Plan major project milestones working backward from due dates',
+          'Schedule breaks and social activities during lighter periods',
+          'Set monthly review dates to adjust plans as needed'
+        ]
+      },
+      {
+        type: 'subheading',
+        content: 'Level 2: Weekly Planning'
+      },
+      {
+        type: 'paragraph',
+        content: 'Each week, translate your semester goals into specific, actionable tasks. Sunday evening is ideal for weekly planning – you can see the week ahead and make adjustments before it begins.'
+      },
+      {
+        type: 'subheading',
+        content: 'Level 3: Daily Execution'
+      },
+      {
+        type: 'paragraph',
+        content: 'Daily planning should be quick and flexible. Focus on identifying your top 3 priorities and scheduling them during your peak energy periods.'
+      },
+      {
+        type: 'heading',
+        content: 'The University-Specific Techniques'
+      },
+      {
+        type: 'subheading',
+        content: 'The Backwards Calendar Method'
+      },
+      {
+        type: 'paragraph',
+        content: 'For major assignments and projects, work backwards from the due date to create a realistic timeline:'
+      },
+      {
+        type: 'list',
+        items: [
+          'Start with the due date',
+          'Schedule final review and editing (2-3 days before)',
+          'Plan first draft completion (1 week before final)',
+          'Set research completion deadline (2 weeks before)',
+          'Schedule topic selection and initial planning (3 weeks before)',
+          'Add buffer time for unexpected delays'
+        ]
+      },
+      {
+        type: 'subheading',
+        content: 'The Pomodoro Technique for Students'
+      },
+      {
+        type: 'paragraph',
+        content: 'The classic Pomodoro Technique (25 minutes work, 5 minutes break) works well for university students, but consider these adaptations:'
+      },
+      {
+        type: 'list',
+        items: [
+          'Use 45-50 minute blocks for deep reading or writing',
+          'Stick to 25 minutes for memorization or review',
+          'Take longer breaks (15-20 minutes) every 3-4 cycles',
+          'Use breaks for physical movement, not social media',
+          'Adjust timing based on your attention span and task complexity'
+        ]
+      },
+      {
+        type: 'heading',
+        content: 'Dealing with Common Time Wasters'
+      },
+      {
+        type: 'subheading',
+        content: 'Social Media and Digital Distractions'
+      },
+      {
+        type: 'paragraph',
+        content: 'Digital distractions are the biggest threat to student productivity. Instead of relying on willpower alone, create systems that make distraction harder:'
+      },
+      {
+        type: 'list',
+        items: [
+          'Use website blockers during study sessions',
+          'Keep your phone in another room while studying',
+          'Create designated "check times" for social media',
+          'Use apps that reward focused time',
+          'Find accountability partners for digital detox periods'
+        ]
+      },
+      {
+        type: 'subheading',
+        content: 'Perfectionism and Over-Planning'
+      },
+      {
+        type: 'paragraph',
+        content: 'Many students waste time over-planning or trying to create the "perfect" schedule. Remember: a good plan implemented is better than a perfect plan that never gets started.'
+      },
+      {
+        type: 'heading',
+        content: 'The Work-Life Balance Reality'
+      },
+      {
+        type: 'paragraph',
+        content: 'University isn\'t just about academics – it\'s also about personal growth, relationships, and discovering who you are. Effective time management should enhance, not restrict, your overall university experience.'
+      },
+      {
+        type: 'subheading',
+        content: 'The 168-Hour Week Framework'
+      },
+      {
+        type: 'paragraph',
+        content: 'Everyone has exactly 168 hours per week. Here\'s a realistic breakdown for a full-time student:'
+      },
+      {
+        type: 'list',
+        items: [
+          'Sleep: 56 hours (8 hours per night)',
+          'Classes: 15-20 hours',
+          'Study time: 30-40 hours (2-3 hours per credit hour)',
+          'Meals and personal care: 21 hours (3 hours per day)',
+          'Exercise and health: 7-10 hours',
+          'Social activities and relationships: 15-20 hours',
+          'Part-time work (if needed): 10-20 hours',
+          'Buffer time for unexpected events: 10-15 hours'
+        ]
+      },
+      {
+        type: 'quote',
+        content: 'Time management isn\'t about squeezing every second out of your day – it\'s about making sure your time aligns with your values and goals.'
+      },
+      {
+        type: 'heading',
+        content: 'Technology Tools That Actually Help'
+      },
+      {
+        type: 'paragraph',
+        content: 'While technology can be a distraction, the right tools can dramatically improve your time management. Focus on simple, reliable tools rather than complex systems:'
+      },
+      {
+        type: 'list',
+        items: [
+          'Calendar apps for scheduling and deadline tracking',
+          'Task management apps for breaking down projects',
+          'Time tracking apps to understand where your time actually goes',
+          'Note-taking apps that sync across devices',
+          'Study tools like CramIntel that optimize your learning time'
+        ]
+      },
+      {
+        type: 'heading',
+        content: 'Building Sustainable Habits'
+      },
+      {
+        type: 'paragraph',
+        content: 'The best time management system is one you can maintain consistently. Start small, focus on building one habit at a time, and gradually expand your system as habits become automatic. Remember: consistency beats perfection every time.'
+      },
+      {
+        type: 'subheading',
+        content: 'Your First Steps'
+      },
+      {
+        type: 'list',
+        items: [
+          'Track your time for one week to understand current patterns',
+          'Identify your peak energy periods',
+          'Choose one planning level to improve (semester, weekly, or daily)',
+          'Implement one new technique for two weeks before adding another',
+          'Review and adjust your system monthly'
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: 'Effective time management transforms university from a stressful juggling act into a manageable, even enjoyable experience. Start with small changes, be patient with yourself, and remember that the goal is progress, not perfection.'
       }
     ]
   }
