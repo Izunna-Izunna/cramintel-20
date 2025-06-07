@@ -1,4 +1,3 @@
-
 import { ArrowLeft, CheckCircle, ArrowRight, Users, Target, Brain, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from "framer-motion";
@@ -140,7 +139,7 @@ const About = () => {
                     and limited study time, too many brilliant students were struggling to achieve their potential.
                   </p>
                   <p className="text-gray-600 mb-4">
-                    In 2023, our founders began researching this challenge during their own university years, 
+                    In 2023, our founder began researching this challenge during his own university years, 
                     recognizing that the problem wasn't a lack of intelligence or effort—it was a lack of 
                     direction. Students needed to know what to study, not just how to study.
                   </p>
@@ -177,7 +176,7 @@ const About = () => {
                     {
                       name: "Kwame Asante",
                       role: "Founder & CEO",
-                      bio: "Former University of Ghana student who experienced the struggle firsthand. Now leading CramIntel's mission to transform student success.",
+                      bio: "University of Ghana student who experienced the struggle firsthand. Now leading CramIntel's mission to transform student success.",
                       image: "/lovable-uploads/aa5291bd-2417-4c1e-9a02-0bcc71a92507.png"
                     },
                     {
