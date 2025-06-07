@@ -9,7 +9,7 @@ import {
 } from '@pdf-viewer/react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Download, ZoomIn, ZoomOut, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, ZoomIn, ZoomOut, X, Maximize2, Minimize2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EnhancedPdfViewerProps {
@@ -32,19 +32,13 @@ export function EnhancedPdfViewer({
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [zoom, setZoom] = useState<number>(1);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const { toast } = useToast();
 
   const zoomLevels = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-  const handleDocumentLoad = useCallback(() => {
-    setLoading(false);
-    console.log('PDF document loaded successfully');
-  }, []);
-
   const handleDocumentError = useCallback((error: any) => {
     console.error('PDF loading error:', error);
-    setLoading(false);
     toast({
       title: "Error Loading PDF",
       description: "Unable to load the PDF file. Please try again.",
@@ -74,6 +68,10 @@ export function EnhancedPdfViewer({
     }
   };
 
+  const toggleFullscreen = () => {
+    setIsFullscreen(prev => !prev);
+  };
+
   const downloadFile = () => {
     const link = document.createElement('a');
     link.href = sourceUrl;
@@ -100,20 +98,115 @@ export function EnhancedPdfViewer({
       case '-':
         zoomOut();
         break;
+      case 'f':
+      case 'F':
+        toggleFullscreen();
+        break;
       case 'Escape':
-        onClose();
+        if (isFullscreen) {
+          setIsFullscreen(false);
+        } else {
+          onClose();
+        }
         break;
     }
-  }, [isOpen, currentPage, totalPages, zoom]);
+  }, [isOpen, currentPage, totalPages, zoom, isFullscreen]);
 
   React.useEffect(() => {
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress]);
 
+  const containerClasses = isFullscreen 
+    ? "fixed inset-0 z-[100] bg-white flex flex-col"
+    : "max-w-7xl h-[95vh] flex flex-col p-0";
+
+  if (isFullscreen) {
+    return (
+      <div className={containerClasses}>
+        <div className="flex items-center justify-between p-4 border-b bg-white">
+          <h2 className="text-lg font-semibold truncate">{fileName}</h2>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={downloadFile}>
+              <Download className="w-4 h-4 mr-2" />
+              Download
+            </Button>
+            <Button variant="outline" size="sm" onClick={toggleFullscreen}>
+              <Minimize2 className="w-4 h-4 mr-2" />
+              Exit Fullscreen
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {showControls && (
+          <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={goToPrevPage} 
+                disabled={currentPage <= 1}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-sm text-gray-600">
+                Page {currentPage} of {totalPages || '...'}
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={goToNextPage} 
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={zoomOut} 
+                disabled={zoom <= zoomLevels[0]}
+              >
+                <ZoomOut className="w-4 h-4" />
+              </Button>
+              <span className="text-sm text-gray-600 min-w-[60px] text-center">
+                {Math.round(zoom * 100)}%
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={zoomIn} 
+                disabled={zoom >= zoomLevels[zoomLevels.length - 1]}
+              >
+                <ZoomIn className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-auto bg-gray-100 flex justify-center p-4">
+          <RPConfig>
+            <RPProvider src={sourceUrl}>
+              <RPTheme>
+                <RPDefaultLayout>
+                  <RPPages />
+                </RPDefaultLayout>
+              </RPTheme>
+            </RPProvider>
+          </RPConfig>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0">
+      <DialogContent className={containerClasses}>
         <DialogHeader className="p-4 border-b">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg font-semibold truncate">{fileName}</DialogTitle>
@@ -121,6 +214,10 @@ export function EnhancedPdfViewer({
               <Button variant="outline" size="sm" onClick={downloadFile}>
                 <Download className="w-4 h-4 mr-2" />
                 Download
+              </Button>
+              <Button variant="outline" size="sm" onClick={toggleFullscreen}>
+                <Maximize2 className="w-4 h-4 mr-2" />
+                Fullscreen
               </Button>
               <Button variant="ghost" size="sm" onClick={onClose}>
                 <X className="w-4 h-4" />
@@ -178,12 +275,6 @@ export function EnhancedPdfViewer({
         )}
 
         <div className="flex-1 overflow-auto bg-gray-100 flex justify-center p-4">
-          {loading && (
-            <div className="flex items-center justify-center h-full">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
-            </div>
-          )}
-          
           <RPConfig>
             <RPProvider src={sourceUrl}>
               <RPTheme>
