@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect, TouchEvent } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, ChevronLeft, ChevronRight, Star, TrendingUp, Award, Users } from 'lucide-react';
@@ -14,7 +13,7 @@ const successStories = [
     improvement: "Grade increased from C+ to A-",
     story: "Using CramIntel's AI predictions, I identified the most likely exam questions and focused my study time effectively. The flashcards feature helped me memorize key concepts faster than ever before.",
     metrics: { gradeImprovement: "85%", studyTimeReduced: "40%", examScore: "88%" },
-    imageUrl: "/lovable-uploads/93ab0638-8190-4ccf-897f-21fda7f4f5ad.png",
+    imageUrl: "/lovable-uploads/d59e26d4-f431-4648-a962-4f699d7553c9.png",
     isFeatured: true,
     testimonial: "CramIntel completely changed how I study. I went from struggling with exams to consistently getting top grades in my class.",
     coursesUsed: ["Data Structures", "Algorithms", "Software Engineering"]
@@ -27,7 +26,7 @@ const successStories = [
     improvement: "Reduced study time by 50%",
     story: "The AI exam predictions were incredibly accurate. I spent less time studying but achieved better results by focusing on the right topics.",
     metrics: { gradeImprovement: "75%", studyTimeReduced: "50%", examScore: "82%" },
-    imageUrl: "/lovable-uploads/b0622048-17b4-4c75-a3f0-6c9e17de1d09.png",
+    imageUrl: "/lovable-uploads/bf91a075-1c99-4e6b-b839-d2a772c1267d.png",
     testimonial: "I couldn't believe how accurate the predictions were. Almost 80% of my exam questions were predicted by CramIntel.",
     coursesUsed: ["Marketing", "Finance", "Operations Management"]
   },
