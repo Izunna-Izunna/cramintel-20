@@ -12,23 +12,23 @@ const courseProgress = [
 export function CourseProgress() {
   return (
     <Card className="border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-3 text-gray-800 font-space">
+      <CardHeader className="p-4 sm:p-6">
+        <CardTitle className="flex items-center gap-3 text-gray-800 font-space text-lg sm:text-xl">
           🧭 Course Progress Overview
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
+      <CardContent className="p-4 sm:p-6 pt-0">
+        <div className="space-y-4 md:space-y-6">
           {courseProgress.map((course, index) => (
             <div key={index}>
-              <div className="flex justify-between items-center mb-3">
+              <div className="flex justify-between items-center mb-2 md:mb-3">
                 <span className="font-semibold text-sm text-gray-800">{course.course}</span>
                 <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-lg">
                   {course.uploaded}/{course.total} materials
                 </span>
               </div>
-              <Progress value={course.progress} className="h-3 bg-gray-200" />
-              <p className="text-xs text-gray-600 mt-2">
+              <Progress value={course.progress} className="h-2 md:h-3 bg-gray-200" />
+              <p className="text-xs text-gray-600 mt-1 md:mt-2">
                 Add more to improve predictions
               </p>
             </div>

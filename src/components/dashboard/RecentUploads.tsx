@@ -33,35 +33,35 @@ const recentUploads = [
 export function RecentUploads() {
   return (
     <Card className="border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-3 text-gray-800 font-space">
+      <CardHeader className="p-4 sm:p-6">
+        <CardTitle className="flex items-center gap-3 text-gray-800 font-space text-lg sm:text-xl">
           📂 Recent Uploads
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className="p-4 sm:p-6 pt-0">
+        <div className="space-y-3 md:space-y-4">
           {recentUploads.map((upload, index) => (
-            <div key={index} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-all duration-300">
-              <div className="flex items-center gap-4">
-                <span className="text-2xl">{upload.icon}</span>
-                <div>
-                  <p className="font-semibold text-sm text-gray-800">{upload.name}</p>
-                  <p className="text-xs text-gray-600">{upload.course} • {upload.uploadedAt}</p>
+            <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 md:p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-all duration-300 gap-3">
+              <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+                <span className="text-xl md:text-2xl">{upload.icon}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-xs sm:text-sm text-gray-800 truncate">{upload.name}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-600">{upload.course} • {upload.uploadedAt}</p>
                 </div>
               </div>
               
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                 {upload.status === 'processed' ? (
                   <>
-                    <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 hover:bg-gray-100">
+                    <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-xs flex-1 sm:flex-none">
                       Ask AI
                     </Button>
-                    <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 hover:bg-gray-100">
+                    <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-xs flex-1 sm:flex-none">
                       Generate Flashcards
                     </Button>
                   </>
                 ) : (
-                  <span className="text-xs text-gray-600 px-3 py-2 bg-gray-100 rounded-lg">
+                  <span className="text-[10px] sm:text-xs text-gray-600 px-2 md:px-3 py-1 md:py-2 bg-gray-100 rounded-lg">
                     Processing...
                   </span>
                 )}
@@ -70,7 +70,7 @@ export function RecentUploads() {
           ))}
         </div>
         
-        <Button variant="outline" className="w-full mt-6 border-gray-300 text-gray-700 hover:bg-gray-50">
+        <Button variant="outline" className="w-full mt-4 md:mt-6 border-gray-300 text-gray-700 hover:bg-gray-50 text-sm">
           View All Uploads
         </Button>
       </CardContent>

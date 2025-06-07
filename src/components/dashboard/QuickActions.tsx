@@ -54,18 +54,18 @@ export function QuickActions() {
 
   return (
     <Card className="border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
-      <CardContent className="p-8">
-        <h3 className="text-2xl font-bold mb-6 text-gray-800 font-space">Quick Actions</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <CardContent className="p-4 sm:p-6 md:p-8">
+        <h3 className="text-xl sm:text-2xl font-bold mb-4 md:mb-6 text-gray-800 font-space">Quick Actions</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
           {quickActions.map((action, index) => (
             <Button
               key={index}
-              className={`${getButtonClasses(action.variant)} h-auto p-6 flex flex-col items-center gap-3 hover:-translate-y-1 transition-all duration-300 rounded-xl`}
+              className={`${getButtonClasses(action.variant)} h-auto p-4 sm:p-5 md:p-6 flex flex-col items-center gap-2 md:gap-3 hover:-translate-y-1 transition-all duration-300 rounded-xl`}
             >
-              <span className="text-3xl">{action.icon}</span>
+              <span className="text-2xl md:text-3xl">{action.icon}</span>
               <div className="text-center">
-                <div className="font-semibold text-sm mb-1">{action.title}</div>
-                <div className="text-xs opacity-90">{action.description}</div>
+                <div className="font-semibold text-xs sm:text-sm mb-1">{action.title}</div>
+                <div className="text-[10px] sm:text-xs opacity-90">{action.description}</div>
               </div>
             </Button>
           ))}
