@@ -19,23 +19,23 @@ const ContactInfo = () => {
         </div>
 
         <div className="flex justify-center">
-          {/* Izunna's Contact Info */}
+          {/* Paschal's Contact Info */}
           <div className="bg-white rounded-xl shadow-xl p-6 md:p-8 border border-gray-700 max-w-md">
             <div className="flex flex-col items-center text-center">
               <img 
                 src="/lovable-uploads/bd8a828e-a6b3-4bf3-8a9c-4773f3e4cfa9.png"
-                alt="Izunna"
+                alt="Paschal"
                 className="w-32 h-32 rounded-full mb-4 object-cover filter grayscale"
               />
-              <h3 className="text-xl font-bold text-gray-900">Izunna</h3>
+              <h3 className="text-xl font-bold text-gray-900">Paschal</h3>
               <p className="text-gray-600 mb-4">CEO and Founder</p>
               <div className="flex flex-col space-y-3">
-                <a href="mailto:izunna@wrlds.com" className="flex items-center text-gray-700 hover:text-blue-600">
+                <a href="mailto:paschalugwuanyi98@gmail.com" className="flex items-center text-gray-700 hover:text-blue-600">
                   <Mail className="w-5 h-5 mr-2" />
-                  izunna@wrlds.com
+                  paschalugwuanyi98@gmail.com
                 </a>
                 <a 
-                  href="https://www.linkedin.com/in/izunna/" 
+                  href="https://www.linkedin.com/in/paschal-ugwuanyi-02a430359/" 
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center text-gray-700 hover:text-blue-600"
