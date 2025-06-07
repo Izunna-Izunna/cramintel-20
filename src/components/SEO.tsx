@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useLocation } from 'react-router-dom';
@@ -56,7 +57,7 @@ const SEO: React.FC<SEOProps> = ({
     '@type': 'Organization',
     name: 'CramIntel',
     url: 'https://cramintel.com',
-    logo: 'https://cramintel.com/lovable-uploads/14ea3fe0-19d6-425c-b95b-4117bc41f3ca.png',
+    logo: 'https://cramintel.com/lovable-uploads/cramintel-logo.png',
     description: 'AI-powered exam predictions and smart study tools for university students',
     contactPoint: {
       '@type': 'ContactPoint',
@@ -96,7 +97,7 @@ const SEO: React.FC<SEOProps> = ({
       name: 'CramIntel',
       logo: {
         '@type': 'ImageObject',
-        url: 'https://cramintel.com/lovable-uploads/14ea3fe0-19d6-425c-b95b-4117bc41f3ca.png',
+        url: 'https://cramintel.com/lovable-uploads/cramintel-logo.png',
         width: 512,
         height: 512
       },

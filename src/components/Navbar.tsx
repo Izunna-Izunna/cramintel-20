@@ -5,6 +5,7 @@ import { Menu, X, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from 'react-router-dom';
 import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuLink, NavigationMenuList, NavigationMenuTrigger, navigationMenuTriggerStyle } from "@/components/ui/navigation-menu";
+import CramIntelLogo from '@/components/CramIntelLogo';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -48,7 +49,11 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-16">
           <div className="flex-shrink-0">
             <Link to="/" className="flex items-center">
-              <img src="/lovable-uploads/7d120ee6-3614-4b75-9c35-716d54490d67.png" alt="CramIntel Logo" className={cn("h-8 w-auto", isScrolled ? "" : "brightness-0 invert")} />
+              <CramIntelLogo 
+                variant={isScrolled ? "dark" : "light"} 
+                size="md"
+                className="transition-all duration-300"
+              />
             </Link>
           </div>
           

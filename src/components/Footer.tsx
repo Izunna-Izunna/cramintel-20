@@ -1,9 +1,9 @@
-
 import { ArrowRight, Mail, MessageSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import emailjs from 'emailjs-com';
+import CramIntelLogo from '@/components/CramIntelLogo';
 
 const Footer = () => {
   const [email, setEmail] = useState("");
@@ -70,10 +70,10 @@ const Footer = () => {
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-10 pb-10 border-b border-gray-700">
           <div className="lg:col-span-2">
-            <img 
-              src="/lovable-uploads/7d120ee6-3614-4b75-9c35-716d54490d67.png" 
-              alt="CramIntel Logo" 
-              className="h-10 w-auto mb-6 invert"
+            <CramIntelLogo 
+              variant="light" 
+              size="lg"
+              className="mb-6"
             />
             <p className="text-gray-300 mb-6">
               CramIntel transforms how West African university students approach learning. Our AI-powered platform provides 
