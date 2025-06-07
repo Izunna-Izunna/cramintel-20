@@ -237,8 +237,7 @@ export function PDFViewer({ isOpen, onClose, fileUrl, fileName }: PDFViewerProps
               loading=""
               className="flex justify-center"
               options={{
-                workerSrc: pdfjs.GlobalWorkerOptions.workerSrc,
-                cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/cmaps/',
+                cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/cmaps/`,
                 cMapPacked: true,
               }}
             >
