@@ -19,15 +19,15 @@ const ContactInfo = () => {
         </div>
 
         <div className="flex justify-center">
-          {/* Paschal's Contact Info */}
+          {/* Izunna's Contact Info */}
           <div className="bg-white rounded-xl shadow-xl p-6 md:p-8 border border-gray-700 max-w-md">
             <div className="flex flex-col items-center text-center">
               <img 
-                src="/lovable-uploads/bd8a828e-a6b3-4bf3-8a9c-4773f3e4cfa9.png"
-                alt="Paschal"
+                src="/lovable-uploads/4e757b33-4580-4b70-b8bb-c0551f6bc9b9.png"
+                alt="Izunna"
                 className="w-32 h-32 rounded-full mb-4 object-cover filter grayscale"
               />
-              <h3 className="text-xl font-bold text-gray-900">Paschal</h3>
+              <h3 className="text-xl font-bold text-gray-900">Izunna</h3>
               <p className="text-gray-600 mb-4">CEO and Founder</p>
               <div className="flex flex-col space-y-3">
                 <a href="mailto:paschalugwuanyi98@gmail.com" className="flex items-center text-gray-700 hover:text-blue-600">
