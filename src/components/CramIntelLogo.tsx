@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { cn } from '@/lib/utils';
 
@@ -13,9 +14,9 @@ const CramIntelLogo: React.FC<CramIntelLogoProps> = ({
   className 
 }) => {
   const sizeClasses = {
-    sm: 'h-18 w-auto',
-    md: 'h-24 w-auto',
-    lg: 'h-30 w-auto'
+    sm: 'h-54 w-auto',
+    md: 'h-72 w-auto',
+    lg: 'h-90 w-auto'
   };
 
   const gradientId = `cramintel-gradient-${variant}-${Math.random().toString(36).substr(2, 9)}`;

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -70,9 +69,8 @@ export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps)
   return (
     <Sidebar className="border-gray-100">
       <SidebarHeader className="p-6 border-b border-gray-100">
-        <div className="flex items-center gap-3">
+        <div className="flex justify-center">
           <CramIntelLogo size="sm" variant="dark" />
-          <span className="font-bold text-xl text-gray-800 font-space">CramIntel</span>
         </div>
       </SidebarHeader>
 
