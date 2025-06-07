@@ -124,7 +124,7 @@ export function EnhancedPdfViewer({
   if (isFullscreen) {
     return (
       <div className={containerClasses}>
-        <div className="flex items-center justify-between p-4 border-b bg-white">
+        <div className="flex items-center justify-between p-4 border-b bg-white flex-shrink-0">
           <h2 className="text-lg font-semibold truncate">{fileName}</h2>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={downloadFile}>
@@ -142,7 +142,7 @@ export function EnhancedPdfViewer({
         </div>
 
         {showControls && (
-          <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+          <div className="flex items-center justify-between p-4 border-b bg-gray-50 flex-shrink-0">
             <div className="flex items-center gap-2">
               <Button 
                 variant="outline" 
@@ -189,16 +189,18 @@ export function EnhancedPdfViewer({
           </div>
         )}
 
-        <div className="flex-1 overflow-auto bg-gray-100 flex justify-center p-4">
-          <RPConfig>
-            <RPProvider src={sourceUrl}>
-              <RPTheme>
-                <RPDefaultLayout>
-                  <RPPages />
-                </RPDefaultLayout>
-              </RPTheme>
-            </RPProvider>
-          </RPConfig>
+        <div className="flex-1 w-full h-full overflow-hidden bg-gray-100">
+          <div className="w-full h-full">
+            <RPConfig>
+              <RPProvider src={sourceUrl}>
+                <RPTheme>
+                  <RPDefaultLayout>
+                    <RPPages />
+                  </RPDefaultLayout>
+                </RPTheme>
+              </RPProvider>
+            </RPConfig>
+          </div>
         </div>
       </div>
     );
@@ -207,7 +209,7 @@ export function EnhancedPdfViewer({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={containerClasses}>
-        <DialogHeader className="p-4 border-b">
+        <DialogHeader className="p-4 border-b flex-shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg font-semibold truncate">{fileName}</DialogTitle>
             <div className="flex items-center gap-2">
@@ -227,7 +229,7 @@ export function EnhancedPdfViewer({
         </DialogHeader>
 
         {showControls && (
-          <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+          <div className="flex items-center justify-between p-4 border-b bg-gray-50 flex-shrink-0">
             <div className="flex items-center gap-2">
               <Button 
                 variant="outline" 
@@ -274,16 +276,18 @@ export function EnhancedPdfViewer({
           </div>
         )}
 
-        <div className="flex-1 overflow-auto bg-gray-100 flex justify-center p-4">
-          <RPConfig>
-            <RPProvider src={sourceUrl}>
-              <RPTheme>
-                <RPDefaultLayout>
-                  <RPPages />
-                </RPDefaultLayout>
-              </RPTheme>
-            </RPProvider>
-          </RPConfig>
+        <div className="flex-1 w-full h-full overflow-hidden bg-gray-100">
+          <div className="w-full h-full">
+            <RPConfig>
+              <RPProvider src={sourceUrl}>
+                <RPTheme>
+                  <RPDefaultLayout>
+                    <RPPages />
+                  </RPDefaultLayout>
+                </RPTheme>
+              </RPProvider>
+            </RPConfig>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
