@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -15,7 +16,7 @@ import ProgressBar from '@/components/onboarding/ProgressBar';
 import AnimatedBackground from '@/components/onboarding/AnimatedBackground';
 import EncouragingMessage from '@/components/onboarding/EncouragingMessage';
 import ParticleCelebration from '@/components/onboarding/ParticleCelebration';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface OnboardingData {
   name: string;
