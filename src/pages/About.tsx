@@ -1,4 +1,3 @@
-
 import { ArrowLeft, CheckCircle, ArrowRight, Users, Target, Brain, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from "framer-motion";
@@ -167,23 +166,23 @@ const About = () => {
               >
                 <h2 className="text-3xl font-bold mb-6">Join Our Growing Team</h2>
                 <p className="text-gray-600 mb-8">
-                  We're building a diverse team that combines expertise in artificial intelligence, education technology, 
-                  and deep understanding of West African university systems. Join us in creating solutions that 
-                  truly work for students.
+                  We're building a passionate team focused on student success, community engagement, and growth. 
+                  Join us in creating meaningful connections with students and universities across West Africa 
+                  while helping build the future of educational technology.
                 </p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {[
                     {
                       name: "Team Member A",
-                      role: "AI/ML Engineer Position",
-                      bio: "We're looking for a passionate AI engineer to help build intelligent study tools that transform student success.",
+                      role: "Community Outreach Coordinator Position",
+                      bio: "Help us build partnerships with universities and engage directly with student communities to spread awareness about CramIntel.",
                       bgColor: "bg-blue-100"
                     },
                     {
                       name: "Team Member B",
-                      role: "Education Specialist Position",
-                      bio: "Join us as an education expert to ensure our platform truly understands West African university systems.",
+                      role: "Digital Marketing Specialist Position",
+                      bio: "Drive student acquisition through social media campaigns, content creation, and innovative marketing strategies tailored for university students.",
                       bgColor: "bg-green-100"
                     },
                     {
@@ -194,8 +193,8 @@ const About = () => {
                     },
                     {
                       name: "Team Member D",
-                      role: "Software Engineer Position",
-                      bio: "Build the future of educational technology with us using cutting-edge web technologies and AI integration.",
+                      role: "Customer Support Representative Position",
+                      bio: "Provide exceptional support to our student users, ensuring they get the most out of CramIntel's features and achieve academic success.",
                       bgColor: "bg-orange-100"
                     }
                   ].map((member, i) => (
