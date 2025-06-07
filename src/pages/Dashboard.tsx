@@ -13,8 +13,8 @@ import { StudySuggestions } from '@/components/dashboard/StudySuggestions';
 import { CourseProgress } from '@/components/dashboard/CourseProgress';
 import { StudyStreak } from '@/components/dashboard/StudyStreak';
 import { DailyQuiz } from '@/components/dashboard/DailyQuiz';
-import { UploadSection } from '@/components/dashboard/sections/UploadSection';
-import { FlashcardsSection } from '@/components/dashboard/sections/FlashcardsSection';
+import { EnhancedUploadSection } from '@/components/dashboard/sections/EnhancedUploadSection';
+import { EnhancedFlashcardsSection } from '@/components/dashboard/sections/EnhancedFlashcardsSection';
 import { PredictionsSection } from '@/components/dashboard/sections/PredictionsSection';
 import { AIChatSection } from '@/components/dashboard/sections/AIChatSection';
 import { CommunitySection } from '@/components/dashboard/sections/CommunitySection';
@@ -29,9 +29,9 @@ const Dashboard = () => {
   const renderMainContent = () => {
     switch (activeSection) {
       case 'upload':
-        return <UploadSection />;
+        return <EnhancedUploadSection />;
       case 'flashcards':
-        return <FlashcardsSection />;
+        return <EnhancedFlashcardsSection />;
       case 'predictions':
         return <PredictionsSection />;
       case 'ai-chat':
