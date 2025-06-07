@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { Menu, X, ChevronDown } from "lucide-react";
+import { Menu, X, ChevronDown, LogOut, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from 'react-router-dom';
 import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuLink, NavigationMenuList, NavigationMenuTrigger, navigationMenuTriggerStyle } from "@/components/ui/navigation-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import CramIntelLogo from '@/components/CramIntelLogo';
+import { useAuth } from '@/hooks/useAuth';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -39,6 +42,22 @@ const Navbar = () => {
 
   const handleGetStarted = () => {
     navigate('/onboarding');
+    setIsMenuOpen(false);
+  };
+
+  const handleSignIn = () => {
+    navigate('/auth');
+    setIsMenuOpen(false);
+  };
+
+  const handleDashboard = () => {
+    navigate('/dashboard');
+    setIsMenuOpen(false);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
     setIsMenuOpen(false);
   };
 
@@ -146,11 +165,50 @@ const Navbar = () => {
                   </Link>
                 </NavigationMenuItem>
                 
-                <NavigationMenuItem>
-                  <button onClick={handleGetStarted} className={cn("px-4 py-2 rounded-md transition-colors", isScrolled ? "bg-gray-200 text-gray-700 hover:bg-gray-300" : "bg-gray-700 text-white hover:bg-gray-600")}>
-                    Get Started
-                  </button>
-                </NavigationMenuItem>
+                {/* Authentication-aware navigation */}
+                {user ? (
+                  <>
+                    <NavigationMenuItem>
+                      <button onClick={handleDashboard} className={cn("px-4 py-2 rounded-md transition-colors mr-3", isScrolled ? "bg-gray-200 text-gray-700 hover:bg-gray-300" : "bg-gray-700 text-white hover:bg-gray-600")}>
+                        Dashboard
+                      </button>
+                    </NavigationMenuItem>
+                    
+                    <NavigationMenuItem>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className={cn("flex items-center gap-2 px-3 py-2 rounded-md transition-colors", isScrolled ? "text-gray-700 hover:bg-gray-100" : "text-white hover:bg-gray-800")}>
+                          <User className="w-4 h-4" />
+                          <ChevronDown className="w-4 h-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem onClick={handleDashboard}>
+                            <User className="w-4 h-4 mr-2" />
+                            Dashboard
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={handleSignOut}>
+                            <LogOut className="w-4 h-4 mr-2" />
+                            Sign Out
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </NavigationMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <NavigationMenuItem>
+                      <button onClick={handleSignIn} className={cn("px-4 py-2 rounded-md transition-colors mr-3", isScrolled ? "text-gray-700 hover:bg-gray-100" : "text-white hover:bg-gray-800")}>
+                        Sign In
+                      </button>
+                    </NavigationMenuItem>
+                    
+                    <NavigationMenuItem>
+                      <button onClick={handleGetStarted} className={cn("px-4 py-2 rounded-md transition-colors", isScrolled ? "bg-gray-200 text-gray-700 hover:bg-gray-300" : "bg-gray-700 text-white hover:bg-gray-600")}>
+                        Get Started
+                      </button>
+                    </NavigationMenuItem>
+                  </>
+                )}
               </NavigationMenuList>
             </NavigationMenu>
           </div>
@@ -235,9 +293,26 @@ const Navbar = () => {
             Blog
           </Link>
           
-          <button onClick={handleGetStarted} className={cn("block w-full text-left px-3 py-2 rounded-md", isScrolled ? "text-gray-700 bg-gray-200 hover:bg-gray-300" : "text-white bg-gray-700 hover:bg-gray-600")}>
-            Get Started
-          </button>
+          {/* Mobile authentication buttons */}
+          {user ? (
+            <>
+              <button onClick={handleDashboard} className={cn("block w-full text-left px-3 py-2 rounded-md", isScrolled ? "text-gray-700 bg-gray-200 hover:bg-gray-300" : "text-white bg-gray-700 hover:bg-gray-600")}>
+                Dashboard
+              </button>
+              <button onClick={handleSignOut} className={cn("block w-full text-left px-3 py-2 rounded-md", isScrolled ? "text-gray-700 hover:bg-gray-50" : "text-gray-200 hover:bg-gray-900")}>
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={handleSignIn} className={cn("block w-full text-left px-3 py-2 rounded-md", isScrolled ? "text-gray-700 hover:bg-gray-50" : "text-gray-200 hover:bg-gray-900")}>
+                Sign In
+              </button>
+              <button onClick={handleGetStarted} className={cn("block w-full text-left px-3 py-2 rounded-md", isScrolled ? "text-gray-700 bg-gray-200 hover:bg-gray-300" : "text-white bg-gray-700 hover:bg-gray-600")}>
+                Get Started
+              </button>
+            </>
+          )}
         </div>
       </div>
     </motion.nav>

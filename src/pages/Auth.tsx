@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -15,9 +15,16 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Auto-redirect if user is already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,7 +161,7 @@ const Auth = () => {
             {!isLogin && (
               <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-700">
-                  💡 For the full experience, consider going through our guided onboarding process
+                  💡 New to CramIntel? Get the full guided experience
                 </p>
                 <Button
                   variant="ghost"
@@ -163,6 +170,22 @@ const Auth = () => {
                   className="mt-2 text-blue-700 hover:text-blue-800 p-0 h-auto"
                 >
                   Start guided setup →
+                </Button>
+              </div>
+            )}
+
+            {isLogin && (
+              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-700">
+                  🆕 First time using CramIntel?
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/onboarding')}
+                  className="mt-2 text-gray-700 hover:text-gray-800 p-0 h-auto"
+                >
+                  Get the full guided experience →
                 </Button>
               </div>
             )}

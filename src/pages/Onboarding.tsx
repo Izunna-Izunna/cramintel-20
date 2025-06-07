@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -17,6 +16,7 @@ import AnimatedBackground from '@/components/onboarding/AnimatedBackground';
 import EncouragingMessage from '@/components/onboarding/EncouragingMessage';
 import ParticleCelebration from '@/components/onboarding/ParticleCelebration';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface OnboardingData {
   name: string;
@@ -42,9 +42,17 @@ const Onboarding = () => {
     firstAction: ''
   });
   const [showCelebration, setShowCelebration] = useState(false);
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const totalSteps = 10;
+
+  // Auto-redirect if user is already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   // Save progress to localStorage
   useEffect(() => {
