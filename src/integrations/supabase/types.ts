@@ -238,8 +238,13 @@ export type Database = {
           course: string | null
           created_at: string | null
           description: string | null
+          format: string | null
           id: string
+          last_studied: string | null
           name: string
+          source_materials: string[] | null
+          study_streak: number | null
+          tags: string[] | null
           total_cards: number | null
           updated_at: string | null
           user_id: string | null
@@ -249,8 +254,13 @@ export type Database = {
           course?: string | null
           created_at?: string | null
           description?: string | null
+          format?: string | null
           id?: string
+          last_studied?: string | null
           name: string
+          source_materials?: string[] | null
+          study_streak?: number | null
+          tags?: string[] | null
           total_cards?: number | null
           updated_at?: string | null
           user_id?: string | null
@@ -260,8 +270,13 @@ export type Database = {
           course?: string | null
           created_at?: string | null
           description?: string | null
+          format?: string | null
           id?: string
+          last_studied?: string | null
           name?: string
+          source_materials?: string[] | null
+          study_streak?: number | null
+          tags?: string[] | null
           total_cards?: number | null
           updated_at?: string | null
           user_id?: string | null

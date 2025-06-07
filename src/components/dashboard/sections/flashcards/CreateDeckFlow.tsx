@@ -1,243 +1,363 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FileText, Filter, Wand2 } from 'lucide-react';
-import { TagChip } from '../../TagChip';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { X, FileText, Plus, Wand2 } from 'lucide-react';
+import { useFlashcardDecks } from '@/hooks/useFlashcardDecks';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface CreateDeckFlowProps {
   onClose: () => void;
   onComplete: () => void;
 }
 
+interface Material {
+  id: string;
+  name: string;
+  course: string;
+  material_type: string;
+}
+
 export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
-  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-  const [selectedCourse, setSelectedCourse] = useState('');
-  const [selectedMaterialType, setSelectedMaterialType] = useState('');
-  const [selectedFormat, setSelectedFormat] = useState('qa');
-  const [deckName, setDeckName] = useState('');
-  const [useAllMaterials, setUseAllMaterials] = useState(false);
-
-  const uploadedFiles = [
-    { id: 'file1', name: 'Thermodynamics_Week4_Notes.pdf', course: 'PHY 101', type: 'notes', tags: ['Thermodynamics'] },
-    { id: 'file2', name: 'DataStructures_Chapter3.pdf', course: 'CSC 202', type: 'notes', tags: ['Data Structures'] },
-    { id: 'file3', name: 'Math_Formulas_Sheet.pdf', course: 'ENG 301', type: 'notes', tags: ['Mathematics'] },
-    { id: 'file4', name: 'PHY101_PastQuestions.pdf', course: 'PHY 101', type: 'past-question', tags: ['Thermodynamics'] },
-  ];
-
-  const courseOptions = ['PHY 101', 'CSC 202', 'ENG 301', 'MTH 201', 'CHE 205'];
-  const materialTypes = [
-    { id: 'notes', label: '📘 Notes' },
-    { id: 'past-question', label: '📝 Past Questions' },
-    { id: 'assignment', label: '🧪 Assignment' },
-    { id: 'whisper', label: '🤫 Whisper' }
-  ];
-
-  const formatOptions = [
-    { 
-      id: 'qa', 
-      name: 'Q&A (Default)', 
-      description: 'Traditional question and answer format',
-      example: 'Q: What is Newton\'s first law? A: An object at rest...'
-    },
-    { 
-      id: 'fill', 
-      name: 'Fill-in-the-blank', 
-      description: 'Complete missing parts in statements',
-      example: 'Newton\'s first law states that an object at ___ will stay at ___'
-    },
-    { 
-      id: 'definitions', 
-      name: 'Definitions Only', 
-      description: 'Term and definition pairs for quick lookup',
-      example: 'Inertia: The tendency of an object to resist changes in motion'
-    },
-    { 
-      id: 'mcq', 
-      name: 'Multiple Choice (Coming Soon)', 
-      description: 'Choose from multiple options',
-      example: 'What is inertia? A) Force B) Resistance to change C) Acceleration',
-      disabled: true
-    }
-  ];
-
-  const filteredFiles = uploadedFiles.filter(file => {
-    if (useAllMaterials) return true;
-    const courseMatch = !selectedCourse || file.course === selectedCourse;
-    const typeMatch = !selectedMaterialType || file.type === selectedMaterialType;
-    return courseMatch && typeMatch;
+  const [step, setStep] = useState(1);
+  const [deckData, setDeckData] = useState({
+    name: '',
+    description: '',
+    course: '',
+    format: 'Q&A',
+    tags: [] as string[],
+    selectedMaterials: [] as string[]
   });
+  const [tagInput, setTagInput] = useState('');
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [loadingMaterials, setLoadingMaterials] = useState(true);
+  const [creating, setCreating] = useState(false);
 
-  const handleFileToggle = (fileId: string) => {
-    setSelectedFiles(prev => 
-      prev.includes(fileId) 
-        ? prev.filter(id => id !== fileId)
-        : [...prev, fileId]
-    );
+  const { user } = useAuth();
+  const { createDeck } = useFlashcardDecks();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchMaterials();
+  }, [user]);
+
+  const fetchMaterials = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('cramintel_materials')
+        .select('id, name, course, material_type')
+        .eq('user_id', user.id)
+        .eq('processed', true)
+        .order('upload_date', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching materials:', error);
+        return;
+      }
+
+      setMaterials(data || []);
+    } catch (error) {
+      console.error('Error fetching materials:', error);
+    } finally {
+      setLoadingMaterials(false);
+    }
   };
 
-  const handleGenerate = () => {
-    console.log('Generating deck with:', {
-      files: useAllMaterials ? uploadedFiles.map(f => f.id) : selectedFiles,
-      format: selectedFormat,
-      name: deckName
-    });
-    onComplete();
+  const addTag = () => {
+    if (tagInput.trim() && !deckData.tags.includes(tagInput.trim())) {
+      setDeckData(prev => ({
+        ...prev,
+        tags: [...prev.tags, tagInput.trim()]
+      }));
+      setTagInput('');
+    }
   };
 
-  const canGenerate = useAllMaterials || selectedFiles.length > 0;
+  const removeTag = (tagToRemove: string) => {
+    setDeckData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToRemove)
+    }));
+  };
 
-  return (
-    <Card className="border-2 border-blue-200">
+  const toggleMaterial = (materialId: string) => {
+    setDeckData(prev => ({
+      ...prev,
+      selectedMaterials: prev.selectedMaterials.includes(materialId)
+        ? prev.selectedMaterials.filter(id => id !== materialId)
+        : [...prev.selectedMaterials, materialId]
+    }));
+  };
+
+  const createSampleFlashcards = async (deckId: string) => {
+    if (!user) return;
+
+    // Create some sample flashcards for demonstration
+    const sampleCards = [
+      {
+        question: "What is the main topic of this deck?",
+        answer: deckData.description || "This deck covers important concepts for studying.",
+        course: deckData.course,
+        difficulty_level: "medium",
+        user_id: user.id
+      },
+      {
+        question: "How can you use this flashcard deck effectively?",
+        answer: "Review regularly, focus on cards you find difficult, and use spaced repetition for better retention.",
+        course: deckData.course,
+        difficulty_level: "easy",
+        user_id: user.id
+      }
+    ];
+
+    try {
+      // Insert flashcards
+      const { data: flashcardsData, error: flashcardsError } = await supabase
+        .from('cramintel_flashcards')
+        .insert(sampleCards)
+        .select();
+
+      if (flashcardsError) {
+        console.error('Error creating flashcards:', flashcardsError);
+        return;
+      }
+
+      // Link flashcards to deck
+      const deckFlashcards = flashcardsData.map(card => ({
+        deck_id: deckId,
+        flashcard_id: card.id
+      }));
+
+      const { error: linkError } = await supabase
+        .from('cramintel_deck_flashcards')
+        .insert(deckFlashcards);
+
+      if (linkError) {
+        console.error('Error linking flashcards to deck:', linkError);
+      }
+    } catch (error) {
+      console.error('Error creating sample flashcards:', error);
+    }
+  };
+
+  const handleCreateDeck = async () => {
+    if (!deckData.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a deck name",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setCreating(true);
+
+    try {
+      const selectedMaterialNames = materials
+        .filter(m => deckData.selectedMaterials.includes(m.id))
+        .map(m => m.name);
+
+      const deck = await createDeck({
+        name: deckData.name,
+        description: deckData.description,
+        course: deckData.course,
+        format: deckData.format,
+        tags: deckData.tags,
+        source_materials: selectedMaterialNames
+      });
+
+      if (deck) {
+        // Create sample flashcards
+        await createSampleFlashcards(deck.id);
+        
+        toast({
+          title: "Success",
+          description: "Deck created with sample flashcards",
+        });
+        
+        onComplete();
+      }
+    } catch (error) {
+      console.error('Error creating deck:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create deck",
+        variant: "destructive"
+      });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const renderStep1 = () => (
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Wand2 className="w-5 h-5" />
-          Create New Deck
+          Create New Deck - Basic Info
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Step 1: Select Source Materials */}
+      <CardContent className="space-y-4">
         <div>
-          <h4 className="font-semibold mb-3 flex items-center gap-2">
-            <span className="bg-blue-100 text-blue-600 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold">1</span>
-            Select Source Materials
-          </h4>
-          
-          {/* Filter Controls */}
-          <div className="space-y-3 mb-4">
-            <div className="flex items-center gap-2">
-              <Button
-                variant={useAllMaterials ? "default" : "outline"}
-                size="sm"
-                onClick={() => setUseAllMaterials(!useAllMaterials)}
-                className="text-xs"
-              >
-                Use All Materials
-              </Button>
-              {!useAllMaterials && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Filter className="w-4 h-4" />
-                  <span>Filter by:</span>
-                </div>
-              )}
-            </div>
-            
-            {!useAllMaterials && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1">Course</label>
-                  <div className="flex flex-wrap gap-1">
-                    {courseOptions.map(course => (
-                      <TagChip
-                        key={course}
-                        label={course}
-                        color={selectedCourse === course ? 'blue' : 'default'}
-                        onClick={() => setSelectedCourse(selectedCourse === course ? '' : course)}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1">Material Type</label>
-                  <div className="flex flex-wrap gap-1">
-                    {materialTypes.map(type => (
-                      <TagChip
-                        key={type.id}
-                        label={type.label}
-                        color={selectedMaterialType === type.id ? 'green' : 'default'}
-                        onClick={() => setSelectedMaterialType(selectedMaterialType === type.id ? '' : type.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* File Selection */}
-          <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
-            {filteredFiles.map(file => (
-              <div
-                key={file.id}
-                className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                  useAllMaterials || selectedFiles.includes(file.id)
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-                onClick={() => !useAllMaterials && handleFileToggle(file.id)}
-              >
-                <div className="flex items-center gap-3">
-                  <FileText className="w-4 h-4 text-blue-500" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{file.name}</p>
-                    <div className="flex gap-2 mt-1">
-                      <TagChip label={file.course} color="blue" />
-                      <TagChip label={materialTypes.find(t => t.id === file.type)?.label || file.type} color="green" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Step 2: Choose Format */}
-        <div>
-          <h4 className="font-semibold mb-3 flex items-center gap-2">
-            <span className="bg-blue-100 text-blue-600 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold">2</span>
-            Choose Format
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {formatOptions.map(format => (
-              <div
-                key={format.id}
-                className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                  format.disabled 
-                    ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-60'
-                    : selectedFormat === format.id 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-gray-200 hover:border-gray-300'
-                }`}
-                onClick={() => !format.disabled && setSelectedFormat(format.id)}
-              >
-                <h5 className="font-medium text-sm">{format.name}</h5>
-                <p className="text-xs text-gray-600 mb-2">{format.description}</p>
-                <p className="text-xs text-gray-500 italic">{format.example}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Step 3: Name Your Deck (Optional) */}
-        <div>
-          <h4 className="font-semibold mb-3 flex items-center gap-2">
-            <span className="bg-blue-100 text-blue-600 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold">3</span>
-            Name Your Deck (Optional)
-          </h4>
+          <Label htmlFor="deckName">Deck Name</Label>
           <Input
-            value={deckName}
-            onChange={(e) => setDeckName(e.target.value)}
-            placeholder="e.g., Thermodynamics Week 4 Review"
-            className="text-sm"
+            id="deckName"
+            value={deckData.name}
+            onChange={(e) => setDeckData(prev => ({ ...prev, name: e.target.value }))}
+            placeholder="e.g., Biology Chapter 3"
           />
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-3 pt-4 border-t">
+        <div>
+          <Label htmlFor="deckDescription">Description</Label>
+          <Textarea
+            id="deckDescription"
+            value={deckData.description}
+            onChange={(e) => setDeckData(prev => ({ ...prev, description: e.target.value }))}
+            placeholder="Briefly describe what this deck covers..."
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="deckCourse">Course</Label>
+          <Input
+            id="deckCourse"
+            value={deckData.course}
+            onChange={(e) => setDeckData(prev => ({ ...prev, course: e.target.value }))}
+            placeholder="e.g., BIO 101"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="deckFormat">Format</Label>
+          <Select value={deckData.format} onValueChange={(value) => setDeckData(prev => ({ ...prev, format: value }))}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Q&A">Q&A</SelectItem>
+              <SelectItem value="Fill-in-the-blank">Fill-in-the-blank</SelectItem>
+              <SelectItem value="Definitions">Definitions</SelectItem>
+              <SelectItem value="Multiple Choice">Multiple Choice</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label>Tags</Label>
+          <div className="flex gap-2 mb-2">
+            <Input
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              placeholder="Add a tag..."
+              onKeyPress={(e) => e.key === 'Enter' && addTag()}
+            />
+            <Button type="button" onClick={addTag} size="sm">
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {deckData.tags.map(tag => (
+              <span key={tag} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm flex items-center gap-1">
+                {tag}
+                <button onClick={() => removeTag(tag)} className="hover:text-blue-600">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex justify-between pt-4">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button 
-            disabled={!canGenerate}
-            className="bg-gray-800 hover:bg-gray-700 flex-1"
-            onClick={handleGenerate}
-          >
-            <Wand2 className="w-4 h-4 mr-2" />
-            Generate Flashcards
+          <Button onClick={() => setStep(2)}>
+            Next: Select Materials
           </Button>
         </div>
       </CardContent>
     </Card>
+  );
+
+  const renderStep2 = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="w-5 h-5" />
+          Select Source Materials
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-gray-600">Choose which uploaded materials to use for generating flashcards:</p>
+        
+        {loadingMaterials ? (
+          <div className="text-center py-8">Loading materials...</div>
+        ) : materials.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+            <p>No processed materials found</p>
+            <p className="text-sm">Upload and process some materials first</p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {materials.map(material => (
+              <div key={material.id} className="flex items-center space-x-3 p-3 border rounded-lg">
+                <Checkbox
+                  checked={deckData.selectedMaterials.includes(material.id)}
+                  onCheckedChange={() => toggleMaterial(material.id)}
+                />
+                <div className="flex-1">
+                  <p className="font-medium">{material.name}</p>
+                  <p className="text-sm text-gray-600">{material.course} - {material.material_type}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex justify-between pt-4">
+          <Button variant="outline" onClick={() => setStep(1)}>
+            Back
+          </Button>
+          <Button onClick={handleCreateDeck} disabled={creating}>
+            {creating ? "Creating..." : "Create Deck"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-2xl"
+      >
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+          >
+            {step === 1 ? renderStep1() : renderStep2()}
+          </motion.div>
+        </AnimatePresence>
+      </motion.div>
+    </div>
   );
 }
