@@ -38,7 +38,7 @@ const successStories = [
     improvement: "Top 5% of class",
     story: "Medical school is intense, but CramIntel's study communities connected me with peers who shared valuable insights. The AI-generated flashcards made memorizing complex medical terms manageable.",
     metrics: { gradeImprovement: "90%", studyTimeReduced: "35%", examScore: "91%" },
-    imageUrl: "/lovable-uploads/6b0637e9-4a7b-40d0-b219-c8b7f879f93e.png",
+    imageUrl: "/lovable-uploads/b5536834-441a-48d9-a259-cd21a359d718.png",
     testimonial: "The study communities feature is a game-changer. Collaborating with classmates through CramIntel helped us all improve together.",
     coursesUsed: ["Anatomy", "Physiology", "Pharmacology"]
   },
