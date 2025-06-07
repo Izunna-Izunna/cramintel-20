@@ -31,17 +31,15 @@ export function EnhancedPdfViewer({
 }: EnhancedPdfViewerProps) {
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [totalPages, setTotalPages] = useState<number>(0);
-  const [zoom, setZoom] = useState<number>(100);
+  const [zoom, setZoom] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
   const { toast } = useToast();
 
-  const zoomLevels = [50, 75, 100, 125, 150, 200];
+  const zoomLevels = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-  const handleDocumentLoad = useCallback((data: any) => {
-    if (data?.numPages) {
-      setTotalPages(data.numPages);
-      setLoading(false);
-    }
+  const handleDocumentLoad = useCallback(() => {
+    setLoading(false);
+    console.log('PDF document loaded successfully');
   }, []);
 
   const handleDocumentError = useCallback((error: any) => {
@@ -143,7 +141,7 @@ export function EnhancedPdfViewer({
                 <ChevronLeft className="w-4 h-4" />
               </Button>
               <span className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages}
+                Page {currentPage} of {totalPages || '...'}
               </span>
               <Button 
                 variant="outline" 
@@ -165,7 +163,7 @@ export function EnhancedPdfViewer({
                 <ZoomOut className="w-4 h-4" />
               </Button>
               <span className="text-sm text-gray-600 min-w-[60px] text-center">
-                {zoom}%
+                {Math.round(zoom * 100)}%
               </span>
               <Button 
                 variant="outline" 
@@ -187,16 +185,10 @@ export function EnhancedPdfViewer({
           )}
           
           <RPConfig>
-            <RPProvider>
+            <RPProvider src={sourceUrl}>
               <RPTheme>
                 <RPDefaultLayout>
-                  <RPPages 
-                    fileUrl={sourceUrl}
-                    initialPage={currentPage}
-                    scale={zoom / 100}
-                    onDocumentLoad={handleDocumentLoad}
-                    onDocumentError={handleDocumentError}
-                  />
+                  <RPPages />
                 </RPDefaultLayout>
               </RPTheme>
             </RPProvider>
