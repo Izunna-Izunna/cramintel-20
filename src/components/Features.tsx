@@ -30,13 +30,13 @@ const Features = () => {
       icon: <BookOpen className="w-10 h-10 text-white transition-transform duration-300 transform" />,
       title: "Smart Study Tools",
       description: "Auto-generated flashcards, quizzes, and interactive study materials created from your uploaded content for effective learning.",
-      image: "/lovable-uploads/d16ff71b-47a0-45da-91f8-31ea55ef55ba.png"
+      image: "/lovable-uploads/2c7cb17d-bf81-40a1-8a64-55da0d99e043.png"
     },
     {
       icon: <Users className="w-10 h-10 text-white transition-transform duration-300 transform" />,
       title: "Study Communities",
       description: "Join course-specific study circles, collaborate with peers, and share insights for better exam preparation.",
-      image: "/lovable-uploads/6739bd63-bf19-4abd-bb23-0b613bbf7ac8.png"
+      image: "/lovable-uploads/2b18f7de-b4e6-4b43-8911-3f587cf31869.png"
     }
   ];
 
