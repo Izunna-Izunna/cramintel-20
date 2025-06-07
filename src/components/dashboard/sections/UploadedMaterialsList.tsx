@@ -112,6 +112,8 @@ export function UploadedMaterialsList() {
   };
 
   const handleViewMaterial = async (material: Material) => {
+    console.log('Attempting to view material:', material.name, 'Type:', material.file_type);
+    
     if (material.file_type !== 'application/pdf') {
       toast({
         title: "Preview Not Available",
@@ -132,6 +134,7 @@ export function UploadedMaterialsList() {
 
     try {
       setLoadingFileUrl(material.id);
+      console.log('Generating signed URL for path:', material.file_path);
       
       // Generate a signed URL for the file
       const { data: signedUrlData, error: urlError } = await supabase.storage
@@ -149,6 +152,7 @@ export function UploadedMaterialsList() {
       }
 
       if (!signedUrlData.signedUrl) {
+        console.error('No signed URL generated');
         toast({
           title: "Error",
           description: "Failed to generate file access URL.",
@@ -157,6 +161,8 @@ export function UploadedMaterialsList() {
         return;
       }
 
+      console.log('Signed URL generated successfully:', signedUrlData.signedUrl);
+      
       setSelectedPdf({
         url: signedUrlData.signedUrl,
         name: material.name

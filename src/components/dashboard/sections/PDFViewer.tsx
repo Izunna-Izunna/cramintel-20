@@ -7,16 +7,18 @@ import { ChevronLeft, ChevronRight, Download, ZoomIn, ZoomOut, X, AlertCircle } 
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-// Set up PDF.js worker with fallback options
+// Set up PDF.js worker with improved error handling
 const setupPDFWorker = () => {
   try {
-    // Primary: Use jsDelivr CDN (more reliable than unpkg)
+    // Use jsDelivr CDN with explicit version
     pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+    console.log('PDF.js worker initialized with version:', pdfjs.version);
   } catch (error) {
     console.error('Failed to set PDF.js worker:', error);
     // Fallback: Try unpkg as backup
     try {
       pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+      console.log('PDF.js worker fallback initialized');
     } catch (fallbackError) {
       console.error('Fallback PDF.js worker also failed:', fallbackError);
     }
@@ -38,39 +40,72 @@ export function PDFViewer({ isOpen, onClose, fileUrl, fileName }: PDFViewerProps
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [scale, setScale] = useState<number>(1.0);
   const [loading, setLoading] = useState<boolean>(true);
-  const [workerError, setWorkerError] = useState<boolean>(false);
-  const [retryAttempts, setRetryAttempts] = useState<number>(0);
+  const [error, setError] = useState<string | null>(null);
+  const [loadingTimeout, setLoadingTimeout] = useState<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
+  React.useEffect(() => {
+    if (isOpen) {
+      console.log('PDF Viewer opened with URL:', fileUrl);
+      setLoading(true);
+      setError(null);
+      
+      // Set a timeout for loading
+      const timeout = setTimeout(() => {
+        console.log('PDF loading timeout reached');
+        setLoading(false);
+        setError('PDF loading is taking too long. Please try downloading the file instead.');
+      }, 30000); // 30 second timeout
+      
+      setLoadingTimeout(timeout);
+    }
+    
+    return () => {
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        setLoadingTimeout(null);
+      }
+    };
+  }, [isOpen, fileUrl]);
+
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    console.log('PDF loaded successfully with', numPages, 'pages');
     setNumPages(numPages);
     setLoading(false);
-    setWorkerError(false);
-    setRetryAttempts(0);
+    setError(null);
+    
+    if (loadingTimeout) {
+      clearTimeout(loadingTimeout);
+      setLoadingTimeout(null);
+    }
   };
 
   const onDocumentLoadError = (error: Error) => {
     console.error('Error loading PDF:', error);
+    console.error('PDF URL that failed:', fileUrl);
     setLoading(false);
     
-    // Check if it's a worker-related error
-    if (error.message.includes('worker') || error.message.includes('Worker')) {
-      setWorkerError(true);
-      
-      if (retryAttempts < 2) {
-        // Try to reinitialize worker and retry
-        setTimeout(() => {
-          setupPDFWorker();
-          setRetryAttempts(prev => prev + 1);
-          setLoading(true);
-        }, 1000);
-        return;
-      }
+    if (loadingTimeout) {
+      clearTimeout(loadingTimeout);
+      setLoadingTimeout(null);
     }
+    
+    // Provide more specific error messages
+    let errorMessage = "Unable to load the PDF file.";
+    
+    if (error.message.includes('worker')) {
+      errorMessage = "PDF viewer initialization failed. Please try refreshing the page.";
+    } else if (error.message.includes('network') || error.message.includes('fetch')) {
+      errorMessage = "Network error while loading PDF. Please check your connection.";
+    } else if (error.message.includes('invalid') || error.message.includes('corrupt')) {
+      errorMessage = "The PDF file appears to be corrupted or invalid.";
+    }
+    
+    setError(errorMessage);
     
     toast({
       title: "Error Loading PDF",
-      description: "Unable to load the PDF file. Please try downloading it instead.",
+      description: errorMessage + " You can still download the file.",
       variant: "destructive"
     });
   };
@@ -92,6 +127,7 @@ export function PDFViewer({ isOpen, onClose, fileUrl, fileName }: PDFViewerProps
   };
 
   const downloadFile = () => {
+    console.log('Downloading file:', fileName);
     const link = document.createElement('a');
     link.href = fileUrl;
     link.download = fileName;
@@ -101,10 +137,22 @@ export function PDFViewer({ isOpen, onClose, fileUrl, fileName }: PDFViewerProps
   };
 
   const retryLoading = () => {
-    setWorkerError(false);
+    console.log('Retrying PDF load');
+    setError(null);
     setLoading(true);
-    setRetryAttempts(0);
     setupPDFWorker();
+    
+    // Reset the timeout
+    if (loadingTimeout) {
+      clearTimeout(loadingTimeout);
+    }
+    
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      setError('PDF loading is taking too long. Please try downloading the file instead.');
+    }, 30000);
+    
+    setLoadingTimeout(timeout);
   };
 
   return (
@@ -126,7 +174,7 @@ export function PDFViewer({ isOpen, onClose, fileUrl, fileName }: PDFViewerProps
         </DialogHeader>
 
         {/* Controls */}
-        {!workerError && (
+        {!error && !loading && (
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={goToPrevPage} disabled={pageNumber <= 1}>
@@ -156,12 +204,12 @@ export function PDFViewer({ isOpen, onClose, fileUrl, fileName }: PDFViewerProps
 
         {/* PDF Viewer */}
         <div className="flex-1 overflow-auto bg-gray-100 flex flex-col justify-center items-center p-4">
-          {workerError ? (
+          {error ? (
             <div className="max-w-md w-full">
               <Alert variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  PDF viewer is currently unavailable due to a technical issue. You can still download the file using the button above.
+                  {error}
                 </AlertDescription>
               </Alert>
               <div className="flex gap-2 justify-center">
@@ -177,6 +225,9 @@ export function PDFViewer({ isOpen, onClose, fileUrl, fileName }: PDFViewerProps
             <div className="flex flex-col items-center gap-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
               <p className="text-gray-600">Loading PDF...</p>
+              <p className="text-xs text-gray-500 text-center max-w-md">
+                If this takes too long, you can download the file directly using the button above.
+              </p>
             </div>
           ) : (
             <Document
@@ -185,6 +236,11 @@ export function PDFViewer({ isOpen, onClose, fileUrl, fileName }: PDFViewerProps
               onLoadError={onDocumentLoadError}
               loading=""
               className="flex justify-center"
+              options={{
+                workerSrc: pdfjs.GlobalWorkerOptions.workerSrc,
+                cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/cmaps/',
+                cMapPacked: true,
+              }}
             >
               <Page
                 pageNumber={pageNumber}
