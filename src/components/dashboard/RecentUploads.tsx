@@ -32,36 +32,36 @@ const recentUploads = [
 
 export function RecentUploads() {
   return (
-    <Card>
+    <Card className="border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-3 text-gray-800 font-space">
           📂 Recent Uploads
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {recentUploads.map((upload, index) => (
-            <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center gap-3">
+            <div key={index} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-all duration-300">
+              <div className="flex items-center gap-4">
                 <span className="text-2xl">{upload.icon}</span>
                 <div>
-                  <p className="font-medium text-sm">{upload.name}</p>
-                  <p className="text-xs text-gray-500">{upload.course} • {upload.uploadedAt}</p>
+                  <p className="font-semibold text-sm text-gray-800">{upload.name}</p>
+                  <p className="text-xs text-gray-600">{upload.course} • {upload.uploadedAt}</p>
                 </div>
               </div>
               
               <div className="flex gap-2">
                 {upload.status === 'processed' ? (
                   <>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 hover:bg-gray-100">
                       Ask AI
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 hover:bg-gray-100">
                       Generate Flashcards
                     </Button>
                   </>
                 ) : (
-                  <span className="text-xs text-yellow-600 px-2 py-1 bg-yellow-50 rounded">
+                  <span className="text-xs text-gray-600 px-3 py-2 bg-gray-100 rounded-lg">
                     Processing...
                   </span>
                 )}
@@ -70,7 +70,7 @@ export function RecentUploads() {
           ))}
         </div>
         
-        <Button variant="outline" className="w-full mt-4">
+        <Button variant="outline" className="w-full mt-6 border-gray-300 text-gray-700 hover:bg-gray-50">
           View All Uploads
         </Button>
       </CardContent>

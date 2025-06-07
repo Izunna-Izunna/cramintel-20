@@ -25,21 +25,21 @@ const suggestions = [
 
 export function StudySuggestions() {
   return (
-    <Card>
+    <Card className="border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-3 text-gray-800 font-space">
           🧭 Smart Study Suggestions
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {suggestions.map((suggestion, index) => (
-            <div key={index} className="p-3 bg-blue-50 rounded-lg">
-              <div className="flex items-start gap-3">
-                <span className="text-lg">{suggestion.icon}</span>
+            <div key={index} className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all duration-300">
+              <div className="flex items-start gap-4">
+                <span className="text-xl">{suggestion.icon}</span>
                 <div className="flex-1">
-                  <p className="text-sm text-gray-700 mb-2">{suggestion.text}</p>
-                  <button className="text-xs text-blue-600 hover:underline">
+                  <p className="text-sm text-gray-700 mb-3 leading-relaxed">{suggestion.text}</p>
+                  <button className="text-xs text-gray-600 hover:text-gray-800 font-medium hover:underline transition-colors duration-200">
                     {suggestion.action} →
                   </button>
                 </div>

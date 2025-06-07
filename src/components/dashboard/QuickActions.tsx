@@ -8,48 +8,63 @@ const quickActions = [
     icon: "📤",
     title: "Upload Material",
     description: "Add notes or past questions",
-    color: "bg-green-500 hover:bg-green-600"
+    variant: "primary"
   },
   {
     icon: "🔮",
     title: "View Predictions",
     description: "See likely exam questions",
-    color: "bg-purple-500 hover:bg-purple-600"
+    variant: "secondary"
   },
   {
     icon: "💬",
     title: "Ask AI About Notes",
     description: "Get instant explanations",
-    color: "bg-blue-500 hover:bg-blue-600"
+    variant: "accent"
   },
   {
     icon: "🧠",
     title: "Practice Flashcards",
     description: "Review your study cards",
-    color: "bg-orange-500 hover:bg-orange-600"
+    variant: "muted"
   },
   {
     icon: "🧾",
     title: "View Assignments",
     description: "Check upcoming tasks",
-    color: "bg-red-500 hover:bg-red-600"
+    variant: "outline"
   }
 ];
 
 export function QuickActions() {
+  const getButtonClasses = (variant: string) => {
+    switch (variant) {
+      case 'primary':
+        return 'bg-gray-800 hover:bg-gray-700 text-white border-gray-800';
+      case 'secondary':
+        return 'bg-gray-700 hover:bg-gray-600 text-white border-gray-700';
+      case 'accent':
+        return 'bg-gray-600 hover:bg-gray-500 text-white border-gray-600';
+      case 'muted':
+        return 'bg-gray-500 hover:bg-gray-400 text-white border-gray-500';
+      default:
+        return 'bg-white hover:bg-gray-50 text-gray-800 border-gray-200 hover:border-gray-300';
+    }
+  };
+
   return (
-    <Card>
-      <CardContent className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+    <Card className="border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
+      <CardContent className="p-8">
+        <h3 className="text-2xl font-bold mb-6 text-gray-800 font-space">Quick Actions</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {quickActions.map((action, index) => (
             <Button
               key={index}
-              className={`${action.color} text-white h-auto p-4 flex flex-col items-center gap-2`}
+              className={`${getButtonClasses(action.variant)} h-auto p-6 flex flex-col items-center gap-3 hover:-translate-y-1 transition-all duration-300 rounded-xl`}
             >
-              <span className="text-2xl">{action.icon}</span>
+              <span className="text-3xl">{action.icon}</span>
               <div className="text-center">
-                <div className="font-medium text-sm">{action.title}</div>
+                <div className="font-semibold text-sm mb-1">{action.title}</div>
                 <div className="text-xs opacity-90">{action.description}</div>
               </div>
             </Button>

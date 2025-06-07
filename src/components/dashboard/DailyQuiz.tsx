@@ -45,38 +45,38 @@ export function DailyQuiz() {
   };
 
   return (
-    <Card>
+    <Card className="border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-3 text-gray-800 font-space">
           🧪 Daily Quiz
         </CardTitle>
       </CardHeader>
       <CardContent>
         {!showResults ? (
           <div>
-            <div className="mb-4">
-              <div className="flex justify-between text-sm text-gray-500 mb-2">
+            <div className="mb-6">
+              <div className="flex justify-between text-sm text-gray-600 mb-3">
                 <span>Question {currentQuestion + 1} of {questions.length}</span>
                 <span>Score: {score}</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-1">
+              <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
-                  className="bg-blue-500 h-1 rounded-full transition-all duration-300"
+                  className="bg-gray-700 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
                 ></div>
               </div>
             </div>
             
-            <h4 className="font-medium mb-3">
+            <h4 className="font-semibold mb-4 text-gray-800 leading-relaxed">
               {questions[currentQuestion].question}
             </h4>
             
-            <div className="space-y-2">
+            <div className="space-y-3">
               {questions[currentQuestion].options.map((option, index) => (
                 <Button
                   key={index}
                   variant="outline"
-                  className="w-full text-left justify-start"
+                  className="w-full text-left justify-start border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
                   onClick={() => handleAnswer(index)}
                 >
                   {option}
@@ -86,14 +86,14 @@ export function DailyQuiz() {
           </div>
         ) : (
           <div className="text-center">
-            <div className="text-3xl mb-2">
+            <div className="text-4xl mb-4">
               {score === questions.length ? '🎉' : score >= questions.length / 2 ? '👍' : '📚'}
             </div>
-            <h4 className="font-medium mb-2">Quiz Complete!</h4>
-            <p className="text-lg mb-3">
+            <h4 className="font-semibold mb-3 text-gray-800">Quiz Complete!</h4>
+            <p className="text-lg mb-4 text-gray-700">
               You scored {score} out of {questions.length}
             </p>
-            <Button onClick={resetQuiz} className="w-full">
+            <Button onClick={resetQuiz} className="w-full bg-gray-800 hover:bg-gray-700 text-white">
               Try Again
             </Button>
           </div>
