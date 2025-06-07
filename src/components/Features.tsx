@@ -30,7 +30,7 @@ const Features = () => {
       icon: <BookOpen className="w-10 h-10 text-white transition-transform duration-300 transform" />,
       title: "Smart Study Tools",
       description: "Auto-generated flashcards, quizzes, and interactive study materials created from your uploaded content for effective learning.",
-      image: "/lovable-uploads/cf8966e3-de0d-445f-9fbd-ee6c48daa7ff.png"
+      image: "/lovable-uploads/aa649a90-8d0f-4d4d-9a53-2cdddeed55cb.png"
     },
     {
       icon: <Users className="w-10 h-10 text-white transition-transform duration-300 transform" />,
