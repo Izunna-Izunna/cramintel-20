@@ -1,35 +1,44 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Skeleton } from '@/components/ui/skeleton';
-import { FileText, Trash2, Eye, RefreshCw } from 'lucide-react';
+import { FileText, Image, Video, Music, Archive, Brain, Play, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { EnhancedPdfViewer } from '@/components/ui/EnhancedPdfViewer';
 import { EnhancedImageViewer } from '@/components/ui/EnhancedImageViewer';
-import { isImageFile, isPdfFile } from '@/utils/fileTypeUtils';
 
 interface Material {
   id: string;
   name: string;
-  material_type: string;
-  course: string;
-  upload_date: string;
-  processed: boolean;
+  file_name: string;
+  file_path: string;
   file_type: string;
   file_size: number;
-  file_path?: string;
+  course: string;
+  material_type: string;
+  upload_date: string;
+  processed: boolean;
+  processing_status: string;
+  processing_progress: number;
+  tags: string[];
+  flashcard_count?: number;
+  deck_name?: string;
+  deck_id?: string;
 }
 
-export function UploadedMaterialsList() {
+interface UploadedMaterialsListProps {
+  key?: number;
+}
+
+export function UploadedMaterialsList({ key }: UploadedMaterialsListProps) {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
-  const [imageViewerOpen, setImageViewerOpen] = useState(false);
-  const [selectedPdf, setSelectedPdf] = useState<{ url: string; name: string } | null>(null);
-  const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
-  const [loadingFileUrl, setLoadingFileUrl] = useState<string | null>(null);
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -37,22 +46,35 @@ export function UploadedMaterialsList() {
     if (user) {
       fetchMaterials();
     }
-  }, [user]);
+  }, [user, key]);
 
   const fetchMaterials = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch materials with flashcard counts
+      const { data: materialsData, error: materialsError } = await supabase
         .from('cramintel_materials')
-        .select('id, name, material_type, course, upload_date, processed, file_type, file_size, file_path')
+        .select(`
+          *,
+          cramintel_flashcards(count),
+          cramintel_decks!inner(id, name)
+        `)
         .eq('user_id', user?.id)
         .order('upload_date', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching materials:', error);
+      if (materialsError) {
+        console.error('Error fetching materials:', materialsError);
         return;
       }
 
-      setMaterials(data || []);
+      // Transform the data to include flashcard counts and deck info
+      const transformedMaterials = materialsData?.map(material => ({
+        ...material,
+        flashcard_count: material.cramintel_flashcards?.[0]?.count || 0,
+        deck_name: material.cramintel_decks?.[0]?.name,
+        deck_id: material.cramintel_decks?.[0]?.id
+      })) || [];
+
+      setMaterials(transformedMaterials);
     } catch (error) {
       console.error('Error fetching materials:', error);
     } finally {
@@ -60,156 +82,20 @@ export function UploadedMaterialsList() {
     }
   };
 
-  const handleDelete = async (materialId: string) => {
-    try {
-      // First get the material to find the file path
-      const { data: material } = await supabase
-        .from('cramintel_materials')
-        .select('file_path')
-        .eq('id', materialId)
-        .eq('user_id', user?.id)
-        .single();
-
-      // Delete the file from storage if it exists
-      if (material?.file_path) {
-        const { error: storageError } = await supabase.storage
-          .from('cramintel-materials')
-          .remove([material.file_path]);
-        
-        if (storageError) {
-          console.error('Error deleting file from storage:', storageError);
-        }
-      }
-
-      // Delete the database record
-      const { error } = await supabase
-        .from('cramintel_materials')
-        .delete()
-        .eq('id', materialId)
-        .eq('user_id', user?.id);
-
-      if (error) {
-        console.error('Error deleting material:', error);
-        toast({
-          title: "Error",
-          description: "Failed to delete material. Please try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      toast({
-        title: "Success",
-        description: "Material deleted successfully.",
-      });
-      
-      // Refresh the list
-      fetchMaterials();
-    } catch (error) {
-      console.error('Error deleting material:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete material. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleViewMaterial = async (material: Material) => {
-    const isImage = isImageFile(material.file_type, material.name);
-    const isPdf = isPdfFile(material.file_type);
-    
-    if (!isImage && !isPdf) {
-      toast({
-        title: "Preview Not Available",
-        description: "Preview is currently only available for PDF and image files.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!material.file_path) {
-      toast({
-        title: "File Not Available",
-        description: "The file path is not available for this material.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      setLoadingFileUrl(material.id);
-      
-      // Generate a signed URL for the file
-      const { data: signedUrlData, error: urlError } = await supabase.storage
-        .from('cramintel-materials')
-        .createSignedUrl(material.file_path, 3600);
-
-      if (urlError) {
-        console.error('Error creating signed URL:', urlError);
-        toast({
-          title: "Error",
-          description: "Failed to access the file. The file may not exist in storage.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (!signedUrlData.signedUrl) {
-        toast({
-          title: "Error",
-          description: "Failed to generate file access URL.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Open the appropriate viewer based on file type
-      if (isPdf) {
-        setSelectedPdf({
-          url: signedUrlData.signedUrl,
-          name: material.name
-        });
-        setPdfViewerOpen(true);
-      } else if (isImage) {
-        setSelectedImage({
-          url: signedUrlData.signedUrl,
-          name: material.name
-        });
-        setImageViewerOpen(true);
-      }
-    } catch (error) {
-      console.error('Error opening file:', error);
-      toast({
-        title: "Error",
-        description: "Failed to open file. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingFileUrl(null);
-    }
-  };
-
-  const getIcon = (materialType: string) => {
-    switch (materialType) {
-      case 'notes':
-        return '📘';
-      case 'past-question':
-        return '📝';
-      case 'assignment':
-        return '🧪';
-      case 'whisper':
-        return '🤫';
-      default:
-        return '📄';
-    }
+  const getFileIcon = (fileType: string) => {
+    if (fileType?.includes('pdf')) return <FileText className="w-8 h-8 text-red-500" />;
+    if (fileType?.includes('image')) return <Image className="w-8 h-8 text-green-500" />;
+    if (fileType?.includes('video')) return <Video className="w-8 h-8 text-blue-500" />;
+    if (fileType?.includes('audio')) return <Music className="w-8 h-8 text-purple-500" />;
+    return <Archive className="w-8 h-8 text-gray-500" />;
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes > 1024 * 1024) {
-      return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-    }
-    return `${(bytes / 1024).toFixed(0)} KB`;
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -227,25 +113,71 @@ export function UploadedMaterialsList() {
     }
   };
 
-  const canPreviewFile = (material: Material): boolean => {
-    return material.processed && (
-      isPdfFile(material.file_type) || 
-      isImageFile(material.file_type, material.name)
-    );
+  const handleViewMaterial = async (material: Material) => {
+    const { data, error } = await supabase.storage
+      .from('cramintel-materials')
+      .createSignedUrl(material.file_path, 3600);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load file",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSelectedMaterial({ ...material, file_path: data.signedUrl });
+    setViewerOpen(true);
+  };
+
+  const handleStudyFlashcards = (deckId: string) => {
+    // Navigate to flashcards section with this deck selected
+    window.location.hash = 'flashcards';
+    toast({
+      title: "Flashcards Ready",
+      description: "Navigate to the Flashcards section to study your generated cards"
+    });
+  };
+
+  const handleDeleteMaterial = async (materialId: string) => {
+    try {
+      const { error } = await supabase
+        .from('cramintel_materials')
+        .delete()
+        .eq('id', materialId)
+        .eq('user_id', user?.id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Success",
+        description: "Material deleted successfully"
+      });
+      
+      fetchMaterials();
+    } catch (error) {
+      console.error('Error deleting material:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete material",
+        variant: "destructive"
+      });
+    }
   };
 
   if (loading) {
     return (
-      <Card className="border-gray-100 shadow-sm">
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="flex items-center gap-3 text-gray-800 font-space text-lg sm:text-xl">
-            📂 Your Materials
-          </CardTitle>
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Uploads</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 sm:p-6 pt-0">
-          <div className="space-y-3">
+        <CardContent>
+          <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-16 w-full" />
+              <div key={i} className="animate-pulse bg-gray-200 h-20 rounded-lg" />
             ))}
           </div>
         </CardContent>
@@ -255,107 +187,138 @@ export function UploadedMaterialsList() {
 
   return (
     <>
-      <Card className="border-gray-100 shadow-sm">
-        <CardHeader className="p-4 sm:p-6">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-3 text-gray-800 font-space text-lg sm:text-xl">
-              📂 Your Materials ({materials.length})
-            </CardTitle>
-            <Button variant="ghost" size="sm" onClick={fetchMaterials}>
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-          </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            📚 Your Study Materials
+            <Badge variant="secondary">{materials.length} files</Badge>
+          </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 sm:p-6 pt-0">
-          <div className="space-y-3">
-            {materials.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p>No materials uploaded yet. Upload your first study material above!</p>
-              </div>
-            ) : (
-              materials.map((material) => (
-                <div key={material.id} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-all duration-300">
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <span className="text-xl">{getIcon(material.material_type)}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-sm text-gray-800 truncate">{material.name}</p>
-                      <div className="flex items-center gap-2 text-xs text-gray-600">
-                        <span>{material.course}</span>
-                        <span>•</span>
-                        <span>{formatFileSize(material.file_size)}</span>
-                        <span>•</span>
-                        <span>{formatTimeAgo(material.upload_date)}</span>
+        <CardContent>
+          {materials.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+              <p>No materials uploaded yet</p>
+              <p className="text-sm">Upload some study materials to get started!</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <AnimatePresence>
+                {materials.map((material) => (
+                  <motion.div
+                    key={material.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        {getFileIcon(material.file_type)}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-gray-800 truncate">{material.name}</h4>
+                        <p className="text-sm text-gray-600 mb-2">
+                          {material.course} • {material.material_type} • {formatFileSize(material.file_size)}
+                        </p>
+                        
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {material.tags?.map(tag => (
+                            <Badge key={tag} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+
+                        {material.processed ? (
+                          <div className="flex items-center gap-2 text-sm text-green-600 mb-3">
+                            <Brain className="w-4 h-4" />
+                            <span>{material.flashcard_count || 0} flashcards generated</span>
+                            {material.deck_name && (
+                              <span className="text-gray-500">• Deck: {material.deck_name}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="mb-3">
+                            <div className="flex justify-between text-sm text-gray-600 mb-1">
+                              <span>Processing...</span>
+                              <span>{material.processing_progress || 0}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                                style={{ width: `${material.processing_progress || 0}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">
+                            Uploaded {formatTimeAgo(material.upload_date)}
+                          </span>
+                          
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleViewMaterial(material)}
+                            >
+                              View
+                            </Button>
+                            
+                            {material.processed && material.deck_id && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleStudyFlashcards(material.deck_id!)}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <Play className="w-4 h-4 mr-1" />
+                                Study
+                              </Button>
+                            )}
+                            
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteMaterial(material.id)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {material.processed ? (
-                        <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-lg">
-                          Processed
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-lg">
-                          Processing...
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2 ml-4">
-                    {canPreviewFile(material) && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-gray-600 hover:text-gray-800"
-                        onClick={() => handleViewMaterial(material)}
-                        disabled={loadingFileUrl === material.id}
-                      >
-                        {loadingFileUrl === material.id ? (
-                          <div className="w-4 h-4 animate-spin rounded-full border-2 border-gray-600 border-t-transparent" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
-                      </Button>
-                    )}
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                      onClick={() => handleDelete(material.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Enhanced PDF Viewer Modal */}
-      {selectedPdf && (
-        <EnhancedPdfViewer
-          isOpen={pdfViewerOpen}
-          onClose={() => {
-            setPdfViewerOpen(false);
-            setSelectedPdf(null);
-          }}
-          sourceUrl={selectedPdf.url}
-          fileName={selectedPdf.name}
-        />
-      )}
-
-      {/* Enhanced Image Viewer Modal */}
-      {selectedImage && (
-        <EnhancedImageViewer
-          isOpen={imageViewerOpen}
-          onClose={() => {
-            setImageViewerOpen(false);
-            setSelectedImage(null);
-          }}
-          sourceUrl={selectedImage.url}
-          fileName={selectedImage.name}
-        />
+      {selectedMaterial && (
+        <>
+          {selectedMaterial.file_type?.includes('pdf') && (
+            <EnhancedPdfViewer
+              isOpen={viewerOpen}
+              onClose={() => setViewerOpen(false)}
+              sourceUrl={selectedMaterial.file_path}
+              fileName={selectedMaterial.name}
+            />
+          )}
+          
+          {selectedMaterial.file_type?.includes('image') && (
+            <EnhancedImageViewer
+              isOpen={viewerOpen}
+              onClose={() => setViewerOpen(false)}
+              imageUrl={selectedMaterial.file_path}
+              title={selectedMaterial.name}
+            />
+          )}
+        </>
       )}
     </>
   );
