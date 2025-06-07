@@ -16,6 +16,7 @@ import BlogPostDetail from "./pages/BlogPostDetail";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
+import Waitlist from "./pages/Waitlist";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const App = () => {
@@ -31,6 +32,7 @@ const App = () => {
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/waitlist" element={<Waitlist />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />

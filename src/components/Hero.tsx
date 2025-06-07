@@ -1,4 +1,3 @@
-
 import { ArrowRight, Code, Cpu, Layers, MessageSquare } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { motion } from "framer-motion";
@@ -49,6 +48,10 @@ const Hero = () => {
   const handleGetStarted = () => {
     navigate('/onboarding');
   };
+
+  const handleJoinWaitlist = () => {
+    navigate('/waitlist');
+  };
   
   return <motion.div className="relative mt-16 md:mt-0 w-full max-w-[100vw]" initial="hidden" animate="visible" variants={containerVariants}>
       <div className="banner-container bg-black relative overflow-hidden h-[700px] md:h-[750px] w-full">
@@ -65,7 +68,14 @@ const Hero = () => {
                 AI-powered exam predictions, smart flashcards, and study tools designed for West African university students.
               </motion.p>
               <motion.div className="flex flex-col sm:flex-row gap-3 md:gap-4 mt-6 md:mt-8 justify-center" variants={itemVariants}>
-                {/* Styled as a button but using an anchor tag for project navigation */}
+                <button 
+                  className="px-6 md:px-8 py-2 md:py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-md transition-all shadow-lg hover:shadow-xl hover:shadow-blue-500/20 flex items-center justify-center group text-sm md:text-base font-semibold"
+                  onClick={handleJoinWaitlist}
+                >
+                  Join Waitlist
+                  <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+                
                 <button 
                   className="px-6 md:px-8 py-2 md:py-3 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-all shadow-lg hover:shadow-xl hover:shadow-gray-300/20 flex items-center justify-center group text-sm md:text-base"
                   onClick={e => {
@@ -79,18 +89,16 @@ const Hero = () => {
                   }}
                 >
                   See Success Stories
-                  <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
-                </button>
-                
-                {/* Updated to navigate to onboarding instead of scrolling to contact */}
-                <button 
-                  className="px-6 md:px-8 py-2 md:py-3 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl hover:shadow-gray-300/20 flex items-center justify-center group text-sm md:text-base"
-                  onClick={handleGetStarted}
-                >
-                  Get Started
                   <MessageSquare className="ml-2 w-4 h-4 md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
                 </button>
               </motion.div>
+              
+              <motion.p 
+                className="text-white/60 text-xs md:text-sm mt-4"
+                variants={itemVariants}
+              >
+                Already have an account? <button onClick={handleGetStarted} className="text-blue-400 hover:text-blue-300 underline">Get Started</button>
+              </motion.p>
             </motion.div>
           </div>
         </div>
