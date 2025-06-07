@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -8,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { addContactToMailchimp } from '@/lib/mailchimp';
 import emailjs from 'emailjs-com';
 
 // Updated schema with honeypot field validation
@@ -21,14 +21,14 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-// EmailJS configuration - Updated with correct template ID
+// EmailJS configuration - Keep for sending the actual contact email
 const EMAILJS_SERVICE_ID = "service_i3h66xg";
-const EMAILJS_TEMPLATE_ID = "template_fgq53nh"; // Updated to the correct template ID
+const EMAILJS_TEMPLATE_ID = "template_fgq53nh";
 const EMAILJS_PUBLIC_KEY = "wQmcZvoOqTAhGnRZ3";
 
 const ContactForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formStartTime] = useState<number>(Date.now()); // Track when form was opened
+  const [formStartTime] = useState<number>(Date.now());
   
   const { toast } = useToast();
   
@@ -48,7 +48,6 @@ const ContactForm = () => {
     
     try {
       // Bot checks
-      // 1. Honeypot check - should be caught by zod, but double-check
       if (data.honeypot) {
         console.log('Bot detected via honeypot');
         toast({
@@ -59,7 +58,6 @@ const ContactForm = () => {
         return;
       }
       
-      // 2. Time-based check - Submission should take at least 3 seconds (too fast is likely a bot)
       const timeDiff = Date.now() - data.timestamp;
       if (timeDiff < 3000) {
         console.log(`Bot detected: Form submitted too quickly (${timeDiff}ms)`);
@@ -74,36 +72,43 @@ const ContactForm = () => {
       
       console.log('Form submitted:', data);
       
-      // Remove honeypot and timestamp fields before sending
-      const { honeypot, timestamp, ...emailData } = data;
+      // Remove honeypot and timestamp fields before processing
+      const { honeypot, timestamp, ...contactData } = data;
       
-      // Using parameters exactly as expected by EmailJS templates
+      // First, add contact to Mailchimp (async, don't wait for this)
+      addContactToMailchimp(contactData).then(result => {
+        if (result.success) {
+          console.log('Contact added to Mailchimp successfully');
+        } else {
+          console.log('Failed to add contact to Mailchimp:', result.message);
+        }
+      }).catch(error => {
+        console.log('Error adding contact to Mailchimp:', error);
+      });
+      
+      // Send email via EmailJS (main functionality)
       const templateParams = {
-        from_name: emailData.name,
-        from_email: emailData.email,
-        message: emailData.message,
-        to_name: 'WRLDS Team', // Adding recipient name parameter
-        reply_to: emailData.email // Keeping reply_to for compatibility
+        from_name: contactData.name,
+        from_email: contactData.email,
+        message: contactData.message,
+        to_name: 'CramIntel Team',
+        reply_to: contactData.email
       };
       
       console.log('Sending email with params:', templateParams);
-      console.log('Using service:', EMAILJS_SERVICE_ID);
-      console.log('Using template:', EMAILJS_TEMPLATE_ID);
-      console.log('Using public key:', EMAILJS_PUBLIC_KEY);
       
-      // Send email directly without initializing, as it's not needed with the send method that includes the key
       const response = await emailjs.send(
         EMAILJS_SERVICE_ID,
         EMAILJS_TEMPLATE_ID,
         templateParams,
-        EMAILJS_PUBLIC_KEY // Re-adding the public key parameter
+        EMAILJS_PUBLIC_KEY
       );
       
       console.log('Email sent successfully:', response);
       
       toast({
         title: "Message sent!",
-        description: "We've received your message and will get back to you soon.",
+        description: "We've received your message and will get back to you soon. You've also been added to our newsletter for updates!",
         variant: "default"
       });
 
@@ -117,7 +122,6 @@ const ContactForm = () => {
     } catch (error) {
       console.error('Error sending email:', error);
       
-      // More detailed error logging
       if (error && typeof error === 'object' && 'text' in error) {
         console.error('Error details:', (error as any).text);
       }
@@ -132,7 +136,8 @@ const ContactForm = () => {
     }
   };
 
-  return <section id="contact" className="bg-gradient-to-b from-white to-black text-white relative py-[25px]">
+  return (
+    <section id="contact" className="bg-gradient-to-b from-white to-black text-white relative py-[25px]">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <div className="inline-block mb-3 px-3 py-1 bg-white text-black rounded-full text-sm font-medium">
@@ -142,7 +147,7 @@ const ContactForm = () => {
             Contact Us Today
           </h2>
           <p className="text-gray-700 text-lg max-w-2xl mx-auto">
-            Have questions about our AI-powered sensor solutions? Reach out to our team and let's discuss how we can help bring your ideas to life.
+            Have questions about our AI-powered study platform? Reach out to our team and let's discuss how we can help transform your exam preparation and boost your academic success.
           </p>
         </div>
         
@@ -225,14 +230,13 @@ const ContactForm = () => {
               </div>
               <h3 className="text-xl font-semibold mb-2">Email Us</h3>
               <p className="text-gray-600 mb-2">For general inquiries:</p>
-              <a href="mailto:info@wrlds.com" className="text-blue-500 hover:underline">hello@wrlds.com</a>
-              <p className="text-gray-600 mt-2 mb-2">
-            </p>
+              <a href="mailto:hello@cramintel.com" className="text-blue-500 hover:underline">hello@cramintel.com</a>
             </div>
           </div>
         </div>
       </div>
-    </section>;
+    </section>
+  );
 };
 
 export default ContactForm;

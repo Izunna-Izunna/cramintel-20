@@ -2,7 +2,7 @@ import { ArrowRight, Mail, MessageSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import emailjs from 'emailjs-com';
+import { subscribeToMailchimp } from "@/lib/mailchimp";
 import CramIntelLogo from '@/components/CramIntelLogo';
 
 const Footer = () => {
@@ -25,36 +25,28 @@ const Footer = () => {
     setIsSubmitting(true);
     
     try {
-      // EmailJS configuration
-      const EMAILJS_SERVICE_ID = "service_i3h66xg";
-      const EMAILJS_TEMPLATE_ID = "template_fgq53nh";
-      const EMAILJS_PUBLIC_KEY = "wQmcZvoOqTAhGnRZ3";
-      
-      const templateParams = {
-        from_name: "CramIntel Subscriber",
-        from_email: email,
-        message: `New subscription request from CramIntel website footer.`,
-        to_name: 'CramIntel Team',
-        reply_to: email
-      };
-      
-      await emailjs.send(
-        EMAILJS_SERVICE_ID,
-        EMAILJS_TEMPLATE_ID,
-        templateParams,
-        EMAILJS_PUBLIC_KEY
-      );
-      
-      toast({
-        title: "Success!",
-        description: "Welcome to CramIntel! Check your email for study tips.",
-        variant: "default"
+      const result = await subscribeToMailchimp({
+        email,
+        tags: ['newsletter', 'footer-signup'],
+        source: 'footer'
       });
       
-      setEmail("");
+      if (result.success) {
+        toast({
+          title: "Welcome to CramIntel!",
+          description: result.message,
+          variant: "default"
+        });
+        setEmail("");
+      } else {
+        toast({
+          title: "Subscription Error",
+          description: result.message,
+          variant: "destructive"
+        });
+      }
     } catch (error) {
-      console.error("Error sending subscription:", error);
-      
+      console.error("Error subscribing:", error);
       toast({
         title: "Error",
         description: "There was a problem subscribing. Please try again later.",
