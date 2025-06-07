@@ -72,14 +72,19 @@ export const useFlashcardDecks = () => {
     }
   };
 
-  const createDeck = async (deckData: Partial<FlashcardDeck>) => {
+  const createDeck = async (deckData: Partial<FlashcardDeck> & { name: string }) => {
     if (!user) return null;
 
     try {
       const { data, error } = await supabase
         .from('cramintel_decks')
         .insert({
-          ...deckData,
+          name: deckData.name,
+          description: deckData.description || '',
+          course: deckData.course || '',
+          format: deckData.format || 'Q&A',
+          tags: deckData.tags || [],
+          source_materials: deckData.source_materials || [],
           user_id: user.id,
           total_cards: 0,
           cards_mastered: 0,
@@ -170,11 +175,19 @@ export const useFlashcardDecks = () => {
     if (!user) return;
 
     try {
+      // Get current deck data first
+      const { data: currentDeck } = await supabase
+        .from('cramintel_decks')
+        .select('study_streak')
+        .eq('id', deckId)
+        .eq('user_id', user.id)
+        .single();
+
       const { error } = await supabase
         .from('cramintel_decks')
         .update({ 
           last_studied: new Date().toISOString(),
-          study_streak: supabase.sql`study_streak + 1`
+          study_streak: (currentDeck?.study_streak || 0) + 1
         })
         .eq('id', deckId)
         .eq('user_id', user.id);
