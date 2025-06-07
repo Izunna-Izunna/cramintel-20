@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -294,7 +293,6 @@ export const useFlashcards = (deckId: string) => {
         return;
       }
 
-      // Update local state
       setFlashcards(prev => 
         prev.map(f => 
           f.id === flashcardId 
