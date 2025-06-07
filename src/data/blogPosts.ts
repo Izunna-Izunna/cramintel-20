@@ -1,4 +1,3 @@
-
 export interface BlogPost {
   id: string;
   title: string;
@@ -279,7 +278,7 @@ export const blogPosts: BlogPost[] = [
     date: 'December 10, 2024',
     author: 'CramIntel Team',
     category: 'Exam Strategy',
-    imageUrl: '/lovable-uploads/700e27d7-0513-4bfa-8ac4-f7fd6087594c.png',
+    imageUrl: '/lovable-uploads/848eb2df-d243-410b-b740-aa952a295292.png',
     keywords: [
       'exam prediction',
       'exam strategy',
