@@ -21,11 +21,11 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    include: ['react-pdf']
+    include: ['@pdf-viewer/react']
   },
   build: {
     commonjsOptions: {
-      include: [/react-pdf/, /node_modules/]
+      include: [/@pdf-viewer/, /node_modules/]
     }
   }
 }));

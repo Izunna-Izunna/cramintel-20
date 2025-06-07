@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FileText, Trash2, Eye, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { PDFViewer } from './PDFViewer';
+import { EnhancedPdfViewer } from '@/components/ui/EnhancedPdfViewer';
 
 interface Material {
   id: string;
@@ -136,7 +137,7 @@ export function UploadedMaterialsList() {
       // Generate a signed URL for the file
       const { data: signedUrlData, error: urlError } = await supabase.storage
         .from('cramintel-materials')
-        .createSignedUrl(material.file_path, 3600); // URL valid for 1 hour
+        .createSignedUrl(material.file_path, 3600);
 
       if (urlError) {
         console.error('Error creating signed URL:', urlError);
@@ -309,16 +310,18 @@ export function UploadedMaterialsList() {
         </CardContent>
       </Card>
 
-      {/* PDF Viewer Modal */}
+      {/* Enhanced PDF Viewer Modal */}
       {selectedPdf && (
-        <PDFViewer
+        <EnhancedPdfViewer
           isOpen={pdfViewerOpen}
           onClose={() => {
             setPdfViewerOpen(false);
             setSelectedPdf(null);
           }}
-          fileUrl={selectedPdf.url}
+          sourceUrl={selectedPdf.url}
           fileName={selectedPdf.name}
+          initialPage={1}
+          showControls={true}
         />
       )}
     </>
