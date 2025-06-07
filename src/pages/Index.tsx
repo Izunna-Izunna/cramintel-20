@@ -21,10 +21,10 @@ const Index = () => {
   return (
     <PageLayout>
       <SEO 
-        title="WRLDS - Smart Textile Technology" 
-        description="WRLDS Technologies: Pioneering smart engineering solutions with textile sensors for sports, safety, and performance monitoring."
+        title="CramIntel - Smart Exam Prediction & Learning Tool" 
+        description="CramIntel helps West African university students learn smarter with AI-powered exam predictions, flashcards, and study tools. Cut the noise. Learn what counts."
         imageUrl="/lovable-uploads/526dc38a-25fa-40d4-b520-425b23ae0464.png"
-        keywords={['smart textiles', 'wearable technology', 'textile sensors', 'sports tech', 'safety monitoring', 'performance analytics', 'manufacturing']}
+        keywords={['exam predictions', 'study tools', 'AI learning', 'flashcards', 'university students', 'West Africa', 'smart learning', 'exam prep']}
       />
       <Hero />
       <Features />

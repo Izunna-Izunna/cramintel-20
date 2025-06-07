@@ -1,3 +1,4 @@
+
 import PageLayout from '@/components/PageLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,26 +10,26 @@ import { blogPosts } from '@/data/blogPosts';
 
 const Blog = () => {
   // Get the newest blog post for the featured post section
-  const featuredPost = blogPosts.find(post => post.id === '4') || blogPosts[0]; // Feature the new post about sensor technology
+  const featuredPost = blogPosts.find(post => post.id === '1') || blogPosts[0]; // Feature the first post about study techniques
   // Get the rest of the blog posts for the grid section
   const otherPosts = blogPosts.filter(post => post.id !== featuredPost?.id);
   
   return (
     <PageLayout>
       <SEO 
-        title="WRLDS - News and insights about smart textile technology" 
-        description="Stay updated with the latest news and insights about sensor-integrated textiles and smart technology from WRLDS Technologies."
+        title="CramIntel - Study Tips and Educational Insights" 
+        description="Get the latest study tips, exam strategies, and educational insights to boost your academic performance. Learn smarter with CramIntel's expert guides."
         imageUrl={featuredPost?.imageUrl || "/lovable-uploads/6b0637e9-4a7b-40d0-b219-c8b7f879f93e.png"}
-        keywords={['smart textiles', 'textile technology', 'industry news', 'sensor innovation', 'wearable tech', 'smart fabrics']}
+        keywords={['study tips', 'exam strategies', 'university success', 'academic performance', 'learning techniques', 'student productivity']}
         type="website"
       />
       
       <div className="w-full pt-24 pb-12 bg-gradient-to-b from-black to-gray-900 text-white">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">WRLDS News &amp; Insights</h1>
+            <h1 className="text-4xl md:text-5xl font-bold mb-4">Study Smart, Not Hard</h1>
             <p className="text-xl text-gray-300 mb-6">
-              The latest trends and news in sensor-integrated textiles and smart technology
+              Expert study tips, exam strategies, and academic insights to help you excel in university
             </p>
           </div>
         </div>
@@ -86,12 +87,12 @@ const Blog = () => {
           {blogPosts.length < 4 && Array.from({ length: Math.max(0, 4 - blogPosts.length) }).map((_, index) => (
             <BlogPostCard 
               key={`placeholder-${index}`}
-              title="Upcoming article"
-              excerpt="Stay tuned for more exciting articles about smart textiles and sensor technology."
+              title="Upcoming study guide"
+              excerpt="Stay tuned for more expert study tips, exam strategies, and academic success guides."
               imageUrl={index % 2 === 0 ? "/lovable-uploads/6b0637e9-4a7b-40d0-b219-c8b7f879f93e.png" : "/lovable-uploads/700e27d7-0513-4bfa-8ac4-f7fd6087594c.png"}
               date="Coming soon"
               slug="#"
-              category="Upcoming"
+              category="Study Tips"
             />
           ))}
         </div>

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useLocation } from 'react-router-dom';
@@ -18,36 +17,36 @@ interface SEOProps {
 }
 
 const SEO: React.FC<SEOProps> = ({
-  title = 'WRLDS',
-  description = 'WRLDS Technologies: Pioneering smart engineering solutions with textile sensors for sports, safety, and performance monitoring.',
+  title = 'CramIntel',
+  description = 'CramIntel: AI-powered exam predictions and smart study tools for West African university students. Cut the noise. Learn what counts.',
   type = 'website',
-  name = 'WRLDS Technologies',
+  name = 'CramIntel',
   imageUrl = '/lovable-uploads/48ecf6e2-5a98-4a9d-af6f-ae2265cd4098.png',
   publishDate,
   modifiedDate,
   author,
   category,
-  keywords = ['smart textiles', 'wearable technology', 'textile sensors', 'sports tech', 'safety monitoring', 'performance analytics'],
+  keywords = ['exam predictions', 'AI study tools', 'flashcards', 'university students', 'West Africa', 'smart learning', 'exam prep', 'study communities'],
   isBlogPost = false
 }) => {
   const location = useLocation();
-  const currentUrl = `https://wrlds.com${location.pathname}`;
-  const absoluteImageUrl = imageUrl.startsWith('http') ? imageUrl : `https://wrlds.com${imageUrl}`;
+  const currentUrl = `https://cramintel.com${location.pathname}`;
+  const absoluteImageUrl = imageUrl.startsWith('http') ? imageUrl : `https://cramintel.com${imageUrl}`;
 
-  // Enhanced keywords for Smart PPE post
-  const enhancedKeywords = location.pathname.includes('smart-ppe-revolution') 
+  // Enhanced keywords for educational content
+  const enhancedKeywords = location.pathname.includes('study-tips') 
     ? [
         ...keywords,
-        'personal protective equipment',
-        'workplace safety solutions',
-        'smart safety gear',
-        'construction safety technology',
-        'industrial safety monitoring',
-        'occupational health technology',
-        'safety compliance',
-        'worker protection systems',
-        'smart hard hats',
-        'connected safety equipment'
+        'study techniques',
+        'exam strategies',
+        'academic success',
+        'university tips',
+        'learning methods',
+        'student productivity',
+        'test preparation',
+        'study planning',
+        'academic performance',
+        'student success'
       ]
     : keywords;
 
@@ -55,18 +54,18 @@ const SEO: React.FC<SEOProps> = ({
   const organizationStructuredData = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: 'WRLDS Technologies',
-    url: 'https://wrlds.com',
-    logo: 'https://wrlds.com/lovable-uploads/14ea3fe0-19d6-425c-b95b-4117bc41f3ca.png',
-    description: 'Pioneering smart engineering solutions with textile sensors',
+    name: 'CramIntel',
+    url: 'https://cramintel.com',
+    logo: 'https://cramintel.com/lovable-uploads/14ea3fe0-19d6-425c-b95b-4117bc41f3ca.png',
+    description: 'AI-powered exam predictions and smart study tools for university students',
     contactPoint: {
       '@type': 'ContactPoint',
       contactType: 'customer service',
-      email: 'info@wrlds.com'
+      email: 'support@cramintel.com'
     },
     sameAs: [
-      'https://www.linkedin.com/company/wrlds-technologies',
-      'https://twitter.com/wrldstechnologies'
+      'https://www.linkedin.com/company/cramintel',
+      'https://twitter.com/cramintel'
     ]
   };
 
@@ -89,19 +88,19 @@ const SEO: React.FC<SEOProps> = ({
     dateModified: modifiedDate || publishDate,
     author: {
       '@type': 'Organization',
-      name: author || 'WRLDS Technologies',
-      url: 'https://wrlds.com'
+      name: author || 'CramIntel',
+      url: 'https://cramintel.com'
     },
     publisher: {
       '@type': 'Organization',
-      name: 'WRLDS Technologies',
+      name: 'CramIntel',
       logo: {
         '@type': 'ImageObject',
-        url: 'https://wrlds.com/lovable-uploads/14ea3fe0-19d6-425c-b95b-4117bc41f3ca.png',
+        url: 'https://cramintel.com/lovable-uploads/14ea3fe0-19d6-425c-b95b-4117bc41f3ca.png',
         width: 512,
         height: 512
       },
-      url: 'https://wrlds.com'
+      url: 'https://cramintel.com'
     },
     description: description,
     keywords: enhancedKeywords.join(', '),
@@ -110,33 +109,33 @@ const SEO: React.FC<SEOProps> = ({
     isAccessibleForFree: true
   } : null;
 
-  // Add FAQ structured data for Smart PPE post
-  const smartPPEFAQData = location.pathname.includes('smart-ppe-revolution') ? {
+  // Add FAQ structured data for Study Tips posts
+  const studyTipsFAQData = location.pathname.includes('study-tips') ? {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
     mainEntity: [
       {
         '@type': 'Question',
-        name: 'What is Smart PPE?',
+        name: 'How does CramIntel predict exam questions?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Smart PPE (Personal Protective Equipment) refers to traditional safety gear enhanced with sensors, connectivity, and intelligence. Unlike ordinary PPE that acts as a passive barrier, smart PPE actively monitors conditions and provides real-time alerts to prevent accidents.'
+          text: 'CramIntel uses AI to analyze your uploaded notes, past questions, and assignment patterns to predict likely exam questions. Our algorithms identify recurring themes, important concepts, and typical question formats used by lecturers.'
         }
       },
       {
         '@type': 'Question',
-        name: 'How does smart PPE improve workplace safety?',
+        name: 'Can I use CramIntel for any university course?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Smart PPE improves safety by providing real-time monitoring of environmental conditions, worker health metrics, and potential hazards. It can detect falls, monitor vital signs, sense toxic gases, and automatically alert emergency responders when needed.'
+          text: 'Yes! CramIntel works with any course or subject. Simply upload your notes, past questions, and assignments, and our AI will generate personalized study materials and exam predictions for your specific courses.'
         }
       },
       {
         '@type': 'Question',
-        name: 'What industries benefit from smart PPE?',
+        name: 'How accurate are the exam predictions?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Smart PPE benefits multiple industries including construction, manufacturing, oil & gas, fire & rescue, healthcare, mining, and any workplace where safety is paramount. Each industry can customize the technology to address specific safety challenges.'
+          text: 'Our prediction accuracy improves with more data. The more notes, past questions, and course materials you upload, the better our AI becomes at identifying patterns and predicting likely exam questions for your specific courses and lecturers.'
         }
       }
     ]
@@ -163,12 +162,12 @@ const SEO: React.FC<SEOProps> = ({
       <meta property="og:image" content={absoluteImageUrl} />
       <meta property="og:image:width" content="1200" />
       <meta property="og:image:height" content="630" />
-      <meta property="og:site_name" content="WRLDS Technologies" />
+      <meta property="og:site_name" content="CramIntel" />
       <meta property="og:locale" content="en_US" />
       {isBlogPost && category && <meta property="article:section" content={category} />}
       {isBlogPost && publishDate && <meta property="article:published_time" content={publishDate} />}
       {isBlogPost && modifiedDate && <meta property="article:modified_time" content={modifiedDate} />}
-      {isBlogPost && <meta property="article:publisher" content="https://wrlds.com" />}
+      {isBlogPost && <meta property="article:publisher" content="https://cramintel.com" />}
       
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
@@ -176,8 +175,8 @@ const SEO: React.FC<SEOProps> = ({
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={absoluteImageUrl} />
-      <meta name="twitter:site" content="@wrldstechnologies" />
-      <meta name="twitter:creator" content="@wrldstechnologies" />
+      <meta name="twitter:site" content="@cramintel" />
+      <meta name="twitter:creator" content="@cramintel" />
       
       {/* LinkedIn specific */}
       <meta property="og:image:secure_url" content={absoluteImageUrl} />
@@ -202,9 +201,9 @@ const SEO: React.FC<SEOProps> = ({
         </script>
       )}
       
-      {smartPPEFAQData && (
+      {studyTipsFAQData && (
         <script type="application/ld+json">
-          {JSON.stringify(smartPPEFAQData)}
+          {JSON.stringify(studyTipsFAQData)}
         </script>
       )}
     </Helmet>
