@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/dashboard/AppSidebar';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
@@ -13,97 +13,139 @@ import { StudySuggestions } from '@/components/dashboard/StudySuggestions';
 import { CourseProgress } from '@/components/dashboard/CourseProgress';
 import { StudyStreak } from '@/components/dashboard/StudyStreak';
 import { DailyQuiz } from '@/components/dashboard/DailyQuiz';
+import { UploadSection } from '@/components/dashboard/sections/UploadSection';
+import { FlashcardsSection } from '@/components/dashboard/sections/FlashcardsSection';
+import { PredictionsSection } from '@/components/dashboard/sections/PredictionsSection';
+import { AIChatSection } from '@/components/dashboard/sections/AIChatSection';
+import { CommunitySection } from '@/components/dashboard/sections/CommunitySection';
+import { ProfileSection } from '@/components/dashboard/sections/ProfileSection';
+
+export type DashboardSection = 'dashboard' | 'upload' | 'flashcards' | 'predictions' | 'ai-chat' | 'community' | 'profile';
 
 const Dashboard = () => {
   const userData = JSON.parse(localStorage.getItem('cramIntelUser') || '{}');
+  const [activeSection, setActiveSection] = useState<DashboardSection>('dashboard');
+
+  const renderMainContent = () => {
+    switch (activeSection) {
+      case 'upload':
+        return <UploadSection />;
+      case 'flashcards':
+        return <FlashcardsSection />;
+      case 'predictions':
+        return <PredictionsSection />;
+      case 'ai-chat':
+        return <AIChatSection />;
+      case 'community':
+        return <CommunitySection />;
+      case 'profile':
+        return <ProfileSection />;
+      default:
+        return (
+          <div className="space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <HeroSection userData={userData} />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+            >
+              <QuickActions />
+            </motion.div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="lg:col-span-2"
+              >
+                <FlashcardOfTheDay />
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+              >
+                <StudyStreak />
+              </motion.div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+              >
+                <PredictionsFeed />
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.5 }}
+              >
+                <RecentUploads />
+              </motion.div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.6 }}
+              >
+                <CourseProgress />
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.7 }}
+              >
+                <DailyQuiz />
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.8 }}
+              >
+                <StudySuggestions />
+              </motion.div>
+            </div>
+          </div>
+        );
+    }
+  };
 
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gray-50">
-        <AppSidebar />
+        <AppSidebar activeSection={activeSection} setActiveSection={setActiveSection} />
         <div className="flex-1 flex flex-col min-w-0">
           <DashboardHeader userData={userData} />
           
           <main className="flex-1 p-6 overflow-auto">
-            <div className="max-w-7xl mx-auto space-y-6">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                <HeroSection userData={userData} />
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.1 }}
-              >
-                <QuickActions />
-              </motion.div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="max-w-7xl mx-auto">
+              <AnimatePresence mode="wait">
                 <motion.div
+                  key={activeSection}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                  className="lg:col-span-2"
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  <FlashcardOfTheDay />
+                  {renderMainContent()}
                 </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.3 }}
-                >
-                  <StudyStreak />
-                </motion.div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.4 }}
-                >
-                  <PredictionsFeed />
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.5 }}
-                >
-                  <RecentUploads />
-                </motion.div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.6 }}
-                >
-                  <CourseProgress />
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.7 }}
-                >
-                  <DailyQuiz />
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.8 }}
-                >
-                  <StudySuggestions />
-                </motion.div>
-              </div>
+              </AnimatePresence>
             </div>
           </main>
         </div>

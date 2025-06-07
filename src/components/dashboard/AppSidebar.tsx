@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Sidebar,
   SidebarContent,
@@ -14,48 +14,53 @@ import {
 } from '@/components/ui/sidebar';
 import CramIntelLogo from '@/components/CramIntelLogo';
 import { Button } from '@/components/ui/button';
+import { DashboardSection } from '@/pages/Dashboard';
 
 const menuItems = [
   {
     title: "Dashboard",
-    url: "/dashboard",
+    section: "dashboard" as DashboardSection,
     icon: "📊",
   },
   {
     title: "Upload",
-    url: "/upload",
+    section: "upload" as DashboardSection,
     icon: "📤",
   },
   {
     title: "Flashcards",
-    url: "/flashcards",
+    section: "flashcards" as DashboardSection,
     icon: "🧠",
   },
   {
     title: "Predictions",
-    url: "/predictions",
+    section: "predictions" as DashboardSection,
     icon: "🔮",
   },
   {
     title: "Ask AI",
-    url: "/ai-chat",
+    section: "ai-chat" as DashboardSection,
     icon: "💬",
   },
   {
     title: "Community",
-    url: "/community",
+    section: "community" as DashboardSection,
     icon: "👥",
   },
   {
     title: "Profile",
-    url: "/profile",
+    section: "profile" as DashboardSection,
     icon: "👤",
   },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  activeSection: DashboardSection;
+  setActiveSection: (section: DashboardSection) => void;
+}
+
+export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps) {
   const navigate = useNavigate();
-  const location = useLocation();
 
   const handleLogout = () => {
     localStorage.removeItem('cramIntelUser');
@@ -79,17 +84,17 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={location.pathname === item.url}
+                    isActive={activeSection === item.section}
                     className={`
                       mb-1 rounded-xl transition-all duration-200 hover:bg-gray-50
-                      ${location.pathname === item.url 
+                      ${activeSection === item.section 
                         ? 'bg-gray-100 text-gray-800 font-semibold shadow-sm' 
                         : 'text-gray-600 hover:text-gray-800'
                       }
                     `}
                   >
                     <button
-                      onClick={() => navigate(item.url)}
+                      onClick={() => setActiveSection(item.section)}
                       className="w-full text-left flex items-center gap-3 p-3"
                     >
                       <span className="text-lg">{item.icon}</span>
