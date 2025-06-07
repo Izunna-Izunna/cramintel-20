@@ -44,18 +44,22 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
     style: 'bullet'
   });
 
+  const getCurrentStepNumber = (step: PredictionStep): number => {
+    return step === 'results' ? 6 : step;
+  };
+
   const steps = [
-    { id: 1, title: 'Start', completed: currentStep > 1 },
-    { id: 2, title: 'Upload', completed: currentStep > 2 },
-    { id: 3, title: 'Tag', completed: currentStep > 3 },
-    { id: 4, title: 'Style', completed: currentStep > 4 },
+    { id: 1, title: 'Start', completed: getCurrentStepNumber(currentStep) > 1 },
+    { id: 2, title: 'Upload', completed: getCurrentStepNumber(currentStep) > 2 },
+    { id: 3, title: 'Tag', completed: getCurrentStepNumber(currentStep) > 3 },
+    { id: 4, title: 'Style', completed: getCurrentStepNumber(currentStep) > 4 },
     { id: 5, title: 'Generate', completed: currentStep === 'results' },
   ];
 
   const handleNext = () => {
     if (currentStep === 5) {
       setCurrentStep('results');
-    } else if (currentStep < 5) {
+    } else if (typeof currentStep === 'number' && currentStep < 5) {
       setCurrentStep((prev) => (prev as number + 1) as PredictionStep);
     }
   };
@@ -63,7 +67,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
   const handleBack = () => {
     if (currentStep === 'results') {
       setCurrentStep(5);
-    } else if (currentStep > 1) {
+    } else if (typeof currentStep === 'number' && currentStep > 1) {
       setCurrentStep((prev) => (prev as number - 1) as PredictionStep);
     }
   };
@@ -144,7 +148,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
 
         {currentStep !== 'results' && (
           <div className="p-6 border-b border-gray-100">
-            <ProgressSteps steps={steps} currentStep={currentStep as number} />
+            <ProgressSteps steps={steps} currentStep={getCurrentStepNumber(currentStep)} />
           </div>
         )}
 
