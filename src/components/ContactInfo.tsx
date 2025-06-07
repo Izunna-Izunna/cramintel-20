@@ -23,9 +23,12 @@ const ContactInfo = () => {
           <div className="bg-white rounded-xl shadow-xl p-6 md:p-8 border border-gray-700 max-w-md">
             <div className="flex flex-col items-center text-center">
               <img 
-                src="/lovable-uploads/4e757b33-4580-4b70-b8bb-c0551f6bc9b9.png"
+                src="/lovable-uploads/ff6c981f-4e53-4fc2-a0dc-a49217f214e4.png"
                 alt="Izunna"
                 className="w-32 h-32 rounded-full mb-4 object-cover filter grayscale"
+                onError={(e) => {
+                  console.error('Image failed to load:', e.currentTarget.src);
+                }}
               />
               <h3 className="text-xl font-bold text-gray-900">Izunna</h3>
               <p className="text-gray-600 mb-4">CEO and Founder</p>
