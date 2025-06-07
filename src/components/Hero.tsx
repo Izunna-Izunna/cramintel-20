@@ -1,3 +1,4 @@
+
 import { ArrowRight, Code, Cpu, Layers, MessageSquare } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { motion } from "framer-motion";
@@ -69,7 +70,7 @@ const Hero = () => {
               </motion.p>
               <motion.div className="flex flex-col sm:flex-row gap-3 md:gap-4 mt-6 md:mt-8 justify-center" variants={itemVariants}>
                 <button 
-                  className="px-6 md:px-8 py-2 md:py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-md transition-all shadow-lg hover:shadow-xl hover:shadow-blue-500/20 flex items-center justify-center group text-sm md:text-base font-semibold"
+                  className="px-6 md:px-8 py-2 md:py-3 bg-white text-black rounded-md hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl hover:shadow-white/20 flex items-center justify-center group text-sm md:text-base font-semibold"
                   onClick={handleJoinWaitlist}
                 >
                   Join Waitlist
