@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Upload, FileText, Image, BookOpen, Camera, CheckCircle, X } from 'lucide-react';
 import { TagChip } from '../TagChip';
+import { UploadedMaterialsList } from './UploadedMaterialsList';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +23,7 @@ export function EnhancedUploadSection() {
   const [selectedType, setSelectedType] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -120,7 +121,7 @@ export function EnhancedUploadSection() {
 
       toast({
         title: "Upload Successful!",
-        description: "Your material has been uploaded and is being processed. You'll see it in your recent uploads soon.",
+        description: "Your material has been uploaded and is being processed. You'll see it in your materials list soon.",
       });
       
       // Reset form
@@ -129,6 +130,9 @@ export function EnhancedUploadSection() {
       setSelectedCourse('');
       setSelectedType('');
       setUploadProgress(0);
+      
+      // Trigger refresh of materials list
+      setRefreshKey(prev => prev + 1);
       
     } catch (error) {
       console.error('Upload error:', error);
@@ -332,6 +336,9 @@ export function EnhancedUploadSection() {
           </AnimatePresence>
         </CardContent>
       </Card>
+
+      {/* Add the uploaded materials list */}
+      <UploadedMaterialsList key={refreshKey} />
     </div>
   );
 }
