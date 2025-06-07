@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Share2, CheckCircle } from 'lucide-react';
+import { Share2, CheckCircle, MessageCircle } from 'lucide-react';
 import SEO from '@/components/SEO';
 
 interface WaitlistData {
@@ -91,6 +90,22 @@ const Waitlist = () => {
     });
   };
 
+  const joinPilotProgram = () => {
+    const userName = formData.firstName || 'there';
+    const userUniversity = formData.university ? ` from ${formData.university}` : '';
+    const message = `Hi! I'm ${userName}${userUniversity} and I just joined the CramIntel waitlist. I'm excited to be part of the student pilot group to help shape the platform! 🎓`;
+    
+    const whatsappUrl = `https://chat.whatsapp.com/EFsCw9h30512yHJ7OlMv8a`;
+    window.open(whatsappUrl, '_blank');
+    
+    // Copy the message to clipboard for easy pasting
+    navigator.clipboard.writeText(message);
+    toast({
+      title: "Opening WhatsApp...",
+      description: "Your intro message has been copied to clipboard!",
+    });
+  };
+
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-black relative overflow-hidden">
@@ -151,7 +166,11 @@ const Waitlist = () => {
             >
               <h3 className="text-lg font-semibold text-white mb-4">Want to help shape the platform?</h3>
               <p className="text-white/70 mb-4">Join our student pilot group and get early access to test features!</p>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button 
+                onClick={joinPilotProgram}
+                className="bg-white text-black hover:bg-gray-100 transition-all"
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
                 Join Pilot Program
               </Button>
             </motion.div>
@@ -168,15 +187,14 @@ const Waitlist = () => {
               <div className="flex gap-3">
                 <Button 
                   onClick={shareOnTwitter}
-                  className="bg-blue-500 hover:bg-blue-600 text-white flex-1"
+                  className="bg-white text-black hover:bg-gray-100 flex-1"
                 >
                   <Share2 className="w-4 h-4 mr-2" />
                   Share on Twitter
                 </Button>
                 <Button 
                   onClick={copyShareLink}
-                  variant="outline"
-                  className="border-white/20 text-white hover:bg-white/10"
+                  className="bg-white text-black hover:bg-gray-100"
                 >
                   Copy Link
                 </Button>
@@ -308,7 +326,7 @@ const Waitlist = () => {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 rounded-xl font-semibold text-lg"
+                className="w-full bg-white text-black hover:bg-gray-100 py-3 rounded-xl font-semibold text-lg transition-all"
               >
                 {isLoading ? 'Joining...' : 'Join the Waiting List'}
               </Button>
