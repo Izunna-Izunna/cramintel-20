@@ -26,6 +26,10 @@ const menuItems = [{
   section: "ai-chat" as DashboardSection,
   icon: "💬"
 }, {
+  title: "PDF Viewer",
+  section: "pdf-viewer" as DashboardSection,
+  icon: "📄"
+}, {
   title: "Community",
   section: "community" as DashboardSection,
   icon: "👥"
