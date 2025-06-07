@@ -11,6 +11,9 @@ import StudyStyleStep from '@/components/onboarding/StudyStyleStep';
 import FirstActionStep from '@/components/onboarding/FirstActionStep';
 import CompletionStep from '@/components/onboarding/CompletionStep';
 import ProgressBar from '@/components/onboarding/ProgressBar';
+import AnimatedBackground from '@/components/onboarding/AnimatedBackground';
+import EncouragingMessage from '@/components/onboarding/EncouragingMessage';
+import ParticleCelebration from '@/components/onboarding/ParticleCelebration';
 
 export interface OnboardingData {
   name: string;
@@ -31,6 +34,7 @@ const Onboarding = () => {
     studyStyle: '',
     firstAction: ''
   });
+  const [showCelebration, setShowCelebration] = useState(false);
   const navigate = useNavigate();
 
   const totalSteps = 8;
@@ -52,7 +56,11 @@ const Onboarding = () => {
 
   const nextStep = () => {
     if (currentStep < totalSteps) {
-      setCurrentStep(currentStep + 1);
+      setShowCelebration(true);
+      setTimeout(() => {
+        setCurrentStep(currentStep + 1);
+        setShowCelebration(false);
+      }, 1000);
     }
   };
 
@@ -75,9 +83,21 @@ const Onboarding = () => {
   };
 
   const stepVariants = {
-    enter: { opacity: 0, x: 100 },
-    center: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -100 }
+    enter: { 
+      opacity: 0, 
+      x: 100,
+      scale: 0.9
+    },
+    center: { 
+      opacity: 1, 
+      x: 0,
+      scale: 1
+    },
+    exit: { 
+      opacity: 0, 
+      x: -100,
+      scale: 0.9
+    }
   };
 
   const renderStep = () => {
@@ -111,12 +131,27 @@ const Onboarding = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col">
+    <div className="min-h-screen relative flex flex-col overflow-hidden">
+      <AnimatedBackground />
+      
+      {currentStep > 1 && currentStep < totalSteps && <EncouragingMessage />}
+      
+      <ParticleCelebration 
+        trigger={showCelebration} 
+        onComplete={() => setShowCelebration(false)} 
+      />
+
       {currentStep < totalSteps && (
-        <ProgressBar currentStep={currentStep} totalSteps={totalSteps} />
+        <motion.div
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, type: "spring" }}
+        >
+          <ProgressBar currentStep={currentStep} totalSteps={totalSteps} />
+        </motion.div>
       )}
       
-      <div className="flex-1 flex items-center justify-center p-4">
+      <div className="flex-1 flex items-center justify-center p-4 relative z-10">
         <div className="w-full max-w-md">
           <AnimatePresence mode="wait">
             <motion.div
@@ -125,7 +160,12 @@ const Onboarding = () => {
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.3, ease: "easeInOut" }}
+              transition={{ 
+                duration: 0.4, 
+                ease: "easeInOut",
+                type: "spring",
+                bounce: 0.3
+              }}
             >
               {renderStep()}
             </motion.div>
