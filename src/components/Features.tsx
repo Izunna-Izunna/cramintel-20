@@ -18,13 +18,13 @@ const Features = () => {
       icon: <Upload className="w-10 h-10 text-white transition-transform duration-300 transform" />,
       title: "Upload & Analyze",
       description: "Upload your notes, past questions, and assignments. Our AI instantly analyzes and organizes your study materials for optimal learning.",
-      image: "/lovable-uploads/3ebe90ed-5382-4e42-a52c-34485c1c8440.png"
+      image: "/lovable-uploads/0b5bc747-e671-4da4-971c-acee6b1dd096.png"
     },
     {
       icon: <Brain className="w-10 h-10 text-white transition-transform duration-300 transform" />,
       title: "AI Exam Predictions",
       description: "Get intelligent predictions of likely exam questions based on your course materials, past papers, and lecturer patterns.",
-      image: "/lovable-uploads/ac138241-74a4-4887-b6db-dc8c91d9e60b.png"
+      image: "/lovable-uploads/fb247e52-34e9-43cf-9b22-c47a13d9c441.png"
     },
     {
       icon: <BookOpen className="w-10 h-10 text-white transition-transform duration-300 transform" />,
