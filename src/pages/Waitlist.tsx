@@ -317,7 +317,7 @@ const Waitlist = () => {
                 💡 No spam. Just smart updates.
               </p>
             </form>
-          </div>
+          </motion.div>
 
           <motion.div 
             className="text-center mt-8"
