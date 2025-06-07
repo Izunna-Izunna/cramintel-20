@@ -25,6 +25,7 @@ export function UploadedMaterialsList() {
   const [loading, setLoading] = useState(true);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedPdf, setSelectedPdf] = useState<{ url: string; name: string } | null>(null);
+  const [loadingFileUrl, setLoadingFileUrl] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -38,7 +39,7 @@ export function UploadedMaterialsList() {
     try {
       const { data, error } = await supabase
         .from('cramintel_materials')
-        .select('id, name, material_type, course, upload_date, processed, file_type, file_size')
+        .select('id, name, material_type, course, upload_date, processed, file_type, file_size, file_path')
         .eq('user_id', user?.id)
         .order('upload_date', { ascending: false });
 
@@ -57,6 +58,26 @@ export function UploadedMaterialsList() {
 
   const handleDelete = async (materialId: string) => {
     try {
+      // First get the material to find the file path
+      const { data: material } = await supabase
+        .from('cramintel_materials')
+        .select('file_path')
+        .eq('id', materialId)
+        .eq('user_id', user?.id)
+        .single();
+
+      // Delete the file from storage if it exists
+      if (material?.file_path) {
+        const { error: storageError } = await supabase.storage
+          .from('cramintel-materials')
+          .remove([material.file_path]);
+        
+        if (storageError) {
+          console.error('Error deleting file from storage:', storageError);
+        }
+      }
+
+      // Delete the database record
       const { error } = await supabase
         .from('cramintel_materials')
         .delete()
@@ -100,22 +121,44 @@ export function UploadedMaterialsList() {
       return;
     }
 
+    if (!material.file_path) {
+      toast({
+        title: "File Not Available",
+        description: "The file path is not available for this material.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      // For now, we'll use a placeholder URL since we don't have Supabase Storage set up
-      // In a real implementation, you would get the signed URL from Supabase Storage
-      const fileUrl = material.file_path || '#';
+      setLoadingFileUrl(material.id);
       
-      if (fileUrl === '#') {
+      // Generate a signed URL for the file
+      const { data: signedUrlData, error: urlError } = await supabase.storage
+        .from('cramintel-materials')
+        .createSignedUrl(material.file_path, 3600); // URL valid for 1 hour
+
+      if (urlError) {
+        console.error('Error creating signed URL:', urlError);
         toast({
-          title: "File Not Available",
-          description: "The file is not available for preview.",
+          title: "Error",
+          description: "Failed to access the file. The file may not exist in storage.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!signedUrlData.signedUrl) {
+        toast({
+          title: "Error",
+          description: "Failed to generate file access URL.",
           variant: "destructive"
         });
         return;
       }
 
       setSelectedPdf({
-        url: fileUrl,
+        url: signedUrlData.signedUrl,
         name: material.name
       });
       setPdfViewerOpen(true);
@@ -126,6 +169,8 @@ export function UploadedMaterialsList() {
         description: "Failed to open file. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setLoadingFileUrl(null);
     }
   };
 
@@ -233,14 +278,19 @@ export function UploadedMaterialsList() {
                   </div>
                   
                   <div className="flex gap-2 ml-4">
-                    {material.processed && (
+                    {material.processed && material.file_type === 'application/pdf' && (
                       <Button 
                         variant="ghost" 
                         size="sm" 
                         className="text-gray-600 hover:text-gray-800"
                         onClick={() => handleViewMaterial(material)}
+                        disabled={loadingFileUrl === material.id}
                       >
-                        <Eye className="w-4 h-4" />
+                        {loadingFileUrl === material.id ? (
+                          <div className="w-4 h-4 animate-spin rounded-full border-2 border-gray-600 border-t-transparent" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
                       </Button>
                     )}
                     <Button 
