@@ -1,10 +1,7 @@
-
 import React from 'react';
 import { Mail, Linkedin, Phone } from 'lucide-react';
-
 const ContactInfo = () => {
-  return (
-    <section id="contact-info" className="bg-gradient-to-b from-white to-black text-white relative py-[15px] md:py-[25px]">
+  return <section id="contact-info" className="bg-gradient-to-b from-white to-black text-white relative py-[15px] md:py-[25px]">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10 md:mb-16">
           <div className="inline-block mb-3 px-3 py-1 bg-white text-black rounded-full text-sm font-medium">
@@ -22,14 +19,9 @@ const ContactInfo = () => {
           {/* Izunna's Contact Info */}
           <div className="bg-white rounded-xl shadow-xl p-6 md:p-8 border border-gray-700 max-w-md">
             <div className="flex flex-col items-center text-center">
-              <img 
-                src="/lovable-uploads/ff6c981f-4e53-4fc2-a0dc-a49217f214e4.png"
-                alt="Izunna"
-                className="w-32 h-32 rounded-full mb-4 object-cover filter grayscale"
-                onError={(e) => {
-                  console.error('Image failed to load:', e.currentTarget.src);
-                }}
-              />
+              <img alt="Izunna" className="w-32 h-32 rounded-full mb-4 object-cover filter grayscale" onError={e => {
+              console.error('Image failed to load:', e.currentTarget.src);
+            }} src="/lovable-uploads/8eb2acd2-c276-4bc7-893e-ea8071b302c8.jpg" />
               <h3 className="text-xl font-bold text-gray-900">Izunna</h3>
               <p className="text-gray-600 mb-4">CEO and Founder</p>
               <div className="flex flex-col space-y-3">
@@ -37,12 +29,7 @@ const ContactInfo = () => {
                   <Mail className="w-5 h-5 mr-2" />
                   paschalugwuanyi98@gmail.com
                 </a>
-                <a 
-                  href="https://www.linkedin.com/in/paschal-ugwuanyi-02a430359/" 
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center text-gray-700 hover:text-blue-600"
-                >
+                <a href="https://www.linkedin.com/in/paschal-ugwuanyi-02a430359/" target="_blank" rel="noopener noreferrer" className="flex items-center text-gray-700 hover:text-blue-600">
                   <Linkedin className="w-5 h-5 mr-2" />
                   LinkedIn Profile
                 </a>
@@ -51,8 +38,6 @@ const ContactInfo = () => {
           </div>
         </div>
       </div>
-    </section>
-  );
+    </section>;
 };
-
 export default ContactInfo;
