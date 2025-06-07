@@ -13,6 +13,7 @@ import { useFlashcardDecks } from '@/hooks/useFlashcardDecks';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { ProcessingAnimation } from '@/components/ProcessingAnimation';
 
 interface CreateDeckFlowProps {
   onClose: () => void;
@@ -40,6 +41,12 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loadingMaterials, setLoadingMaterials] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<{
+    status: 'pending' | 'extracting_text' | 'processing_content' | 'generating_flashcards' | 'saving_flashcards' | 'completed' | 'error';
+    progress: number;
+    currentMaterial: string;
+  }>({ status: 'pending', progress: 0, currentMaterial: '' });
 
   const { user } = useAuth();
   const { createDeck } = useFlashcardDecks();
@@ -99,55 +106,69 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
     }));
   };
 
-  const createSampleFlashcards = async (deckId: string) => {
-    if (!user) return;
+  const processFlashcardsForDeck = async (deckId: string) => {
+    if (!user || deckData.selectedMaterials.length === 0) return;
 
-    // Create some sample flashcards for demonstration
-    const sampleCards = [
-      {
-        question: "What is the main topic of this deck?",
-        answer: deckData.description || "This deck covers important concepts for studying.",
-        course: deckData.course,
-        difficulty_level: "medium",
-        user_id: user.id
-      },
-      {
-        question: "How can you use this flashcard deck effectively?",
-        answer: "Review regularly, focus on cards you find difficult, and use spaced repetition for better retention.",
-        course: deckData.course,
-        difficulty_level: "easy",
-        user_id: user.id
+    const selectedMaterialNames = materials
+      .filter(m => deckData.selectedMaterials.includes(m.id))
+      .map(m => m.name);
+
+    const flashcardsPerMaterial = Math.floor(20 / deckData.selectedMaterials.length);
+    let totalFlashcardsGenerated = 0;
+
+    for (let i = 0; i < deckData.selectedMaterials.length; i++) {
+      const materialId = deckData.selectedMaterials[i];
+      const material = materials.find(m => m.id === materialId);
+      
+      if (!material) continue;
+
+      setProcessingStatus({
+        status: 'generating_flashcards',
+        progress: Math.floor((i / deckData.selectedMaterials.length) * 90),
+        currentMaterial: material.name
+      });
+
+      try {
+        // Create a specialized processing request for deck generation
+        const { data: processResult, error: processError } = await supabase.functions.invoke('generate-deck-flashcards', {
+          body: { 
+            materialId,
+            deckId,
+            targetCards: i === deckData.selectedMaterials.length - 1 ? 
+              (20 - totalFlashcardsGenerated) : // Last material gets remaining cards
+              flashcardsPerMaterial
+          },
+          headers: {
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          }
+        });
+
+        if (processError) {
+          console.error('Failed to process material:', material.name, processError);
+          continue;
+        }
+
+        totalFlashcardsGenerated += processResult?.flashcards_generated || 0;
+        console.log(`Generated ${processResult?.flashcards_generated} flashcards from ${material.name}`);
+        
+      } catch (error) {
+        console.error('Error processing material:', material.name, error);
       }
-    ];
-
-    try {
-      // Insert flashcards
-      const { data: flashcardsData, error: flashcardsError } = await supabase
-        .from('cramintel_flashcards')
-        .insert(sampleCards)
-        .select();
-
-      if (flashcardsError) {
-        console.error('Error creating flashcards:', flashcardsError);
-        return;
-      }
-
-      // Link flashcards to deck
-      const deckFlashcards = flashcardsData.map(card => ({
-        deck_id: deckId,
-        flashcard_id: card.id
-      }));
-
-      const { error: linkError } = await supabase
-        .from('cramintel_deck_flashcards')
-        .insert(deckFlashcards);
-
-      if (linkError) {
-        console.error('Error linking flashcards to deck:', linkError);
-      }
-    } catch (error) {
-      console.error('Error creating sample flashcards:', error);
     }
+
+    // Update deck with actual card count
+    await supabase
+      .from('cramintel_decks')
+      .update({ total_cards: totalFlashcardsGenerated })
+      .eq('id', deckId);
+
+    setProcessingStatus({
+      status: 'completed',
+      progress: 100,
+      currentMaterial: ''
+    });
+
+    return totalFlashcardsGenerated;
   };
 
   const handleCreateDeck = async () => {
@@ -160,13 +181,24 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
       return;
     }
 
+    if (deckData.selectedMaterials.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one material",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setCreating(true);
+    setProcessing(true);
 
     try {
       const selectedMaterialNames = materials
         .filter(m => deckData.selectedMaterials.includes(m.id))
         .map(m => m.name);
 
+      // Create the deck first
       const deck = await createDeck({
         name: deckData.name,
         description: deckData.description,
@@ -176,28 +208,60 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
         source_materials: selectedMaterialNames
       });
 
-      if (deck) {
-        // Create sample flashcards
-        await createSampleFlashcards(deck.id);
-        
-        toast({
-          title: "Success",
-          description: "Deck created with sample flashcards",
-        });
-        
-        onComplete();
+      if (!deck) {
+        throw new Error('Failed to create deck');
       }
+
+      setProcessingStatus({
+        status: 'processing_content',
+        progress: 10,
+        currentMaterial: selectedMaterialNames[0] || ''
+      });
+
+      // Process materials to generate flashcards
+      const flashcardsGenerated = await processFlashcardsForDeck(deck.id);
+      
+      toast({
+        title: "Success",
+        description: `Deck created with ${flashcardsGenerated} flashcards generated from your materials`,
+      });
+      
+      onComplete();
     } catch (error) {
       console.error('Error creating deck:', error);
+      setProcessingStatus({
+        status: 'error',
+        progress: 0,
+        currentMaterial: ''
+      });
       toast({
         title: "Error",
-        description: "Failed to create deck",
+        description: "Failed to create deck and generate flashcards",
         variant: "destructive"
       });
     } finally {
       setCreating(false);
+      setProcessing(false);
     }
   };
+
+  if (processing) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md"
+        >
+          <ProcessingAnimation
+            status={processingStatus.status}
+            progress={processingStatus.progress}
+            fileName={processingStatus.currentMaterial}
+          />
+        </motion.div>
+      </div>
+    );
+  }
 
   const renderStep1 = () => (
     <Card>
@@ -299,7 +363,7 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-gray-600">Choose which uploaded materials to use for generating flashcards:</p>
+        <p className="text-gray-600">Choose materials to generate 20 quality flashcards from:</p>
         
         {loadingMaterials ? (
           <div className="text-center py-8">Loading materials...</div>
@@ -326,12 +390,23 @@ export function CreateDeckFlow({ onClose, onComplete }: CreateDeckFlowProps) {
           </div>
         )}
 
+        {deckData.selectedMaterials.length > 0 && (
+          <div className="bg-blue-50 p-3 rounded-lg">
+            <p className="text-sm text-blue-800">
+              ✨ AI will generate approximately 20 quality flashcards from {deckData.selectedMaterials.length} selected material{deckData.selectedMaterials.length > 1 ? 's' : ''}
+            </p>
+          </div>
+        )}
+
         <div className="flex justify-between pt-4">
           <Button variant="outline" onClick={() => setStep(1)}>
             Back
           </Button>
-          <Button onClick={handleCreateDeck} disabled={creating}>
-            {creating ? "Creating..." : "Create Deck"}
+          <Button 
+            onClick={handleCreateDeck} 
+            disabled={creating || deckData.selectedMaterials.length === 0}
+          >
+            {creating ? "Creating..." : "Create Deck & Generate Flashcards"}
           </Button>
         </div>
       </CardContent>
