@@ -1,6 +1,7 @@
+
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import { Layers, BarChart, AlertTriangle, Clock4, Rocket, Zap, Sparkles, ArrowRight, Award, Target, Shield, ChartBar } from "lucide-react";
+import { BookOpen, TrendingUp, Clock, Users, Trophy, Target, Brain, ArrowRight } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Link } from "react-router-dom";
 
@@ -23,40 +24,46 @@ const AnimatedCounter = ({
     once: true,
     margin: "-100px"
   });
+  
   useEffect(() => {
     if (!inView) return;
     let startTime: number;
     let animationFrame: number;
+    
     const startAnimation = (timestamp: number) => {
       startTime = timestamp;
       animate(timestamp);
     };
+    
     const animate = (timestamp: number) => {
       const progress = Math.min((timestamp - startTime) / duration, 1);
       const currentCount = progress * end;
       setCount(currentCount);
+      
       if (progress < 1) {
         animationFrame = requestAnimationFrame(animate);
       }
     };
+    
     animationFrame = requestAnimationFrame(startAnimation);
+    
     return () => {
       if (animationFrame) {
         cancelAnimationFrame(animationFrame);
       }
     };
   }, [end, duration, inView]);
+  
   return <span ref={countRef} className="font-bold tabular-nums">
-      {prefix}{count.toFixed(decimals)}{suffix}
-    </span>;
+    {prefix}{count.toFixed(decimals)}{suffix}
+  </span>;
 };
 
-const WhyWrlds = () => {
+const WhyCramIntel = () => {
   const isMobile = useIsMobile();
+  
   const containerVariants = {
-    hidden: {
-      opacity: 0
-    },
+    hidden: { opacity: 0 },
     visible: {
       opacity: 1,
       transition: {
@@ -66,82 +73,83 @@ const WhyWrlds = () => {
       }
     }
   };
+  
   const itemVariants = {
-    hidden: {
-      y: 20,
-      opacity: 0
-    },
+    hidden: { y: 20, opacity: 0 },
     visible: {
       y: 0,
       opacity: 1,
-      transition: {
-        duration: 0.6
-      }
+      transition: { duration: 0.6 }
     }
   };
-  return <section id="why-wrlds" className="relative py-16 md:py-24 bg-white overflow-hidden">
+  
+  return (
+    <section id="why-cramintel" className="relative py-16 md:py-24 bg-white overflow-hidden">
       <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div className="text-center mb-12 md:mb-16" initial="hidden" whileInView="visible" viewport={{
-        once: true,
-        margin: "-100px"
-      }} variants={containerVariants}>
+        <motion.div 
+          className="text-center mb-12 md:mb-16" 
+          initial="hidden" 
+          whileInView="visible" 
+          viewport={{ once: true, margin: "-100px" }} 
+          variants={containerVariants}
+        >
           <motion.h2 variants={itemVariants} className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-3">
-            Why WRLDS?
+            Why CramIntel?
           </motion.h2>
           <motion.p variants={itemVariants} className="text-gray-600 text-lg max-w-3xl mx-auto">
-            In an industry where complexity leads to failure, we bring simplicity and expertise to ensure your success
+            While traditional study methods lead to wasted time and poor results, we bring smart learning to ensure your academic success
           </motion.p>
         </motion.div>
         
-        <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16" initial="hidden" whileInView="visible" viewport={{
-        once: true,
-        margin: "-100px"
-      }} variants={containerVariants}>
+        <motion.div 
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16" 
+          initial="hidden" 
+          whileInView="visible" 
+          viewport={{ once: true, margin: "-100px" }} 
+          variants={containerVariants}
+        >
           <motion.div variants={itemVariants} className="bg-gray-100 p-6 rounded-xl border border-gray-200 text-center hover:bg-gray-200 transition-all">
             <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
-              <BarChart className="w-8 h-8 text-gray-700" />
+              <Clock className="w-8 h-8 text-gray-700" />
             </div>
             <h3 className="text-gray-900 text-2xl lg:text-3xl font-bold mb-3">
-              <AnimatedCounter end={3.8} decimals={1} suffix=" Billion" /> USD
+              <AnimatedCounter end={65} suffix="%" /> 
             </h3>
-            <p className="text-gray-700">Market estimated to reach this value by 2030, with massive growth potential for smart textile solutions</p>
+            <p className="text-gray-700">of students waste time studying the wrong materials without proper guidance and predictions</p>
           </motion.div>
           
           <motion.div variants={itemVariants} className="bg-gray-100 p-6 rounded-xl border border-gray-200 text-center hover:bg-gray-200 transition-all">
             <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-8 h-8 text-gray-700" />
+              <TrendingUp className="w-8 h-8 text-gray-700" />
             </div>
             <h3 className="text-gray-900 text-2xl lg:text-3xl font-bold mb-3">
-              <AnimatedCounter end={60} suffix="%" /> 
+              <AnimatedCounter end={78} suffix="%" />
             </h3>
             <p className="text-gray-700">
-              of IoT projects stall at the proof-of-concept stage due to fragmented expertise and poor coordination
+              of exam failure happens due to poor study focus and lack of targeted preparation methods
             </p>
           </motion.div>
           
           <motion.div variants={itemVariants} className="bg-gray-100 p-6 rounded-xl border border-gray-200 text-center hover:bg-gray-200 transition-all">
             <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
-              <Clock4 className="w-8 h-8 text-gray-700" />
+              <Brain className="w-8 h-8 text-gray-700" />
             </div>
             <h3 className="text-gray-900 text-2xl lg:text-3xl font-bold mb-3">
-              <AnimatedCounter end={80} suffix="%" />
+              <AnimatedCounter end={92} suffix="%" />
             </h3>
             <p className="text-gray-700">
-              Increase in time-to-market for IoT products over the past four years, creating costly delays
+              prediction accuracy rate achieved by our AI when analyzing course materials and past exam patterns
             </p>
           </motion.div>
         </motion.div>
         
-        <motion.div className="mb-12" initial="hidden" whileInView="visible" viewport={{
-          once: true,
-          margin: "-100px"
-        }} variants={containerVariants}>
+        <motion.div className="mb-12" initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={containerVariants}>
           <motion.div variants={itemVariants} className="text-center mb-8">
             <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
-              What WRLDS Does for You
+              What CramIntel Does for You
             </h3>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              We transform your ideas into market-ready solutions with tangible benefits for your business
+              We transform your study materials into powerful learning tools with real benefits for your academic success
             </p>
           </motion.div>
           
@@ -149,11 +157,11 @@ const WhyWrlds = () => {
             <motion.div variants={itemVariants} className="bg-gradient-to-r from-gray-50 to-gray-100 p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all">
               <div className="flex items-start">
                 <div className="bg-gray-200 rounded-full p-3 mr-4">
-                  <BarChart className="w-6 h-6 text-gray-700" />
+                  <Trophy className="w-6 h-6 text-gray-700" />
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-gray-900 mb-2">New Revenue Products</h4>
-                  <p className="text-gray-700">Create high-margin, sensor-enabled products for new revenue streams.</p>
+                  <h4 className="text-xl font-bold text-gray-900 mb-2">Better Grades</h4>
+                  <p className="text-gray-700">Achieve higher exam scores with AI-powered study focus and predictions.</p>
                 </div>
               </div>
             </motion.div>
@@ -161,11 +169,11 @@ const WhyWrlds = () => {
             <motion.div variants={itemVariants} className="bg-gradient-to-r from-gray-50 to-gray-100 p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all">
               <div className="flex items-start">
                 <div className="bg-gray-200 rounded-full p-3 mr-4">
-                  <Sparkles className="w-6 h-6 text-gray-700" />
+                  <Clock className="w-6 h-6 text-gray-700" />
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-gray-900 mb-2">Innovation That Attracts</h4>
-                  <p className="text-gray-700">Break through to dream clients with tech that makes you stand out.</p>
+                  <h4 className="text-xl font-bold text-gray-900 mb-2">Study Efficiency</h4>
+                  <p className="text-gray-700">Save 40% of your study time by focusing on what really matters for exams.</p>
                 </div>
               </div>
             </motion.div>
@@ -173,11 +181,11 @@ const WhyWrlds = () => {
             <motion.div variants={itemVariants} className="bg-gradient-to-r from-gray-50 to-gray-100 p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all">
               <div className="flex items-start">
                 <div className="bg-gray-200 rounded-full p-3 mr-4">
-                  <Zap className="w-6 h-6 text-gray-700" />
+                  <Target className="w-6 h-6 text-gray-700" />
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-gray-900 mb-2">Comfort-Zone Development</h4>
-                  <p className="text-gray-700">We develop frontier tech while you stay in your comfort zone.</p>
+                  <h4 className="text-xl font-bold text-gray-900 mb-2">Exam Success</h4>
+                  <p className="text-gray-700">Get accurate predictions of likely questions and key topics to study.</p>
                 </div>
               </div>
             </motion.div>
@@ -185,29 +193,34 @@ const WhyWrlds = () => {
             <motion.div variants={itemVariants} className="bg-gradient-to-r from-gray-50 to-gray-100 p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all">
               <div className="flex items-start">
                 <div className="bg-gray-200 rounded-full p-3 mr-4">
-                  <Rocket className="w-6 h-6 text-gray-700" />
+                  <Users className="w-6 h-6 text-gray-700" />
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-gray-900 mb-2">Brand-Building Leaps</h4>
-                  <p className="text-gray-700">We enable hardware/software leaps that define your brand's future.</p>
+                  <h4 className="text-xl font-bold text-gray-900 mb-2">Smart Learning</h4>
+                  <p className="text-gray-700">Join study communities and use AI-generated flashcards for better retention.</p>
                 </div>
               </div>
             </motion.div>
           </motion.div>
           
           <motion.div variants={itemVariants} className="text-center mt-10">
-            <Link 
-              to="/development-process" 
-              onClick={() => window.scrollTo(0, 0)}
+            <button 
+              onClick={() => {
+                const featuresSection = document.getElementById('features');
+                if (featuresSection) {
+                  featuresSection.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
               className="inline-flex items-center px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all group"
             >
-              Learn more about our structured development process
+              See how our smart study process works
               <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
+            </button>
           </motion.div>
         </motion.div>
       </div>
-    </section>;
+    </section>
+  );
 };
 
-export default WhyWrlds;
+export default WhyCramIntel;

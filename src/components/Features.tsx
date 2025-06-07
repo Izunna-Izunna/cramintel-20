@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { Upload, Brain, BookOpen, Users, ArrowRight, FileText, Zap, CheckCircle, MessageSquare, Target, Trophy, Clock } from "lucide-react";
 import { cn } from '@/lib/utils';
@@ -45,7 +44,7 @@ const Features = () => {
 
   const scrollToContact = (e: React.MouseEvent) => {
     e.preventDefault();
-    const contactSection = document.getElementById('contact-info');
+    const contactSection = document.getElementById('contact');
     if (contactSection) {
       contactSection.scrollIntoView({
         behavior: 'smooth'
