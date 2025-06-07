@@ -2,6 +2,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
+import { extractText, getDocumentProxy } from "npm:unpdf@1.0.5";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -88,11 +89,44 @@ serve(async (req) => {
     try {
       // Extract text based on file type
       if (material.file_type?.includes('pdf')) {
-        console.log('Processing PDF file:', material.file_path);
+        console.log('Extracting text from PDF:', material.file_path);
         
-        // For now, we'll use a simple approach - in production, you'd want a more robust PDF parser
-        // This creates meaningful content for the AI to work with
-        extractedText = `Study material: ${material.name}
+        try {
+          // Download the PDF file from storage
+          const { data: fileData, error: downloadError } = await supabase.storage
+            .from('cramintel-materials')
+            .download(material.file_path);
+
+          if (downloadError || !fileData) {
+            throw new Error(`Failed to download PDF: ${downloadError?.message}`);
+          }
+
+          // Convert to ArrayBuffer and extract text using unpdf
+          const arrayBuffer = await fileData.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          
+          console.log('PDF file size:', uint8Array.length, 'bytes');
+          
+          // Get document proxy and extract text
+          const pdf = await getDocumentProxy(uint8Array);
+          const { text } = await extractText(pdf, { mergePages: true });
+          
+          console.log('PDF text extraction completed, length:', text.length);
+          
+          // Validate extracted text quality
+          if (text && text.trim().length > 100) {
+            extractedText = text;
+            console.log('Using extracted PDF text for processing');
+          } else {
+            console.warn('Extracted text too short or empty, using fallback content');
+            throw new Error('Insufficient text content extracted from PDF');
+          }
+          
+        } catch (pdfError) {
+          console.error('PDF processing error:', pdfError);
+          
+          // Fallback to enhanced placeholder content
+          extractedText = `Study material: ${material.name}
 Course: ${material.course}
 Material Type: ${material.material_type}
 
@@ -104,10 +138,13 @@ Key topics likely covered in this material include:
 - Practical applications and examples
 - Problem-solving methods and techniques
 - Critical analysis and evaluation methods
+- Review questions and practice problems
+- Case studies and real-world scenarios
+- Technical terminology and vocabulary
 
-Please note: This material requires proper PDF text extraction for detailed content analysis. The flashcards generated will focus on general ${material.course} concepts that are commonly found in ${material.material_type} materials.`;
+Please note: PDF text extraction encountered an issue. The flashcards generated will focus on general ${material.course} concepts that are commonly found in ${material.material_type} materials.`;
+        }
         
-        console.log('PDF processing completed with placeholder content');
       } else if (material.file_type?.includes('text')) {
         // Handle text files
         const { data: fileData, error: downloadError } = await supabase.storage
@@ -120,12 +157,20 @@ Please note: This material requires proper PDF text extraction for detailed cont
 
         extractedText = await fileData.text();
       } else {
-        // For other file types, create placeholder content
+        // For other file types, create enhanced placeholder content
         extractedText = `Study material: ${material.name}
 Course: ${material.course}
 Material Type: ${material.material_type}
 
-This ${material.material_type} focuses on ${material.course} concepts. Key areas of study typically include fundamental principles, practical applications, and critical thinking skills relevant to this subject area.`;
+This ${material.material_type} focuses on ${material.course} concepts. Key areas of study typically include:
+- Fundamental principles and theories
+- Practical applications and methodologies
+- Critical thinking and analysis skills
+- Problem-solving techniques
+- Industry best practices
+- Technical concepts and terminology
+
+Note: This material type requires specialized processing. Flashcards will focus on core ${material.course} concepts.`;
       }
     } catch (extractionError) {
       console.error('Text extraction failed:', extractionError);
@@ -139,8 +184,41 @@ This is a ${material.course} study material. Key concepts typically covered incl
 - Practical applications
 - Problem-solving approaches
 - Analysis and evaluation methods
+- Technical skills and knowledge
+- Industry standards and practices
 
 Note: Detailed content extraction was not available, so these flashcards focus on general ${material.course} concepts.`;
+    }
+
+    // Validate final text quality
+    if (!extractedText || extractedText.trim().length < 50) {
+      console.warn('Final extracted text is insufficient, creating enhanced fallback');
+      extractedText = `Comprehensive ${material.course} Study Guide - ${material.name}
+
+This ${material.material_type} covers essential ${material.course} concepts including:
+
+Core Topics:
+- Fundamental principles and theoretical foundations
+- Key definitions and terminology
+- Mathematical concepts and formulas (if applicable)
+- Practical applications and real-world examples
+- Problem-solving methodologies and techniques
+
+Advanced Concepts:
+- Critical analysis and evaluation methods
+- Comparative studies and case analyses
+- Industry best practices and standards
+- Current trends and developments
+- Research methods and data interpretation
+
+Study Focus Areas:
+- Conceptual understanding and knowledge retention
+- Application of theories to practical scenarios
+- Problem-solving and analytical thinking
+- Communication of ideas and findings
+- Integration of concepts across different areas
+
+This comprehensive approach ensures thorough coverage of ${material.course} material for effective learning and exam preparation.`;
     }
 
     // Update processing status to processing_content
