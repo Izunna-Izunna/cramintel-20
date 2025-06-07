@@ -6,7 +6,7 @@ import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface PdfViewerProps {
@@ -67,15 +67,6 @@ export function PdfViewer({
           event.preventDefault();
           handleNextPage();
           break;
-        case '+':
-        case '=':
-          event.preventDefault();
-          // Zoom in handled by default layout plugin
-          break;
-        case '-':
-          event.preventDefault();
-          // Zoom out handled by default layout plugin
-          break;
       }
     };
 
@@ -86,37 +77,20 @@ export function PdfViewer({
   const defaultLayoutPluginInstance = defaultLayoutPlugin({
     sidebarTabs: (defaultTabs) => [],
     toolbarPlugin: {
-      fullScreenPlugin: {
-        enableShortcuts: true,
-      },
+      fullScreenPlugin: {},
       getFilePlugin: {
         fileNameGenerator: (file) => {
           const fileName = sourceUrl.split('/').pop() || 'document.pdf';
           return fileName.replace(/\.[^/.]+$/, '');
         },
       },
-      printPlugin: {
-        enableShortcuts: true,
-      },
-      propertiesPlugin: {
-        enableShortcuts: true,
-      },
-      rotatePlugin: {
-        enableShortcuts: true,
-      },
-      scrollModePlugin: {
-        enableShortcuts: true,
-      },
-      selectionModePlugin: {
-        enableShortcuts: true,
-      },
-      themePlugin: {
-        enableShortcuts: true,
-      },
-      zoomPlugin: {
-        enableShortcuts: true,
-        zoomLevels: [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4],
-      },
+      printPlugin: {},
+      propertiesPlugin: {},
+      rotatePlugin: {},
+      scrollModePlugin: {},
+      selectionModePlugin: {},
+      themePlugin: {},
+      zoomPlugin: {},
     },
   });
 
@@ -124,18 +98,6 @@ export function PdfViewer({
     setTotalPages(e.doc.numPages);
     setLoading(false);
     setError(null);
-  };
-
-  const handleDocumentLoadError = (error: any) => {
-    console.error('PDF loading error:', error);
-    setLoading(false);
-    setError('Failed to load PDF document. Please check the file URL and try again.');
-    
-    toast({
-      title: "PDF Loading Error",
-      description: "Unable to load the PDF document. The file may be corrupted or inaccessible.",
-      variant: "destructive"
-    });
   };
 
   const handlePageChange = (e: any) => {
@@ -178,6 +140,18 @@ export function PdfViewer({
     setError(null);
     // Force re-render by updating a key or similar mechanism
     window.location.reload();
+  };
+
+  const handleLoadError = () => {
+    console.error('PDF loading error for URL:', sourceUrl);
+    setLoading(false);
+    setError('Failed to load PDF document. Please check the file URL and try again.');
+    
+    toast({
+      title: "PDF Loading Error",
+      description: "Unable to load the PDF document. The file may be corrupted or inaccessible.",
+      variant: "destructive"
+    });
   };
 
   if (error) {
@@ -240,7 +214,7 @@ export function PdfViewer({
           </div>
 
           <div className="text-xs text-gray-500">
-            Use ← → keys to navigate, +/- to zoom
+            Use ← → keys to navigate
           </div>
         </div>
       )}
@@ -257,15 +231,19 @@ export function PdfViewer({
         )}
 
         <Worker workerUrl={`https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`}>
-          <Viewer
-            fileUrl={sourceUrl}
-            plugins={[defaultLayoutPluginInstance]}
-            onDocumentLoad={handleDocumentLoad}
-            onDocumentLoadError={handleDocumentLoadError}
-            onPageChange={handlePageChange}
-            initialPage={initialPage - 1} // PDF.js uses 0-based indexing
-            defaultScale={1}
-          />
+          <div 
+            style={{ display: loading ? 'none' : 'block' }}
+            onError={handleLoadError}
+          >
+            <Viewer
+              fileUrl={sourceUrl}
+              plugins={[defaultLayoutPluginInstance]}
+              onDocumentLoad={handleDocumentLoad}
+              onPageChange={handlePageChange}
+              initialPage={initialPage - 1}
+              defaultScale={1}
+            />
+          </div>
         </Worker>
       </div>
     </div>
