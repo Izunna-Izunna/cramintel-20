@@ -50,14 +50,10 @@ export function UploadedMaterialsList({ key }: UploadedMaterialsListProps) {
 
   const fetchMaterials = async () => {
     try {
-      // Fetch materials with flashcard counts
+      // First get materials
       const { data: materialsData, error: materialsError } = await supabase
         .from('cramintel_materials')
-        .select(`
-          *,
-          cramintel_flashcards(count),
-          cramintel_decks!inner(id, name)
-        `)
+        .select('*')
         .eq('user_id', user?.id)
         .order('upload_date', { ascending: false });
 
@@ -66,15 +62,45 @@ export function UploadedMaterialsList({ key }: UploadedMaterialsListProps) {
         return;
       }
 
-      // Transform the data to include flashcard counts and deck info
-      const transformedMaterials = materialsData?.map(material => ({
-        ...material,
-        flashcard_count: material.cramintel_flashcards?.[0]?.count || 0,
-        deck_name: material.cramintel_decks?.[0]?.name,
-        deck_id: material.cramintel_decks?.[0]?.id
-      })) || [];
+      // Then get flashcard counts and deck info for each material
+      const materialsWithCounts = await Promise.all(
+        materialsData?.map(async (material) => {
+          // Get flashcard count for this material
+          const { data: flashcardData } = await supabase
+            .from('cramintel_flashcards')
+            .select('id')
+            .eq('material_id', material.id);
 
-      setMaterials(transformedMaterials);
+          // Get deck info if there are flashcards
+          let deckInfo = null;
+          if (flashcardData && flashcardData.length > 0) {
+            const { data: deckData } = await supabase
+              .from('cramintel_deck_flashcards')
+              .select(`
+                deck_id,
+                cramintel_decks(id, name)
+              `)
+              .eq('flashcard_id', flashcardData[0].id)
+              .limit(1)
+              .single();
+
+            if (deckData && deckData.cramintel_decks) {
+              deckInfo = deckData.cramintel_decks;
+            }
+          }
+
+          return {
+            ...material,
+            processing_status: material.processing_status || 'pending',
+            processing_progress: material.processing_progress || 0,
+            flashcard_count: flashcardData?.length || 0,
+            deck_name: deckInfo?.name,
+            deck_id: deckInfo?.id
+          };
+        }) || []
+      );
+
+      setMaterials(materialsWithCounts);
     } catch (error) {
       console.error('Error fetching materials:', error);
     } finally {
@@ -314,8 +340,8 @@ export function UploadedMaterialsList({ key }: UploadedMaterialsListProps) {
             <EnhancedImageViewer
               isOpen={viewerOpen}
               onClose={() => setViewerOpen(false)}
-              imageUrl={selectedMaterial.file_path}
-              title={selectedMaterial.name}
+              sourceUrl={selectedMaterial.file_path}
+              fileName={selectedMaterial.name}
             />
           )}
         </>
