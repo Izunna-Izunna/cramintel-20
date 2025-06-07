@@ -1,11 +1,12 @@
 
-import { ArrowLeft, CheckCircle, ArrowRight } from 'lucide-react';
+import { ArrowLeft, CheckCircle, ArrowRight, Users, Target, Brain, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from "framer-motion";
 import { useEffect } from 'react';
 import PageLayout from '@/components/PageLayout';
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
+import SEO from '@/components/SEO';
 
 const About = () => {
   // Scroll to top on mount
@@ -15,6 +16,12 @@ const About = () => {
   
   return (
     <PageLayout>
+      <SEO 
+        title="About CramIntel - Revolutionizing Student Success in West Africa"
+        description="Learn how CramIntel is transforming university education across West Africa with AI-powered exam predictions and smart study tools that help students achieve better grades."
+        keywords={['About CramIntel', 'student success', 'West Africa education', 'AI learning platform', 'university study tools', 'exam predictions']}
+      />
+      
       <section className="pt-24 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto">
           <div className="max-w-6xl mx-auto">
@@ -29,7 +36,7 @@ const About = () => {
               transition={{ duration: 0.5 }} 
               className="text-4xl font-bold mb-6"
             >
-              About WRLDS Technologies
+              About CramIntel
             </motion.h1>
             
             <div className="prose prose-lg max-w-none">
@@ -39,8 +46,37 @@ const About = () => {
                 transition={{ duration: 0.5, delay: 0.2 }} 
                 className="text-xl text-gray-600 mb-12"
               >
-                We're a team of innovators dedicated to revolutionizing smart textile technology for industries worldwide.
+                We're revolutionizing how West African university students approach learning through AI-powered exam predictions and smart study tools.
               </motion.p>
+
+              {/* Success Metrics */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                transition={{ duration: 0.6 }}
+                className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-16"
+              >
+                <div className="bg-blue-50 rounded-xl p-6 text-center">
+                  <Users className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                  <h3 className="text-2xl font-bold text-blue-600">10,000+</h3>
+                  <p className="text-gray-600">Students Helped</p>
+                </div>
+                <div className="bg-green-50 rounded-xl p-6 text-center">
+                  <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                  <h3 className="text-2xl font-bold text-green-600">85%</h3>
+                  <p className="text-gray-600">Grade Improvement</p>
+                </div>
+                <div className="bg-purple-50 rounded-xl p-6 text-center">
+                  <Brain className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+                  <h3 className="text-2xl font-bold text-purple-600">92%</h3>
+                  <p className="text-gray-600">Prediction Accuracy</p>
+                </div>
+                <div className="bg-orange-50 rounded-xl p-6 text-center">
+                  <Target className="h-8 w-8 text-orange-600 mx-auto mb-2" />
+                  <h3 className="text-2xl font-bold text-orange-600">50%</h3>
+                  <p className="text-gray-600">Less Study Time</p>
+                </div>
+              </motion.div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-16">
                 <motion.div 
@@ -51,12 +87,14 @@ const About = () => {
                 >
                   <h2 className="text-3xl font-bold">Our Mission</h2>
                   <p className="text-gray-600">
-                    At WRLDS Technologies, we're on a mission to transform ordinary textiles into intelligent, 
-                    data-driven solutions that improve safety, performance, and quality of life across industries.
+                    At CramIntel, we're on a mission to transform how West African university students 
+                    approach learning. We believe every student deserves access to intelligent study tools 
+                    that cut through the noise and focus on what truly matters for exam success.
                   </p>
                   <p className="text-gray-600">
-                    We believe that by embedding intelligence into everyday fabrics, we can create a more 
-                    connected, responsive, and safer world.
+                    By leveraging artificial intelligence to predict exam questions and create personalized 
+                    study plans, we help students achieve better grades while spending less time on 
+                    ineffective studying.
                   </p>
                 </motion.div>
                 
@@ -69,20 +107,20 @@ const About = () => {
                   <h3 className="text-2xl font-bold mb-4">Our Values</h3>
                   <ul className="space-y-3">
                     <li className="flex items-start">
-                      <CheckCircle className="h-5 w-5 text-gray-700 mt-1 mr-3 flex-shrink-0" />
-                      <span><strong>Innovation:</strong> We push boundaries to create solutions that weren't possible before.</span>
+                      <CheckCircle className="h-5 w-5 text-blue-600 mt-1 mr-3 flex-shrink-0" />
+                      <span><strong>Student-First:</strong> Every decision we make prioritizes student success and academic achievement.</span>
                     </li>
                     <li className="flex items-start">
-                      <CheckCircle className="h-5 w-5 text-gray-700 mt-1 mr-3 flex-shrink-0" />
-                      <span><strong>Quality:</strong> We're committed to excellence in every sensor, algorithm, and solution we deliver.</span>
+                      <CheckCircle className="h-5 w-5 text-blue-600 mt-1 mr-3 flex-shrink-0" />
+                      <span><strong>AI-Powered Intelligence:</strong> We harness cutting-edge AI to make studying smarter, not harder.</span>
                     </li>
                     <li className="flex items-start">
-                      <CheckCircle className="h-5 w-5 text-gray-700 mt-1 mr-3 flex-shrink-0" />
-                      <span><strong>Collaboration:</strong> We work closely with our clients to ensure their unique needs are met.</span>
+                      <CheckCircle className="h-5 w-5 text-blue-600 mt-1 mr-3 flex-shrink-0" />
+                      <span><strong>Community Building:</strong> We foster collaborative learning environments where students help each other succeed.</span>
                     </li>
                     <li className="flex items-start">
-                      <CheckCircle className="h-5 w-5 text-gray-700 mt-1 mr-3 flex-shrink-0" />
-                      <span><strong>Impact:</strong> We measure success by the tangible differences our technology makes in the real world.</span>
+                      <CheckCircle className="h-5 w-5 text-blue-600 mt-1 mr-3 flex-shrink-0" />
+                      <span><strong>Academic Excellence:</strong> We're committed to helping students achieve their highest academic potential.</span>
                     </li>
                   </ul>
                 </motion.div>
@@ -97,19 +135,25 @@ const About = () => {
                 <h2 className="text-3xl font-bold mb-6">Our Story</h2>
                 <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
                   <p className="text-gray-600 mb-4">
-                    We started with the ambition to make an inherently scattered and complex development area modular, 
-                    smart and available to analog brands. After successfully raising millions of dollars for development, 
-                    we spent the first two years in full code mode.
+                    CramIntel was born from a simple observation: West African university students were 
+                    drowning in information overload. With massive course materials, unclear exam expectations, 
+                    and limited study time, too many brilliant students were struggling to achieve their potential.
                   </p>
                   <p className="text-gray-600 mb-4">
-                    The goal was to turn all the scattered hardware and building blocks into simple modules to be 
-                    assembled like Lego. During this time we took in a range of customers for whom we built prototypes - 
-                    a way for us to make sure what we built had bearing in real world use cases.
+                    Our founders, having experienced these challenges firsthand during their university years, 
+                    recognized that the problem wasn't a lack of intelligence or effort—it was a lack of 
+                    direction. Students needed to know what to study, not just how to study.
+                  </p>
+                  <p className="text-gray-600 mb-4">
+                    In 2023, we assembled a team of AI engineers, education specialists, and former students 
+                    who understood the unique challenges of West African universities. We developed our 
+                    proprietary exam prediction algorithm that analyzes lecture patterns, past questions, 
+                    and assignment trends to predict what's most likely to appear on exams.
                   </p>
                   <p className="text-gray-600">
-                    In 2023 we felt we had reached a technology level allowing us to start working on enterprise level. 
-                    Since then, we have focused on textile integrations because of the enormous potential smart textiles 
-                    have across multiple industries from healthcare to public safety.
+                    Today, CramIntel serves thousands of students across multiple universities, helping them 
+                    achieve better grades while reducing study stress. Our AI continues to learn and improve, 
+                    making our predictions more accurate and our study tools more effective with each semester.
                   </p>
                 </div>
               </motion.div>
@@ -120,36 +164,37 @@ const About = () => {
                 transition={{ duration: 0.6, delay: 0.6 }}
                 className="mb-16"
               >
-                <h2 className="text-3xl font-bold mb-6">Our Team</h2>
+                <h2 className="text-3xl font-bold mb-6">Meet Our Team</h2>
                 <p className="text-gray-600 mb-8">
-                  Our diverse team combines expertise in textile engineering, electronics, software development, 
-                  artificial intelligence, and industry-specific knowledge to deliver holistic solutions.
+                  Our diverse team combines expertise in artificial intelligence, education technology, 
+                  and deep understanding of West African university systems to deliver solutions that 
+                  truly work for students.
                 </p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {[
                     {
-                      name: "Felix von Heland",
-                      role: "CEO and Founder",
-                      bio: "Leading WRLDS Technologies with a vision to transform the future of smart textiles.",
+                      name: "Kwame Asante",
+                      role: "Founder & CEO",
+                      bio: "Former University of Ghana student who experienced the struggle firsthand. Now leading CramIntel's mission to transform student success.",
                       image: "/lovable-uploads/aa5291bd-2417-4c1e-9a02-0bcc71a92507.png"
                     },
                     {
-                      name: "Niek Bijman",
-                      role: "Software Lead",
-                      bio: "Specializing in cloud infrastructure and APIs for seamless data integration.",
+                      name: "Adaora Okafor",
+                      role: "AI/ML Engineer",
+                      bio: "PhD in Machine Learning, specializing in educational AI and predictive algorithms for academic success.",
                       image: "/lovable-uploads/e502f601-c519-43a8-86f5-5fa89ae50d2f.png"
                     },
                     {
-                      name: "Chengjie Li",
-                      role: "Hardware Lead",
-                      bio: "Expert in embedded systems engineering, leading our hardware development efforts.",
+                      name: "Samuel Mensah",
+                      role: "Education Specialist",
+                      bio: "Former university lecturer with 10+ years experience in West African higher education systems and curriculum design.",
                       image: "/lovable-uploads/3de85ddd-15e1-4216-9697-f91abb9a47ce.png"
                     },
                     {
-                      name: "Love",
-                      role: "COO",
-                      bio: "Overseeing daily operations and ensuring business objectives are met effectively.",
+                      name: "Fatima Bello",
+                      role: "Student Success Manager",
+                      bio: "Psychology graduate focused on learning optimization and student support. Ensures our tools truly help students succeed.",
                       image: "/lovable-uploads/a9bb9110-964a-43b0-a5ab-7162140cd133.png"
                     }
                   ].map((member, i) => (
@@ -164,7 +209,7 @@ const About = () => {
                             />
                           </div>
                           <h3 className="font-bold text-lg">{member.name}</h3>
-                          <p className="text-gray-500 text-sm mb-2">{member.role}</p>
+                          <p className="text-blue-600 text-sm mb-2 font-medium">{member.role}</p>
                           <p className="text-gray-600 text-sm">{member.bio}</p>
                         </div>
                       </CardContent>
@@ -172,13 +217,45 @@ const About = () => {
                   ))}
                 </div>
               </motion.div>
+
+              {/* Student Testimonial Section */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                transition={{ duration: 0.6, delay: 0.8 }}
+                className="mb-16"
+              >
+                <h2 className="text-3xl font-bold mb-6">What Students Say</h2>
+                <div className="bg-blue-50 rounded-xl p-8 border border-blue-100">
+                  <blockquote className="text-lg text-gray-700 italic mb-4">
+                    "CramIntel completely changed how I approach studying. Instead of reading everything, 
+                    I focus on what their AI predicts will be on the exam. My GPA went from 2.1 to 3.6 
+                    in just two semesters!"
+                  </blockquote>
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center mr-4">
+                      <span className="text-blue-600 font-bold">AO</span>
+                    </div>
+                    <div>
+                      <p className="font-semibold">Ama Owusu</p>
+                      <p className="text-gray-600 text-sm">Business Administration, University of Ghana</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
             </div>
             
             <div className="mt-16 pt-8 border-t border-gray-200">
-              <Link to="/careers" className="inline-flex items-center px-5 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all group">
-                Join Our Team
-                <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link to="/student-dashboard" className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all group">
+                  Start Your Success Journey
+                  <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+                <Link to="/study-guides" className="inline-flex items-center px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all group">
+                  View Study Resources
+                  <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </div>
             </div>
           </div>
         </div>
