@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -320,8 +319,6 @@ export function UploadedMaterialsList() {
           }}
           sourceUrl={selectedPdf.url}
           fileName={selectedPdf.name}
-          initialPage={1}
-          showControls={true}
         />
       )}
     </>
