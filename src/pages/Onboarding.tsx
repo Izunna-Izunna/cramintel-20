@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import WelcomeStep from '@/components/onboarding/WelcomeStep';
 import NameStep from '@/components/onboarding/NameStep';
+import EmailStep from '@/components/onboarding/EmailStep';
+import PasswordStep from '@/components/onboarding/PasswordStep';
 import SchoolStep from '@/components/onboarding/SchoolStep';
 import DepartmentStep from '@/components/onboarding/DepartmentStep';
 import CoursesStep from '@/components/onboarding/CoursesStep';
@@ -17,6 +19,8 @@ import ParticleCelebration from '@/components/onboarding/ParticleCelebration';
 
 export interface OnboardingData {
   name: string;
+  email: string;
+  password: string;
   school: string;
   department: string;
   courses: string[];
@@ -28,6 +32,8 @@ const Onboarding = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [data, setData] = useState<OnboardingData>({
     name: '',
+    email: '',
+    password: '',
     school: '',
     department: '',
     courses: [],
@@ -37,7 +43,7 @@ const Onboarding = () => {
   const [showCelebration, setShowCelebration] = useState(false);
   const navigate = useNavigate();
 
-  const totalSteps = 8;
+  const totalSteps = 10; // Updated to include email and password steps
 
   // Save progress to localStorage
   useEffect(() => {
@@ -75,6 +81,7 @@ const Onboarding = () => {
   };
 
   const completeOnboarding = () => {
+    // Store temporarily in localStorage, will be migrated to Supabase
     localStorage.setItem('cramIntelUser', JSON.stringify(data));
     localStorage.removeItem('onboardingProgress');
     setTimeout(() => {
@@ -114,16 +121,20 @@ const Onboarding = () => {
       case 2:
         return <NameStep {...stepProps} />;
       case 3:
-        return <SchoolStep {...stepProps} />;
+        return <EmailStep {...stepProps} />;
       case 4:
-        return <DepartmentStep {...stepProps} />;
+        return <PasswordStep {...stepProps} />;
       case 5:
-        return <CoursesStep {...stepProps} />;
+        return <SchoolStep {...stepProps} />;
       case 6:
-        return <StudyStyleStep {...stepProps} />;
+        return <DepartmentStep {...stepProps} />;
       case 7:
-        return <FirstActionStep {...stepProps} />;
+        return <CoursesStep {...stepProps} />;
       case 8:
+        return <StudyStyleStep {...stepProps} />;
+      case 9:
+        return <FirstActionStep {...stepProps} />;
+      case 10:
         return <CompletionStep {...stepProps} onComplete={completeOnboarding} />;
       default:
         return <WelcomeStep {...stepProps} />;

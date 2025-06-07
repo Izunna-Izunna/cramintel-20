@@ -1,7 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
 import { OnboardingData } from '@/pages/Onboarding';
+import { useToast } from '@/hooks/use-toast';
 
 interface CompletionStepProps {
   data: OnboardingData;
@@ -31,6 +33,105 @@ const CompletionStep = ({ data, onComplete }: CompletionStepProps) => {
   const [currentTip, setCurrentTip] = useState(0);
   const [currentMessage, setCurrentMessage] = useState(0);
   const [showFireworks, setShowFireworks] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const { toast } = useToast();
+
+  const registerUser = async () => {
+    try {
+      setIsRegistering(true);
+      
+      // Sign up the user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (authError) {
+        console.error('Auth error:', authError);
+        toast({
+          title: "Registration failed",
+          description: "There was an error creating your account. Using offline mode.",
+          variant: "destructive",
+        });
+        // Fall back to localStorage
+        localStorage.setItem('cramIntelUser', JSON.stringify(data));
+        onComplete();
+        return;
+      }
+
+      if (authData.user) {
+        // Insert user data into cramintelusers table
+        const { error: userError } = await supabase
+          .from('cramintelusers')
+          .insert({
+            id: authData.user.id,
+            email: data.email,
+            name: data.name,
+            school: data.school,
+            department: data.department,
+            study_style: data.studyStyle,
+            first_action: data.firstAction,
+          });
+
+        if (userError) {
+          console.error('User insert error:', userError);
+        }
+
+        // Insert courses
+        if (data.courses.length > 0) {
+          const courseInserts = data.courses.map(course => ({
+            user_id: authData.user.id,
+            course_name: course,
+          }));
+
+          const { error: coursesError } = await supabase
+            .from('cramintelcourses')
+            .insert(courseInserts);
+
+          if (coursesError) {
+            console.error('Courses insert error:', coursesError);
+          }
+        }
+
+        // Initialize user profile
+        const { error: profileError } = await supabase
+          .from('cramintelprofile')
+          .insert({
+            user_id: authData.user.id,
+            study_streak: 0,
+            total_study_time: 0,
+            cards_mastered_total: 0,
+            documents_uploaded: 0,
+            ai_questions_asked: 0,
+            achievements: {},
+          });
+
+        if (profileError) {
+          console.error('Profile insert error:', profileError);
+        }
+
+        toast({
+          title: "Welcome to CramIntel!",
+          description: "Your account has been created successfully.",
+        });
+      }
+
+      localStorage.removeItem('onboardingProgress');
+      onComplete();
+      
+    } catch (error) {
+      console.error('Registration error:', error);
+      toast({
+        title: "Registration failed",
+        description: "Using offline mode for now.",
+        variant: "destructive",
+      });
+      localStorage.setItem('cramIntelUser', JSON.stringify(data));
+      onComplete();
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
   useEffect(() => {
     setShowFireworks(true);
@@ -43,16 +144,17 @@ const CompletionStep = ({ data, onComplete }: CompletionStepProps) => {
       setCurrentMessage((prev) => (prev + 1) % celebrationMessages.length);
     }, 1500);
 
+    // Start registration process
     const timer = setTimeout(() => {
-      onComplete();
-    }, 3000);
+      registerUser();
+    }, 1000);
 
     return () => {
       clearInterval(tipInterval);
       clearInterval(messageInterval);
       clearTimeout(timer);
     };
-  }, [onComplete]);
+  }, []);
 
   return (
     <motion.div
@@ -130,7 +232,7 @@ const CompletionStep = ({ data, onComplete }: CompletionStepProps) => {
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
-          Your dashboard is loading...
+          {isRegistering ? "Creating your account..." : "Your dashboard is loading..."}
         </motion.p>
         
         <motion.p
@@ -198,7 +300,7 @@ const CompletionStep = ({ data, onComplete }: CompletionStepProps) => {
         animate={{ x: 0, y: 0 }}
         transition={{ delay: 2, type: "spring", bounce: 0.6 }}
       >
-        Setup Complete! ✅
+        {isRegistering ? "Setting up..." : "Setup Complete!"} ✅
       </motion.div>
     </motion.div>
   );
