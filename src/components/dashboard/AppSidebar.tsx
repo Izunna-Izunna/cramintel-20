@@ -4,6 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupConte
 import CramIntelLogo from '@/components/CramIntelLogo';
 import { Button } from '@/components/ui/button';
 import { DashboardSection } from '@/pages/Dashboard';
+
 const menuItems = [{
   title: "Dashboard",
   section: "dashboard" as DashboardSection,
@@ -33,24 +34,37 @@ const menuItems = [{
   section: "profile" as DashboardSection,
   icon: "👤"
 }];
+
 interface AppSidebarProps {
   activeSection: DashboardSection;
   setActiveSection: (section: DashboardSection) => void;
 }
+
 export function AppSidebar({
   activeSection,
   setActiveSection
 }: AppSidebarProps) {
   const navigate = useNavigate();
+  
   const handleLogout = () => {
     localStorage.removeItem('cramIntelUser');
     navigate('/');
   };
+
+  const handleLogoClick = () => {
+    navigate('/');
+  };
+
   return <Sidebar className="border-gray-100">
       <SidebarHeader className="p-6 border-b border-gray-100">
         <div className="flex items-center gap-3">
-          <CramIntelLogo size="sm" variant="dark" />
-          
+          <button 
+            onClick={handleLogoClick}
+            className="hover:opacity-80 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-300 rounded"
+            aria-label="Go to homepage"
+          >
+            <CramIntelLogo size="sm" variant="dark" />
+          </button>
         </div>
       </SidebarHeader>
 
