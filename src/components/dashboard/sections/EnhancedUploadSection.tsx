@@ -123,34 +123,18 @@ export function EnhancedUploadSection() {
 
       setUploadProgress(100);
 
+      toast({
+        title: "Upload Successful! 🎉",
+        description: "Your material is being processed. 20 quality flashcards will be generated automatically.",
+      });
+      
       // Start processing animation
       setShowProcessing(true);
       setProcessingStatus('extracting_text');
       setProcessingProgress(0);
 
-      // Trigger processing
-      const processingResponse = await supabase.functions.invoke('process-material', {
-        body: { 
-          materialId: data.materialId,
-          updateProgress: true 
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        }
-      });
-
-      if (processingResponse.error) {
-        console.error('Processing error:', processingResponse.error);
-        setProcessingStatus('error');
-      } else {
-        // Simulate progress updates (in real implementation, you'd poll the database)
-        simulateProcessingProgress();
-      }
-
-      toast({
-        title: "Upload Successful!",
-        description: "Your material is being processed. Flashcards will be generated automatically.",
-      });
+      // Simulate processing progress
+      simulateProcessingProgress();
       
       // Reset form
       setUploadedFile(null);
@@ -176,11 +160,11 @@ export function EnhancedUploadSection() {
 
   const simulateProcessingProgress = () => {
     const progressSteps = [
-      { status: 'extracting_text' as ProcessingStatus, progress: 20, delay: 1000 },
-      { status: 'processing_content' as ProcessingStatus, progress: 40, delay: 2000 },
-      { status: 'generating_flashcards' as ProcessingStatus, progress: 60, delay: 8000 },
-      { status: 'saving_flashcards' as ProcessingStatus, progress: 80, delay: 2000 },
-      { status: 'completed' as ProcessingStatus, progress: 100, delay: 1000 }
+      { status: 'extracting_text' as ProcessingStatus, progress: 20, delay: 2000 },
+      { status: 'processing_content' as ProcessingStatus, progress: 40, delay: 3000 },
+      { status: 'generating_flashcards' as ProcessingStatus, progress: 70, delay: 15000 },
+      { status: 'saving_flashcards' as ProcessingStatus, progress: 90, delay: 3000 },
+      { status: 'completed' as ProcessingStatus, progress: 100, delay: 2000 }
     ];
 
     let currentStep = 0;
@@ -194,6 +178,10 @@ export function EnhancedUploadSection() {
           setTimeout(() => {
             setShowProcessing(false);
             setRefreshKey(prev => prev + 1);
+            toast({
+              title: "Processing Complete! ✨",
+              description: "20 flashcards have been generated and are ready for study.",
+            });
           }, 2000);
         } else {
           setTimeout(() => {

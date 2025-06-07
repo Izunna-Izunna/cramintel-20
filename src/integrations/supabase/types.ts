@@ -347,6 +347,8 @@ export type Database = {
           material_type: string | null
           name: string
           processed: boolean | null
+          processing_progress: number | null
+          processing_status: string | null
           tags: string[] | null
           upload_date: string | null
           user_id: string | null
@@ -361,6 +363,8 @@ export type Database = {
           material_type?: string | null
           name: string
           processed?: boolean | null
+          processing_progress?: number | null
+          processing_status?: string | null
           tags?: string[] | null
           upload_date?: string | null
           user_id?: string | null
@@ -375,6 +379,8 @@ export type Database = {
           material_type?: string | null
           name?: string
           processed?: boolean | null
+          processing_progress?: number | null
+          processing_status?: string | null
           tags?: string[] | null
           upload_date?: string | null
           user_id?: string | null

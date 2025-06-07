@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,8 +21,8 @@ interface Material {
   material_type: string;
   upload_date: string;
   processed: boolean;
-  processing_status: string;
-  processing_progress: number;
+  processing_status?: string;
+  processing_progress?: number;
   tags: string[];
   flashcard_count?: number;
   deck_name?: string;
@@ -96,7 +95,7 @@ export function UploadedMaterialsList({ key }: UploadedMaterialsListProps) {
             flashcard_count: flashcardData?.length || 0,
             deck_name: deckInfo?.name,
             deck_id: deckInfo?.id
-          };
+          } as Material;
         }) || []
       );
 

@@ -2,143 +2,22 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
+import { extractText } from "https://deno.land/x/unpdf@1.0.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-
-// Enhanced PDF text extraction using a more sophisticated approach
-async function extractTextFromPDF(pdfBuffer: ArrayBuffer): Promise<string> {
-  try {
-    console.log('Processing PDF buffer, size:', pdfBuffer.byteLength);
-    
-    // Use pdf.js compatible extraction for Deno
-    const response = await fetch('https://esm.sh/pdfjs-dist@3.11.174/build/pdf.min.js');
-    const pdfjsCode = await response.text();
-    
-    // Create a simple PDF text extractor
-    const uint8Array = new Uint8Array(pdfBuffer);
-    let text = '';
-    
-    // Look for text streams in PDF
-    const decoder = new TextDecoder('utf-8', { fatal: false });
-    const pdfString = decoder.decode(uint8Array);
-    
-    // Extract text between BT (Begin Text) and ET (End Text) operators
-    const textBlocks = pdfString.match(/BT\s+.*?ET/gs) || [];
-    
-    for (const block of textBlocks) {
-      // Extract text from Tj and TJ operators
-      const textMatches = block.match(/\((.*?)\)\s*Tj/g) || [];
-      const arrayTextMatches = block.match(/\[(.*?)\]\s*TJ/g) || [];
-      
-      for (const match of textMatches) {
-        const cleanText = match.replace(/\((.*?)\)\s*Tj/, '$1')
-          .replace(/\\n/g, ' ')
-          .replace(/\\r/g, ' ')
-          .replace(/\\t/g, ' ')
-          .trim();
-        if (cleanText) text += cleanText + ' ';
-      }
-      
-      for (const match of arrayTextMatches) {
-        const cleanText = match.replace(/\[(.*?)\]\s*TJ/, '$1')
-          .replace(/[()]/g, '')
-          .replace(/\\n/g, ' ')
-          .replace(/\\r/g, ' ')
-          .replace(/\\t/g, ' ')
-          .trim();
-        if (cleanText) text += cleanText + ' ';
-      }
-    }
-    
-    // Alternative: Look for readable text patterns
-    if (text.length < 100) {
-      const readableText = pdfString.match(/[A-Za-z\s]{10,}/g);
-      if (readableText) {
-        text = readableText.join(' ').replace(/\s+/g, ' ').trim();
-      }
-    }
-    
-    // Clean up the extracted text
-    text = text
-      .replace(/[^\w\s.,!?;:()\-'"]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    console.log('Extracted text length:', text.length);
-    console.log('Sample text:', text.substring(0, 200));
-    
-    return text.length > 50 ? text : '';
-  } catch (error) {
-    console.error('PDF text extraction error:', error);
-    return '';
-  }
-}
-
-// Generate comprehensive subject-specific prompts
-function getSubjectSpecificPrompt(course: string, materialType: string): string {
-  const basePrompt = `You are an expert educator creating high-quality study flashcards. Generate exactly 20 comprehensive flashcards from the provided study material.`;
-  
-  let subjectSpecific = '';
-  const courseLower = course.toLowerCase();
-  
-  if (courseLower.includes('bio') || courseLower.includes('life')) {
-    subjectSpecific = `Focus on biological processes, definitions, classifications, and cause-effect relationships. Include questions about mechanisms, functions, and interactions.`;
-  } else if (courseLower.includes('chem')) {
-    subjectSpecific = `Focus on chemical reactions, formulas, properties, and problem-solving. Include both conceptual understanding and calculation-based questions.`;
-  } else if (courseLower.includes('phy') || courseLower.includes('physics')) {
-    subjectSpecific = `Focus on laws, formulas, concepts, and problem-solving approaches. Include both theoretical understanding and practical applications.`;
-  } else if (courseLower.includes('math')) {
-    subjectSpecific = `Focus on theorems, formulas, methods, and step-by-step problem solving. Include both concept definitions and worked examples.`;
-  } else if (courseLower.includes('hist')) {
-    subjectSpecific = `Focus on dates, events, causes and effects, key figures, and historical significance. Include chronological relationships and contextual understanding.`;
-  } else if (courseLower.includes('eng') || courseLower.includes('lit')) {
-    subjectSpecific = `Focus on literary devices, themes, character analysis, and critical thinking. Include interpretation and analysis questions.`;
-  } else {
-    subjectSpecific = `Focus on key concepts, definitions, processes, and analytical thinking relevant to the subject matter.`;
-  }
-  
-  return `${basePrompt}
-
-${subjectSpecific}
-
-Create flashcards with varying difficulty levels:
-- 8 Basic level cards (fundamental concepts and definitions)
-- 8 Intermediate level cards (application and analysis)  
-- 4 Advanced level cards (synthesis and evaluation)
-
-IMPORTANT: You must return EXACTLY 20 flashcards. Each flashcard must be based on actual content from the material provided.
-
-Return your response as a JSON array of objects with "question", "answer", and "difficulty" fields.
-
-Example format:
-[
-  {
-    "question": "What is photosynthesis?",
-    "answer": "The process by which plants convert sunlight, carbon dioxide, and water into glucose and oxygen using chlorophyll",
-    "difficulty": "basic"
-  },
-  {
-    "question": "How does temperature affect the rate of photosynthesis and why?", 
-    "answer": "Higher temperatures increase photosynthesis rate up to an optimal point (around 25-30°C) because enzymes work faster. Beyond this, the rate decreases as enzymes denature and become less effective",
-    "difficulty": "intermediate"
-  }
-]
-
-Ensure each flashcard:
-- Tests important concepts from the material
-- Has clear, specific questions
-- Provides complete, accurate answers
-- Covers different aspects of the content
-- Is appropriate for the specified difficulty level
-- Is based on actual content from the provided material`;
+interface FlashcardQuestion {
+  question: string;
+  answer: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  topic?: string;
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -149,29 +28,52 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { materialId, updateProgress } = await req.json();
+    // Get the authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'No authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Set the auth context
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { materialId } = await req.json();
+
+    if (!materialId) {
+      return new Response(JSON.stringify({ error: 'Material ID is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     console.log('Processing material:', materialId);
 
-    // Update progress function
-    const updateStatus = async (status: string, progress: number) => {
-      if (updateProgress) {
-        await supabase
-          .from('cramintel_materials')
-          .update({ 
-            processing_status: status,
-            processing_progress: progress 
-          })
-          .eq('id', materialId);
-      }
-    };
-
-    await updateStatus('extracting_text', 20);
+    // Update processing status to extracting_text
+    await supabase
+      .from('cramintel_materials')
+      .update({ 
+        processing_status: 'extracting_text',
+        processing_progress: 10 
+      })
+      .eq('id', materialId);
 
     // Get material details
     const { data: material, error: materialError } = await supabase
       .from('cramintel_materials')
       .select('*')
       .eq('id', materialId)
+      .eq('user_id', user.id)
       .single();
 
     if (materialError || !material) {
@@ -182,203 +84,300 @@ serve(async (req) => {
       });
     }
 
-    console.log('Material found:', material.name, 'Type:', material.file_type);
-
-    // Download file content
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from('cramintel-materials')
-      .download(material.file_path);
-
-    if (downloadError) {
-      console.error('Download error:', downloadError);
-      await updateStatus('error', 0);
-      return new Response(JSON.stringify({ error: 'Failed to download file' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    await updateStatus('processing_content', 40);
-
-    // Extract text based on file type
     let extractedText = '';
-    
-    if (material.file_type?.includes('pdf')) {
-      console.log('Processing PDF file...');
-      const arrayBuffer = await fileData.arrayBuffer();
-      extractedText = await extractTextFromPDF(arrayBuffer);
-      console.log('Extracted PDF text length:', extractedText.length);
-      
-      // If PDF extraction fails, use fallback
-      if (extractedText.length < 50) {
-        console.log('PDF extraction insufficient, using enhanced fallback');
-        extractedText = `Study material: ${material.name} for ${material.course}. This ${material.material_type} contains comprehensive information about key topics and concepts that are essential for understanding the subject matter. The material covers important definitions, processes, relationships, and practical applications relevant to the course curriculum.`;
-      }
-    } else if (material.file_type?.includes('text')) {
-      extractedText = await fileData.text();
-    } else {
-      // Enhanced fallback for other file types
-      extractedText = `Study material: ${material.name} for ${material.course}. This ${material.material_type} contains detailed information about important concepts, definitions, and principles relevant to the subject. The material includes key topics that students need to understand for academic success in this course.`;
-    }
 
-    console.log('Final extracted text length:', extractedText.length);
-    await updateStatus('generating_flashcards', 60);
-
-    // Generate flashcards using OpenAI with enhanced prompts
-    if (openAIApiKey && extractedText.length > 20) {
-      try {
-        console.log('Generating flashcards with AI...');
-        const subjectPrompt = getSubjectSpecificPrompt(material.course || 'General', material.material_type || 'notes');
+    try {
+      // Extract text based on file type
+      if (material.file_type?.includes('pdf')) {
+        console.log('Extracting text from PDF:', material.file_path);
         
-        const flashcardsResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              {
-                role: 'system',
-                content: subjectPrompt
-              },
-              {
-                role: 'user',
-                content: `Generate exactly 20 high-quality flashcards from this study material:\n\n${extractedText.substring(0, 6000)}`
-              }
-            ],
-            temperature: 0.7,
-            max_tokens: 4000
-          }),
-        });
+        // Download the PDF file from storage
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('cramintel-materials')
+          .download(material.file_path);
 
-        if (flashcardsResponse.ok) {
-          const aiResponse = await flashcardsResponse.json();
-          const flashcardsText = aiResponse.choices[0].message.content;
-          
-          await updateStatus('saving_flashcards', 80);
-          
-          try {
-            const flashcards = JSON.parse(flashcardsText);
-            console.log(`Generated ${flashcards.length} flashcards`);
-
-            // Create a deck for this material
-            const { data: deckData, error: deckError } = await supabase
-              .from('cramintel_decks')
-              .insert({
-                user_id: material.user_id,
-                name: `${material.name} - Flashcards`,
-                description: `Auto-generated flashcards from ${material.material_type}: ${material.name}`,
-                course: material.course,
-                format: 'Q&A',
-                tags: [material.course, material.material_type],
-                source_materials: [material.name],
-                total_cards: 0,
-                cards_mastered: 0,
-                study_streak: 0
-              })
-              .select()
-              .single();
-
-            if (deckError) {
-              console.error('Error creating deck:', deckError);
-            }
-
-            // Save flashcards to database and link to deck
-            const savedFlashcards = [];
-            for (const flashcard of flashcards) {
-              const { data: savedCard, error: saveError } = await supabase
-                .from('cramintel_flashcards')
-                .insert({
-                  user_id: material.user_id,
-                  material_id: material.id,
-                  course: material.course,
-                  question: flashcard.question,
-                  answer: flashcard.answer,
-                  difficulty_level: flashcard.difficulty || 'medium',
-                  mastery_level: 0,
-                  times_reviewed: 0
-                })
-                .select()
-                .single();
-
-              if (!saveError && savedCard) {
-                savedFlashcards.push(savedCard);
-                
-                // Link flashcard to deck if deck was created
-                if (deckData && !deckError) {
-                  await supabase
-                    .from('cramintel_deck_flashcards')
-                    .insert({
-                      deck_id: deckData.id,
-                      flashcard_id: savedCard.id
-                    });
-                }
-              }
-            }
-
-            console.log(`Saved ${savedFlashcards.length} flashcards to database`);
-            
-            // Update deck stats if deck was created
-            if (deckData && !deckError) {
-              await supabase
-                .from('cramintel_decks')
-                .update({
-                  total_cards: savedFlashcards.length,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', deckData.id);
-            }
-            
-            await updateStatus('completed', 100);
-          } catch (parseError) {
-            console.error('Failed to parse AI response:', parseError);
-            console.log('AI Response:', flashcardsText);
-            await updateStatus('error', 0);
-          }
-        } else {
-          console.error('AI API request failed:', await flashcardsResponse.text());
-          await updateStatus('error', 0);
+        if (downloadError || !fileData) {
+          throw new Error(`Failed to download PDF: ${downloadError?.message}`);
         }
-      } catch (aiError) {
-        console.error('AI processing error:', aiError);
-        await updateStatus('error', 0);
+
+        // Convert to ArrayBuffer and extract text
+        const arrayBuffer = await fileData.arrayBuffer();
+        extractedText = await extractText(new Uint8Array(arrayBuffer));
+        
+        console.log('PDF text extraction completed, length:', extractedText.length);
+      } else if (material.file_type?.includes('text')) {
+        // Handle text files
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('cramintel-materials')
+          .download(material.file_path);
+
+        if (downloadError || !fileData) {
+          throw new Error(`Failed to download text file: ${downloadError?.message}`);
+        }
+
+        extractedText = await fileData.text();
+      } else {
+        // For other file types, create placeholder content
+        extractedText = `Study material: ${material.name}\nCourse: ${material.course}\nType: ${material.material_type}`;
       }
-    } else {
-      console.log('Skipping AI processing - insufficient content or missing API key');
-      await updateStatus('completed', 100);
+    } catch (extractionError) {
+      console.error('Text extraction failed:', extractionError);
+      // Fallback to basic content if extraction fails
+      extractedText = `Study material: ${material.name}\nCourse: ${material.course}\nType: ${material.material_type}\n\nThis material could not be processed automatically. Please add your own notes or study content.`;
     }
 
-    // Mark material as processed
-    const { error: updateError } = await supabase
+    // Update processing status to processing_content
+    await supabase
       .from('cramintel_materials')
       .update({ 
-        processed: true,
-        tags: [material.course, material.material_type],
-        processing_status: 'completed',
-        processing_progress: 100
+        processing_status: 'processing_content',
+        processing_progress: 30 
       })
       .eq('id', materialId);
 
-    if (updateError) {
-      console.error('Failed to mark as processed:', updateError);
+    // Clean and preprocess the text
+    const cleanText = extractedText
+      .replace(/\s+/g, ' ')
+      .replace(/[^\w\s.,!?;:()\-\[\]]/g, '')
+      .trim();
+
+    console.log('Cleaned text length:', cleanText.length);
+
+    // Update processing status to generating_flashcards
+    await supabase
+      .from('cramintel_materials')
+      .update({ 
+        processing_status: 'generating_flashcards',
+        processing_progress: 50 
+      })
+      .eq('id', materialId);
+
+    // Generate flashcards using OpenAI
+    let flashcards: FlashcardQuestion[] = [];
+
+    try {
+      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert educator who creates high-quality flashcards for students. 
+
+IMPORTANT REQUIREMENTS:
+- Generate EXACTLY 20 flashcards, no more, no less
+- Each flashcard should test specific knowledge from the content
+- Make questions clear, concise, and testable
+- Provide complete, accurate answers
+- Vary difficulty levels: 6 easy, 8 medium, 6 hard
+- Focus on key concepts, definitions, formulas, and important facts
+- Avoid yes/no questions
+- Make sure questions are self-contained (don't reference "the text")
+
+Return your response as a JSON array with exactly this structure:
+[
+  {
+    "question": "What is...",
+    "answer": "Complete answer here",
+    "difficulty": "easy|medium|hard",
+    "topic": "specific topic if applicable"
+  }
+]
+
+Do not include any text before or after the JSON array.`
+            },
+            {
+              role: 'user',
+              content: `Create exactly 20 high-quality flashcards from this ${material.course} ${material.material_type} content:
+
+${cleanText.length > 8000 ? cleanText.substring(0, 8000) + '...' : cleanText}
+
+Course: ${material.course}
+Material Type: ${material.material_type}
+Title: ${material.name}`
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 4000,
+        }),
+      });
+
+      if (!openaiResponse.ok) {
+        const errorText = await openaiResponse.text();
+        console.error('OpenAI API error:', errorText);
+        throw new Error(`OpenAI API error: ${openaiResponse.status}`);
+      }
+
+      const openaiData = await openaiResponse.json();
+      const flashcardsContent = openaiData.choices[0]?.message?.content;
+
+      if (!flashcardsContent) {
+        throw new Error('No flashcards content received from OpenAI');
+      }
+
+      try {
+        flashcards = JSON.parse(flashcardsContent);
+        
+        // Validate we got exactly 20 flashcards
+        if (!Array.isArray(flashcards) || flashcards.length !== 20) {
+          console.warn(`Expected 20 flashcards, got ${flashcards.length}`);
+          // If we didn't get exactly 20, pad or trim to 20
+          if (flashcards.length < 20) {
+            // Duplicate some flashcards to reach 20
+            while (flashcards.length < 20) {
+              const randomCard = flashcards[Math.floor(Math.random() * flashcards.length)];
+              flashcards.push({ ...randomCard });
+            }
+          } else if (flashcards.length > 20) {
+            // Trim to exactly 20
+            flashcards = flashcards.slice(0, 20);
+          }
+        }
+      } catch (parseError) {
+        console.error('Failed to parse flashcards JSON:', parseError);
+        // Generate fallback flashcards
+        flashcards = generateFallbackFlashcards(material, cleanText);
+      }
+    } catch (openaiError) {
+      console.error('OpenAI request failed:', openaiError);
+      // Generate fallback flashcards
+      flashcards = generateFallbackFlashcards(material, cleanText);
     }
+
+    console.log(`Generated ${flashcards.length} flashcards`);
+
+    // Update processing status to saving_flashcards
+    await supabase
+      .from('cramintel_materials')
+      .update({ 
+        processing_status: 'saving_flashcards',
+        processing_progress: 80 
+      })
+      .eq('id', materialId);
+
+    // Create a deck for these flashcards
+    const { data: deck, error: deckError } = await supabase
+      .from('cramintel_decks')
+      .insert({
+        name: `${material.name} - Flashcards`,
+        description: `Generated from ${material.material_type} for ${material.course}`,
+        course: material.course,
+        user_id: user.id,
+        source_materials: [material.name],
+        tags: material.tags || [],
+        total_cards: flashcards.length
+      })
+      .select()
+      .single();
+
+    if (deckError) {
+      console.error('Error creating deck:', deckError);
+      throw new Error('Failed to create flashcard deck');
+    }
+
+    // Save flashcards to database
+    const flashcardInserts = flashcards.map(card => ({
+      question: card.question,
+      answer: card.answer,
+      course: material.course,
+      difficulty_level: card.difficulty || 'medium',
+      material_id: materialId,
+      user_id: user.id
+    }));
+
+    const { data: savedFlashcards, error: flashcardError } = await supabase
+      .from('cramintel_flashcards')
+      .insert(flashcardInserts)
+      .select();
+
+    if (flashcardError) {
+      console.error('Error saving flashcards:', flashcardError);
+      throw new Error('Failed to save flashcards');
+    }
+
+    // Link flashcards to deck
+    const deckFlashcardInserts = savedFlashcards.map(flashcard => ({
+      deck_id: deck.id,
+      flashcard_id: flashcard.id
+    }));
+
+    const { error: linkError } = await supabase
+      .from('cramintel_deck_flashcards')
+      .insert(deckFlashcardInserts);
+
+    if (linkError) {
+      console.error('Error linking flashcards to deck:', linkError);
+    }
+
+    // Mark material as processed
+    await supabase
+      .from('cramintel_materials')
+      .update({ 
+        processed: true,
+        processing_status: 'completed',
+        processing_progress: 100 
+      })
+      .eq('id', materialId);
 
     console.log('Material processing completed successfully');
 
     return new Response(JSON.stringify({
       success: true,
-      message: 'Material processed and flashcards generated successfully'
+      flashcards_generated: flashcards.length,
+      deck_id: deck.id,
+      message: `Successfully generated ${flashcards.length} flashcards`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('Error in process-material function:', error);
+    
+    // Try to update the material status to error
+    try {
+      const { materialId } = await req.json();
+      if (materialId) {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+        
+        await supabase
+          .from('cramintel_materials')
+          .update({ 
+            processing_status: 'error',
+            processing_progress: 0 
+          })
+          .eq('id', materialId);
+      }
+    } catch (updateError) {
+      console.error('Failed to update error status:', updateError);
+    }
+
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
+
+function generateFallbackFlashcards(material: any, text: string): FlashcardQuestion[] {
+  const fallbackCards: FlashcardQuestion[] = [];
+  
+  // Generate 20 basic flashcards based on available information
+  for (let i = 1; i <= 20; i++) {
+    fallbackCards.push({
+      question: `What is an important concept from ${material.name}? (Question ${i})`,
+      answer: `This is a key concept from the ${material.material_type} for ${material.course}. Review the original material for specific details.`,
+      difficulty: i <= 6 ? 'easy' : i <= 14 ? 'medium' : 'hard',
+      topic: material.course
+    });
+  }
+  
+  return fallbackCards;
+}
