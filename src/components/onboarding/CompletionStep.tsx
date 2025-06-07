@@ -56,7 +56,7 @@ const CompletionStep = ({ data, onComplete }: CompletionStepProps) => {
 
   return (
     <motion.div
-      className="text-center space-y-6 relative overflow-hidden"
+      className="text-center space-y-6 relative overflow-hidden max-w-2xl mx-auto"
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.8, type: "spring", bounce: 0.4 }}
@@ -106,7 +106,7 @@ const CompletionStep = ({ data, onComplete }: CompletionStepProps) => {
 
       <div className="space-y-4 relative z-10">
         <motion.h1
-          className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent"
+          className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3, type: "spring" }}
@@ -116,7 +116,7 @@ const CompletionStep = ({ data, onComplete }: CompletionStepProps) => {
         
         <motion.div
           key={currentMessage}
-          className="text-xl font-semibold text-gray-800"
+          className="text-xl font-semibold text-white"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -125,7 +125,7 @@ const CompletionStep = ({ data, onComplete }: CompletionStepProps) => {
         </motion.div>
         
         <motion.p
-          className="text-gray-600 text-lg"
+          className="text-white/70 text-lg"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
@@ -134,7 +134,7 @@ const CompletionStep = ({ data, onComplete }: CompletionStepProps) => {
         </motion.p>
         
         <motion.p
-          className="text-gray-800 font-bold text-xl"
+          className="text-white font-bold text-xl"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.7 }}
@@ -144,19 +144,19 @@ const CompletionStep = ({ data, onComplete }: CompletionStepProps) => {
       </div>
 
       <motion.div
-        className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-2xl border-2 border-blue-200 relative overflow-hidden"
+        className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 backdrop-blur-sm p-6 rounded-2xl border border-white/20 relative overflow-hidden"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 1, type: "spring" }}
       >
         <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-blue-100/50 to-purple-100/50"
+          className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-purple-400/10"
           animate={{ x: [-100, 100] }}
           transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
         />
         <motion.p
           key={currentTip}
-          className="text-gray-700 font-medium relative z-10"
+          className="text-white/90 font-medium relative z-10"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
@@ -176,7 +176,7 @@ const CompletionStep = ({ data, onComplete }: CompletionStepProps) => {
         {[...Array(5)].map((_, i) => (
           <motion.div
             key={i}
-            className="w-3 h-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
+            className="w-3 h-3 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full"
             animate={{ 
               scale: [1, 1.5, 1],
               opacity: [0.5, 1, 0.5]

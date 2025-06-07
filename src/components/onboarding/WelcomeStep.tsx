@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { OnboardingData } from '@/pages/Onboarding';
-import StepWrapper from './StepWrapper';
 
 interface WelcomeStepProps {
   data: OnboardingData;
@@ -27,11 +26,11 @@ const WelcomeStep = ({ nextStep }: WelcomeStepProps) => {
   };
 
   return (
-    <StepWrapper className="text-center space-y-8 relative overflow-hidden">
+    <div className="text-center space-y-8 relative overflow-hidden max-w-2xl mx-auto">
       {/* Premium confetti animation */}
       {confetti && (
         <div className="absolute inset-0 pointer-events-none">
-          {Array.from({ length: 30 }).map((_, i) => (
+          {Array.from({ length: 20 }).map((_, i) => (
             <motion.div
               key={i}
               className="absolute w-3 h-3 rounded-full"
@@ -58,7 +57,7 @@ const WelcomeStep = ({ nextStep }: WelcomeStepProps) => {
         </div>
       )}
 
-      {/* Hero graduation cap with enhanced animation */}
+      {/* Hero graduation cap */}
       <motion.div
         animate={{ 
           y: [0, -20, 0],
@@ -73,7 +72,6 @@ const WelcomeStep = ({ nextStep }: WelcomeStepProps) => {
         className="relative"
       >
         <div className="text-8xl mb-6 filter drop-shadow-2xl">🎓</div>
-        {/* Glowing effect */}
         <div className="absolute inset-0 text-8xl mb-6 filter blur-xl opacity-30">🎓</div>
       </motion.div>
       
@@ -85,7 +83,7 @@ const WelcomeStep = ({ nextStep }: WelcomeStepProps) => {
         transition={{ duration: 0.8, delay: 0.2 }}
       >
         <motion.h1 
-          className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight"
+          className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent leading-tight"
           animate={{ scale: [1, 1.03, 1] }}
           transition={{ duration: 3, repeat: Infinity }}
         >
@@ -98,11 +96,11 @@ const WelcomeStep = ({ nextStep }: WelcomeStepProps) => {
           animate={{ opacity: 1 }}
           transition={{ delay: 1 }}
         >
-          <p className="text-gray-700 text-xl font-semibold">
+          <p className="text-white/90 text-xl font-semibold">
             Your AI-powered study companion 🚀
           </p>
           
-          <p className="text-gray-600 text-lg">
+          <p className="text-white/70 text-lg">
             Get ready for a personalized learning experience
           </p>
         </motion.div>
@@ -121,30 +119,30 @@ const WelcomeStep = ({ nextStep }: WelcomeStepProps) => {
           ].map((feature, index) => (
             <motion.div
               key={index}
-              className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200"
+              className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20"
               whileHover={{ scale: 1.05, y: -2 }}
               transition={{ type: "spring", bounce: 0.4 }}
             >
               <div className="text-2xl mb-2">{feature.icon}</div>
-              <div className="text-sm font-medium text-gray-700">{feature.text}</div>
+              <div className="text-sm font-medium text-white/90">{feature.text}</div>
             </motion.div>
           ))}
         </motion.div>
 
         {/* Engagement message */}
         <motion.div
-          className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 p-6 rounded-2xl border-2 border-blue-200 relative overflow-hidden"
+          className="bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 backdrop-blur-sm p-6 rounded-2xl border border-white/20 relative overflow-hidden"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 2, type: "spring" }}
         >
           <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-blue-100/50 to-purple-100/50"
+            className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-purple-400/10"
             animate={{ x: [-100, 100] }}
             transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
           />
           <motion.p 
-            className="text-gray-800 font-bold text-lg relative z-10"
+            className="text-white font-bold text-lg relative z-10"
             animate={{ scale: [1, 1.02, 1] }}
             transition={{ duration: 2, repeat: Infinity, delay: 2.5 }}
           >
@@ -171,7 +169,6 @@ const WelcomeStep = ({ nextStep }: WelcomeStepProps) => {
             Let's Get Started! ✨
           </motion.span>
           
-          {/* Button glow effect */}
           <motion.div
             className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent"
             animate={{ x: [-100, 100] }}
@@ -179,33 +176,7 @@ const WelcomeStep = ({ nextStep }: WelcomeStepProps) => {
           />
         </Button>
       </motion.div>
-
-      {/* Floating background elements */}
-      <div className="absolute -z-10 inset-0 overflow-hidden">
-        {['📚', '💡', '⭐', '🚀'].map((icon, index) => (
-          <motion.div
-            key={index}
-            className={`absolute text-3xl opacity-20`}
-            style={{
-              left: `${[15, 85, 10, 90][index]}%`,
-              top: `${[20, 25, 80, 75][index]}%`,
-            }}
-            animate={{
-              rotate: [0, 360],
-              scale: [1, 1.2, 1],
-              y: [-10, 10, -10],
-            }}
-            transition={{
-              duration: Math.random() * 8 + 6,
-              repeat: Infinity,
-              delay: index * 0.5,
-            }}
-          >
-            {icon}
-          </motion.div>
-        ))}
-      </div>
-    </StepWrapper>
+    </div>
   );
 };
 

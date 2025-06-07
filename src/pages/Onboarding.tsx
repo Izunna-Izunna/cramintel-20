@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -203,7 +202,7 @@ const Onboarding = () => {
   };
 
   return (
-    <div className="min-h-screen relative flex flex-col overflow-hidden bg-black">
+    <div className="min-h-screen relative flex flex-col overflow-hidden">
       <ProfessionalBackground />
       
       {currentStep > 1 && currentStep < totalSteps && <EncouragingMessage />}
@@ -225,7 +224,7 @@ const Onboarding = () => {
       )}
       
       <div className="flex-1 flex items-center justify-center p-4 relative z-10">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-4xl">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
