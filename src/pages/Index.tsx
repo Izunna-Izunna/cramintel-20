@@ -4,7 +4,6 @@ import Hero from '@/components/Hero';
 import Features from '@/components/Features';
 import Projects from '@/components/Projects';
 import WhyCramIntel from '@/components/WhyCramIntel';
-import Pricing from '@/components/Pricing';
 import BlogPreview from '@/components/BlogPreview';
 import SEO from '@/components/SEO';
 import { useEffect } from 'react';
@@ -30,7 +29,6 @@ const Index = () => {
       <Hero />
       <Features />
       <WhyCramIntel />
-      <Pricing />
       <Projects />
       <BlogPreview />
     </PageLayout>
