@@ -11,11 +11,25 @@ const BlogPreview = () => {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 3);
 
-  // Override the first post's image with the new one
+  // Override the blog post images with the new ones
   if (recentPosts.length > 0) {
     recentPosts[0] = {
       ...recentPosts[0],
       imageUrl: "/lovable-uploads/b5536834-441a-48d9-a259-cd21a359d718.png"
+    };
+  }
+  
+  if (recentPosts.length > 1) {
+    recentPosts[1] = {
+      ...recentPosts[1],
+      imageUrl: "/lovable-uploads/b183a72a-7674-4eca-80bb-09e7420769a4.png"
+    };
+  }
+  
+  if (recentPosts.length > 2) {
+    recentPosts[2] = {
+      ...recentPosts[2],
+      imageUrl: "/lovable-uploads/848eb2df-d243-410b-b740-aa952a295292.png"
     };
   }
 
