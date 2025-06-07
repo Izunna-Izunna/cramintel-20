@@ -7,6 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { FileText, Trash2, Eye, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EnhancedPdfViewer } from '@/components/ui/EnhancedPdfViewer';
+import { EnhancedImageViewer } from '@/components/ui/EnhancedImageViewer';
+import { isImageFile, isPdfFile } from '@/utils/fileTypeUtils';
 
 interface Material {
   id: string;
@@ -24,7 +26,9 @@ export function UploadedMaterialsList() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [selectedPdf, setSelectedPdf] = useState<{ url: string; name: string } | null>(null);
+  const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
   const [loadingFileUrl, setLoadingFileUrl] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -112,10 +116,13 @@ export function UploadedMaterialsList() {
   };
 
   const handleViewMaterial = async (material: Material) => {
-    if (material.file_type !== 'application/pdf') {
+    const isImage = isImageFile(material.file_type, material.name);
+    const isPdf = isPdfFile(material.file_type);
+    
+    if (!isImage && !isPdf) {
       toast({
         title: "Preview Not Available",
-        description: "PDF preview is currently only available for PDF files.",
+        description: "Preview is currently only available for PDF and image files.",
         variant: "destructive"
       });
       return;
@@ -157,11 +164,20 @@ export function UploadedMaterialsList() {
         return;
       }
 
-      setSelectedPdf({
-        url: signedUrlData.signedUrl,
-        name: material.name
-      });
-      setPdfViewerOpen(true);
+      // Open the appropriate viewer based on file type
+      if (isPdf) {
+        setSelectedPdf({
+          url: signedUrlData.signedUrl,
+          name: material.name
+        });
+        setPdfViewerOpen(true);
+      } else if (isImage) {
+        setSelectedImage({
+          url: signedUrlData.signedUrl,
+          name: material.name
+        });
+        setImageViewerOpen(true);
+      }
     } catch (error) {
       console.error('Error opening file:', error);
       toast({
@@ -209,6 +225,13 @@ export function UploadedMaterialsList() {
       const diffInDays = Math.floor(diffInHours / 24);
       return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
     }
+  };
+
+  const canPreviewFile = (material: Material): boolean => {
+    return material.processed && (
+      isPdfFile(material.file_type) || 
+      isImageFile(material.file_type, material.name)
+    );
   };
 
   if (loading) {
@@ -278,7 +301,7 @@ export function UploadedMaterialsList() {
                   </div>
                   
                   <div className="flex gap-2 ml-4">
-                    {material.processed && material.file_type === 'application/pdf' && (
+                    {canPreviewFile(material) && (
                       <Button 
                         variant="ghost" 
                         size="sm" 
@@ -319,6 +342,19 @@ export function UploadedMaterialsList() {
           }}
           sourceUrl={selectedPdf.url}
           fileName={selectedPdf.name}
+        />
+      )}
+
+      {/* Enhanced Image Viewer Modal */}
+      {selectedImage && (
+        <EnhancedImageViewer
+          isOpen={imageViewerOpen}
+          onClose={() => {
+            setImageViewerOpen(false);
+            setSelectedImage(null);
+          }}
+          sourceUrl={selectedImage.url}
+          fileName={selectedImage.name}
         />
       )}
     </>
