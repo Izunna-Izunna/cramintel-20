@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -215,43 +214,6 @@ export function EnhancedUploadSection() {
     setSelectedType('');
     setUploadProgress(0);
     setShowProcessing(false);
-  };
-
-  const cleanFileName = (file: File) => {
-    const name = file.name.replace(/\.[^/.]+$/, '');
-    return name.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
-
-  const handleFileUpload = (file: File) => {
-    setUploadedFile({
-      file,
-      type: file.type,
-      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
-    });
-    setFileName(cleanFileName(file));
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleFileUpload(file);
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFileUpload(file);
-  };
-
-  const handleTakePhoto = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) handleFileUpload(file);
-    };
-    input.click();
   };
 
   return (
