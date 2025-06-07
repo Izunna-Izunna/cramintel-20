@@ -38,18 +38,36 @@ const EmailStep = ({ data, updateData, nextStep, prevStep }: EmailStepProps) => 
   };
 
   return (
-    <motion.div
-      className="space-y-6"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold text-gray-900">What's your email? 📧</h2>
-        <p className="text-gray-600">We'll use this to create your account</p>
-      </div>
+    <div className="space-y-8 relative max-w-md mx-auto">
+      <motion.div 
+        className="text-center space-y-4"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.2, type: "spring" }}
+      >
+        <motion.h2 
+          className="text-3xl font-bold text-white"
+          animate={{ scale: [1, 1.02, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          What's your email? 📧
+        </motion.h2>
+        <motion.p 
+          className="text-white/70 text-lg"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
+          We'll use this to create your account
+        </motion.p>
+      </motion.div>
 
-      <div className="space-y-4">
+      <motion.div
+        className="space-y-6"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+      >
         <div>
           <Input
             type="email"
@@ -59,12 +77,12 @@ const EmailStep = ({ data, updateData, nextStep, prevStep }: EmailStepProps) => 
               setEmail(e.target.value);
               setError('');
             }}
-            className="text-base"
+            className="w-full text-center text-xl py-6 rounded-2xl border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white placeholder:text-white/50 focus:border-blue-500 transition-all duration-300 shadow-lg"
             autoComplete="email"
           />
           {error && (
             <motion.p
-              className="text-red-500 text-sm mt-2"
+              className="text-red-400 text-sm mt-2"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
@@ -74,35 +92,45 @@ const EmailStep = ({ data, updateData, nextStep, prevStep }: EmailStepProps) => 
         </div>
 
         <motion.div
-          className="bg-blue-50 p-4 rounded-lg border border-blue-200"
+          className="bg-white/10 backdrop-blur-sm p-4 rounded-2xl border border-white/20"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.6 }}
         >
-          <p className="text-blue-700 text-sm">
+          <p className="text-white/90 text-sm">
             💡 Use your university email for the best experience with course-specific features
           </p>
         </motion.div>
-      </div>
 
-      <div className="flex flex-col space-y-3">
-        <Button
-          onClick={handleContinue}
-          className="w-full bg-gray-800 hover:bg-gray-700 text-white"
-          disabled={!email.trim()}
-        >
-          Continue
-        </Button>
-        
+        <div className="flex flex-col space-y-4">
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <Button
+              onClick={handleContinue}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl font-semibold text-lg shadow-xl"
+              disabled={!email.trim()}
+            >
+              Continue
+            </Button>
+          </motion.div>
+        </div>
+      </motion.div>
+
+      <motion.div
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+      >
         <Button
           onClick={prevStep}
           variant="ghost"
-          className="w-full text-gray-500 hover:text-gray-700"
+          className="w-full text-white/60 hover:text-white/80 py-3 rounded-2xl"
         >
           ← Back
         </Button>
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 };
 

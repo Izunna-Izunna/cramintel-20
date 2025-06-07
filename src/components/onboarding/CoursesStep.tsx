@@ -41,18 +41,36 @@ const CoursesStep = ({ data, updateData, nextStep, prevStep }: CoursesStepProps)
   };
 
   return (
-    <motion.div
-      className="space-y-6"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold text-gray-900">What courses are you taking? 📚</h2>
-        <p className="text-gray-600">Add the subjects you're currently studying</p>
-      </div>
+    <div className="space-y-8 relative max-w-lg mx-auto">
+      <motion.div 
+        className="text-center space-y-4"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.2, type: "spring" }}
+      >
+        <motion.h2 
+          className="text-3xl font-bold text-white"
+          animate={{ scale: [1, 1.02, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          What courses are you taking? 📚
+        </motion.h2>
+        <motion.p 
+          className="text-white/70 text-lg"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
+          Add the subjects you're currently studying
+        </motion.p>
+      </motion.div>
 
-      <div className="space-y-4">
+      <motion.div
+        className="space-y-6"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+      >
         <div className="flex space-x-2">
           <Input
             type="text"
@@ -60,12 +78,12 @@ const CoursesStep = ({ data, updateData, nextStep, prevStep }: CoursesStepProps)
             value={newCourse}
             onChange={(e) => setNewCourse(e.target.value)}
             onKeyPress={handleKeyPress}
-            className="flex-1"
+            className="flex-1 text-lg py-4 rounded-2xl border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white placeholder:text-white/50 focus:border-blue-500 transition-all duration-300 shadow-lg"
           />
           <Button
             onClick={addCourse}
             disabled={!newCourse.trim()}
-            className="bg-gray-800 hover:bg-gray-700"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 rounded-2xl"
           >
             Add
           </Button>
@@ -73,24 +91,24 @@ const CoursesStep = ({ data, updateData, nextStep, prevStep }: CoursesStepProps)
 
         {selectedCourses.length > 0 && (
           <motion.div
-            className="space-y-3"
+            className="space-y-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <div className="text-sm text-gray-600">Selected courses:</div>
+            <div className="text-sm text-white/70">Selected courses:</div>
             <div className="flex flex-wrap gap-2">
               {selectedCourses.map((course, index) => (
                 <motion.div
                   key={course}
-                  className="flex items-center space-x-2 bg-gray-100 rounded-full px-3 py-1"
+                  className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-2 border border-white/20"
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3, delay: index * 0.1 }}
                 >
-                  <span className="text-sm">{course}</span>
+                  <span className="text-sm text-white">{course}</span>
                   <button
                     onClick={() => removeCourse(course)}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-white/60 hover:text-white/80"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -99,7 +117,7 @@ const CoursesStep = ({ data, updateData, nextStep, prevStep }: CoursesStepProps)
             </div>
             
             <motion.div
-              className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg"
+              className="text-sm text-white/80 bg-white/10 backdrop-blur-sm p-4 rounded-2xl border border-white/20"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
@@ -108,26 +126,36 @@ const CoursesStep = ({ data, updateData, nextStep, prevStep }: CoursesStepProps)
             </motion.div>
           </motion.div>
         )}
-      </div>
 
-      <div className="flex flex-col space-y-3">
-        <Button
-          onClick={handleContinue}
-          className="w-full bg-gray-800 hover:bg-gray-700 text-white"
-          disabled={selectedCourses.length === 0}
-        >
-          Continue
-        </Button>
-        
+        <div className="flex flex-col space-y-4">
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <Button
+              onClick={handleContinue}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl font-semibold text-lg shadow-xl"
+              disabled={selectedCourses.length === 0}
+            >
+              Continue
+            </Button>
+          </motion.div>
+        </div>
+      </motion.div>
+
+      <motion.div
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+      >
         <Button
           onClick={prevStep}
           variant="ghost"
-          className="w-full text-gray-500 hover:text-gray-700"
+          className="w-full text-white/60 hover:text-white/80 py-3 rounded-2xl"
         >
           ← Back
         </Button>
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 };
 
