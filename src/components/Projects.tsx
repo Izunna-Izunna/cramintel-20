@@ -1,65 +1,77 @@
 
 import { useState, useRef, useEffect, TouchEvent } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Star, TrendingUp, Award, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useIsMobile } from "@/hooks/use-mobile";
 
-const projects = [
+const successStories = [
   {
     id: 1,
-    title: "6th SENSE Safety System",
-    brand: "FireCat Group",
-    description: "AI-driven sensor solution integrated into uniforms for law enforcement, military and firefighters, providing real-time vital monitoring and situational awareness in high-risk environments.",
-    tags: ["Safety", "Military", "AI Sensors", "Real-time Monitoring"],
+    name: "Adaora Okafor",
+    university: "University of Lagos",
+    course: "Computer Science",
+    improvement: "Grade increased from C+ to A-",
+    story: "Using CramIntel's AI predictions, I identified the most likely exam questions and focused my study time effectively. The flashcards feature helped me memorize key concepts faster than ever before.",
+    metrics: { gradeImprovement: "85%", studyTimeReduced: "40%", examScore: "88%" },
     imageUrl: "/lovable-uploads/93ab0638-8190-4ccf-897f-21fda7f4f5ad.png",
     isFeatured: true,
-    link: "/projects/firecat",
-    details: `
-      FireCat Group aimed to enhance safety in high-risk environments. WRLDS Technologies provided the 6th SENSE solution with secure real-time data transmission, high-quality sensors resistant to extreme conditions, integrated AI-powered clothing, and a centralized control unit. Features include Man Down Alarm, GPS positioning, vital sign monitoring, and Panic Button. Benefits: life-saving technology, machine learning preventing false alarms, durable hardware with 7-10 year lifespan, washable sensors, and Plug & Play installation with 12-20 hours of operation per charge.
-    `
+    testimonial: "CramIntel completely changed how I study. I went from struggling with exams to consistently getting top grades in my class.",
+    coursesUsed: ["Data Structures", "Algorithms", "Software Engineering"]
   },
   {
     id: 2,
-    title: "Performance Athletic Footwear",
-    brand: "Global Sports Retail Leader",
-    description: "Smart Footwear R&D aiming to revolutionize development, fitting, and testing of athletic footwear.",
-    tags: ["Sports", "R&D", "Footwear", "Athletic Performance"],
+    name: "Kwame Asante",
+    university: "University of Ghana",
+    course: "Business Administration",
+    improvement: "Reduced study time by 50%",
+    story: "The AI exam predictions were incredibly accurate. I spent less time studying but achieved better results by focusing on the right topics.",
+    metrics: { gradeImprovement: "75%", studyTimeReduced: "50%", examScore: "82%" },
     imageUrl: "/lovable-uploads/b0622048-17b4-4c75-a3f0-6c9e17de1d09.png",
-    link: "/projects/sport-retail"
+    testimonial: "I couldn't believe how accurate the predictions were. Almost 80% of my exam questions were predicted by CramIntel.",
+    coursesUsed: ["Marketing", "Finance", "Operations Management"]
   },
   {
     id: 3,
-    title: "Workwear Climate Control",
-    brand: "European Multinational Textile Producer",
-    description: "Fully integrated temperature controls for professionals working in extreme heat and cold. Modular approach to enable full-body systems.",
-    tags: ["Climate Control", "Workwear", "Temperature Regulation", "Extreme Conditions"],
+    name: "Fatima Ibrahim",
+    university: "Ahmadu Bello University",
+    course: "Medicine",
+    improvement: "Top 5% of class",
+    story: "Medical school is intense, but CramIntel's study communities connected me with peers who shared valuable insights. The AI-generated flashcards made memorizing complex medical terms manageable.",
+    metrics: { gradeImprovement: "90%", studyTimeReduced: "35%", examScore: "91%" },
     imageUrl: "/lovable-uploads/6b0637e9-4a7b-40d0-b219-c8b7f879f93e.png",
-    link: "/projects/workwear"
+    testimonial: "The study communities feature is a game-changer. Collaborating with classmates through CramIntel helped us all improve together.",
+    coursesUsed: ["Anatomy", "Physiology", "Pharmacology"]
   },
   {
     id: 4,
-    title: "Ice Hockey Elite Skill Tracker",
-    brand: "Mars Blades",
-    description: "R&D product evaluating data from single IMU embedded in the hockey shoe. Aim: establish motion patterns that lead to ultimate acceleration, speed, and maneuverability.",
-    tags: ["Ice Hockey", "Motion Analysis", "Performance Tracking", "Sports"],
+    name: "Emmanuel Osei",
+    university: "KNUST",
+    course: "Engineering",
+    improvement: "First Class Honours",
+    story: "CramIntel's document analysis feature helped me understand complex engineering concepts by breaking them down into digestible flashcards and practice questions.",
+    metrics: { gradeImprovement: "80%", studyTimeReduced: "45%", examScore: "86%" },
     imageUrl: "/lovable-uploads/c30e0487-2fa0-41d1-9a0b-699cb2855388.png",
-    link: "/projects/hockey"
+    testimonial: "The way CramIntel analyzes my notes and creates study materials is like having a personal tutor available 24/7.",
+    coursesUsed: ["Thermodynamics", "Fluid Mechanics", "Control Systems"]
   },
   {
     id: 5,
-    title: "Dog Activity Counter",
-    brand: "UK Insurance Giant",
-    description: "R&D project embedding a step counter in a dog collar. Measures daily activity and sends real-time data to the cloud for veterinary consultancies.",
-    tags: ["Pet Technology", "Insurance", "Activity Tracking", "R&D"],
+    name: "Amina Hassan",
+    university: "University of Ilorin",
+    course: "Law",
+    improvement: "Bar exam success",
+    story: "Preparing for law exams requires memorizing vast amounts of case studies and statutes. CramIntel's AI helped me identify the most important cases and create effective study schedules.",
+    metrics: { gradeImprovement: "78%", studyTimeReduced: "42%", examScore: "84%" },
     imageUrl: "/lovable-uploads/d5ce901e-2ce0-4f2a-bce1-f0ca5d6192df.png",
-    link: "/projects/pet-tracker"
+    testimonial: "CramIntel made law school manageable. The predictions helped me focus on cases that actually appeared in exams.",
+    coursesUsed: ["Constitutional Law", "Criminal Law", "Contract Law"]
   }
 ];
 
 const Projects = () => {
-  const [activeProject, setActiveProject] = useState(0);
-  const projectsRef = useRef<HTMLDivElement>(null);
+  const [activeStory, setActiveStory] = useState(0);
+  const storiesRef = useRef<HTMLDivElement>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
@@ -72,7 +84,7 @@ const Projects = () => {
   useEffect(() => {
     if (isInView && !isHovering) {
       const interval = setInterval(() => {
-        setActiveProject(prev => (prev + 1) % projects.length);
+        setActiveStory(prev => (prev + 1) % successStories.length);
       }, 4000);
       return () => clearInterval(interval);
     }
@@ -89,8 +101,8 @@ const Projects = () => {
       threshold: 0.2
     });
     
-    if (projectsRef.current) {
-      observer.observe(projectsRef.current);
+    if (storiesRef.current) {
+      observer.observe(storiesRef.current);
     }
     
     return () => observer.disconnect();
@@ -113,30 +125,30 @@ const Projects = () => {
     const isRightSwipe = distance < -minSwipeDistance;
     
     if (isLeftSwipe) {
-      setActiveProject(prev => (prev + 1) % projects.length);
+      setActiveStory(prev => (prev + 1) % successStories.length);
     } else if (isRightSwipe) {
-      setActiveProject(prev => (prev - 1 + projects.length) % projects.length);
+      setActiveStory(prev => (prev - 1 + successStories.length) % successStories.length);
     }
   };
 
   const getCardAnimationClass = (index: number) => {
-    if (index === activeProject) return "scale-100 opacity-100 z-20";
-    if (index === (activeProject + 1) % projects.length) return "translate-x-[40%] scale-95 opacity-60 z-10";
-    if (index === (activeProject - 1 + projects.length) % projects.length) return "translate-x-[-40%] scale-95 opacity-60 z-10";
+    if (index === activeStory) return "scale-100 opacity-100 z-20";
+    if (index === (activeStory + 1) % successStories.length) return "translate-x-[40%] scale-95 opacity-60 z-10";
+    if (index === (activeStory - 1 + successStories.length) % successStories.length) return "translate-x-[-40%] scale-95 opacity-60 z-10";
     return "scale-90 opacity-0";
   };
   
-  return <section id="projects" ref={projectsRef} className="bg-white py-[50px] w-full">
+  return <section id="projects" ref={storiesRef} className="bg-white py-[50px] w-full">
       <div className="w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className={`text-center mb-10 max-w-3xl mx-auto transition-all duration-1000 ${isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           <div className="inline-block mb-2 px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium">
-            Customer Cases
+            Student Success Stories
           </div>
           <h2 className="text-3xl font-bold mb-3">
-            From Textile to Intelligence
+            Real Students, Real Results
           </h2>
           <p className="text-gray-600">
-            Explore how our textile sensor technology is revolutionizing multiple industries with intelligent fabric solutions tailored to specific needs.
+            Discover how West African university students are achieving academic success with CramIntel's AI-powered study tools and exam predictions.
           </p>
           {isMobile && (
             <div className="flex items-center justify-center mt-4 animate-pulse-slow">
@@ -159,9 +171,9 @@ const Projects = () => {
           ref={carouselRef}
         >
           <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
-            {projects.map((project, index) => (
+            {successStories.map((story, index) => (
               <div 
-                key={project.id} 
+                key={story.id} 
                 className={`absolute top-0 w-full max-w-md transform transition-all duration-500 ${getCardAnimationClass(index)}`} 
                 style={{ transitionDelay: `${index * 50}ms` }}
               >
@@ -169,55 +181,67 @@ const Projects = () => {
                   <div 
                     className="relative bg-black p-6 flex items-center justify-center h-48 overflow-hidden"
                     style={{
-                      backgroundImage: `url(${project.imageUrl})`,
+                      backgroundImage: `url(${story.imageUrl})`,
                       backgroundSize: 'cover',
                       backgroundPosition: 'center'
                     }}
                   >
                     <div className="absolute inset-0 bg-black/50"></div>
-                    <div className="relative z-10 flex flex-col items-center justify-center">
-                      <h3 className="text-2xl font-bold text-white mb-2">{project.brand.toUpperCase()}</h3>
-                      <div className="w-12 h-1 bg-white mb-2"></div>
-                      <p className="text-white/90 text-sm">{project.title}</p>
+                    <div className="relative z-10 flex flex-col items-center justify-center text-center">
+                      <h3 className="text-2xl font-bold text-white mb-1">{story.name}</h3>
+                      <p className="text-white/90 text-sm mb-1">{story.university}</p>
+                      <p className="text-white/80 text-sm">{story.course}</p>
+                      <div className="flex items-center mt-2">
+                        {[1,2,3,4,5].map((star) => (
+                          <Star key={star} className="w-4 h-4 text-yellow-400 fill-current" />
+                        ))}
+                      </div>
                     </div>
                   </div>
                   
                   <CardContent className="p-6 flex flex-col flex-grow">
                     <div className="mb-4">
-                      <h3 className="text-xl font-bold mb-1 text-gray-800 group-hover:text-gray-500 transition-colors">
-                        {project.title}
-                      </h3>
-                      <p className="text-gray-500 text-sm font-medium">{project.brand}</p>
+                      <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-600">{story.improvement}</span>
+                      </div>
                     </div>
                     
-                    <p className="text-gray-600 text-sm mb-4 flex-grow">{project.description}</p>
+                    <blockquote className="text-gray-600 text-sm mb-4 flex-grow italic">
+                      "{story.testimonial}"
+                    </blockquote>
                     
                     <div className="mt-auto">
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {project.tags.map((tag, idx) => (
-                          <span 
-                            key={idx} 
-                            className="px-2 py-1 bg-gray-50 text-gray-600 rounded-full text-xs animate-pulse-slow" 
-                            style={{ animationDelay: `${idx * 300}ms` }}
-                          >
-                            {tag}
-                          </span>
-                        ))}
+                      <div className="grid grid-cols-3 gap-2 mb-4 text-center">
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-lg font-bold text-gray-800">{story.metrics.gradeImprovement}</div>
+                          <div className="text-xs text-gray-500">Grade Boost</div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-lg font-bold text-gray-800">{story.metrics.studyTimeReduced}</div>
+                          <div className="text-xs text-gray-500">Time Saved</div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-lg font-bold text-gray-800">{story.metrics.examScore}</div>
+                          <div className="text-xs text-gray-500">Exam Score</div>
+                        </div>
                       </div>
                       
-                      <Link 
-                        to={project.link} 
-                        className="text-gray-500 flex items-center hover:underline relative overflow-hidden group"
-                        onClick={() => {
-                          if (project.link.startsWith('/')) {
-                            window.scrollTo(0, 0);
-                          }
-                        }}
-                      >
-                        <span className="relative z-10">Learn more</span>
-                        <ArrowRight className="ml-2 w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1" />
-                        <span className="absolute left-0 bottom-0 w-0 h-0.5 bg-gray-500 transition-all duration-300 group-hover:w-full"></span>
-                      </Link>
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {story.coursesUsed.slice(0,2).map((course, idx) => (
+                          <span 
+                            key={idx} 
+                            className="px-2 py-1 bg-blue-50 text-blue-600 rounded-full text-xs"
+                          >
+                            {course}
+                          </span>
+                        ))}
+                        {story.coursesUsed.length > 2 && (
+                          <span className="px-2 py-1 bg-gray-50 text-gray-500 rounded-full text-xs">
+                            +{story.coursesUsed.length - 2} more
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -229,16 +253,16 @@ const Projects = () => {
             <>
               <button 
                 className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 rounded-full flex items-center justify-center text-gray-500 hover:bg-white z-30 shadow-md transition-all duration-300 hover:scale-110" 
-                onClick={() => setActiveProject(prev => (prev - 1 + projects.length) % projects.length)}
-                aria-label="Previous project"
+                onClick={() => setActiveStory(prev => (prev - 1 + successStories.length) % successStories.length)}
+                aria-label="Previous story"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               
               <button 
                 className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 rounded-full flex items-center justify-center text-gray-500 hover:bg-white z-30 shadow-md transition-all duration-300 hover:scale-110" 
-                onClick={() => setActiveProject(prev => (prev + 1) % projects.length)}
-                aria-label="Next project"
+                onClick={() => setActiveStory(prev => (prev + 1) % successStories.length)}
+                aria-label="Next story"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -246,14 +270,35 @@ const Projects = () => {
           )}
           
           <div className="absolute bottom-6 left-0 right-0 flex justify-center items-center space-x-3 z-30">
-            {projects.map((_, idx) => (
+            {successStories.map((_, idx) => (
               <button 
                 key={idx} 
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${activeProject === idx ? 'bg-gray-500 w-5' : 'bg-gray-200 hover:bg-gray-300'}`} 
-                onClick={() => setActiveProject(idx)}
-                aria-label={`Go to project ${idx + 1}`}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${activeStory === idx ? 'bg-gray-500 w-5' : 'bg-gray-200 hover:bg-gray-300'}`} 
+                onClick={() => setActiveStory(idx)}
+                aria-label={`Go to story ${idx + 1}`}
               />
             ))}
+          </div>
+        </div>
+
+        <div className="mt-12 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-800">5,000+</div>
+              <div className="text-sm text-gray-600">Active Students</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-800">85%</div>
+              <div className="text-sm text-gray-600">Grade Improvement</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-800">12</div>
+              <div className="text-sm text-gray-600">Universities</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-800">40%</div>
+              <div className="text-sm text-gray-600">Time Saved</div>
+            </div>
           </div>
         </div>
       </div>
