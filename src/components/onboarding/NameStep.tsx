@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { OnboardingData } from '@/pages/Onboarding';
+import StepWrapper from './StepWrapper';
 
 interface NameStepProps {
   data: OnboardingData;
@@ -37,46 +38,42 @@ const NameStep = ({ data, updateData, nextStep, prevStep }: NameStepProps) => {
   };
 
   return (
-    <motion.div
-      className="space-y-6 relative"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, type: "spring" }}
-    >
+    <StepWrapper className="space-y-8 relative">
       {/* Celebration particles */}
       {showCelebration && (
         <div className="absolute inset-0 pointer-events-none">
-          {Array.from({ length: 10 }).map((_, i) => (
+          {Array.from({ length: 15 }).map((_, i) => (
             <motion.div
               key={i}
-              className="absolute w-3 h-3 bg-gradient-to-r from-green-400 to-blue-500 rounded-full"
+              className="absolute w-4 h-4 bg-gradient-to-r from-green-400 to-blue-500 rounded-full"
               style={{
                 left: `${Math.random() * 100}%`,
                 top: `${Math.random() * 100}%`,
               }}
               animate={{
-                scale: [0, 1, 0],
+                scale: [0, 1.5, 0],
                 opacity: [1, 1, 0],
-                y: [-20, -100],
+                y: [-30, -120],
+                rotate: [0, 180],
               }}
-              transition={{ duration: 1.5 }}
+              transition={{ duration: 2 }}
             />
           ))}
         </div>
       )}
 
       <motion.div 
-        className="text-center space-y-3"
-        initial={{ scale: 0.9 }}
-        animate={{ scale: 1 }}
-        transition={{ delay: 0.2 }}
+        className="text-center space-y-4"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.2, type: "spring" }}
       >
         <motion.h2 
-          className="text-3xl font-bold text-gray-900"
+          className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent"
           animate={{ scale: [1, 1.02, 1] }}
           transition={{ duration: 2, repeat: Infinity }}
         >
-          What's your name?
+          What should we call you? 👋
         </motion.h2>
         <motion.p 
           className="text-gray-600 text-lg"
@@ -84,12 +81,12 @@ const NameStep = ({ data, updateData, nextStep, prevStep }: NameStepProps) => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}
         >
-          Let's get to know you better
+          Let's personalize your experience
         </motion.p>
       </motion.div>
 
       <motion.div
-        className="space-y-4"
+        className="space-y-6"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.3 }}
@@ -103,42 +100,42 @@ const NameStep = ({ data, updateData, nextStep, prevStep }: NameStepProps) => {
             placeholder="Enter your name"
             value={name}
             onChange={handleNameChange}
-            className="w-full text-center text-xl py-4 rounded-xl border-2 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm"
+            className="w-full text-center text-xl py-6 rounded-2xl border-2 border-gray-200 focus:border-blue-500 transition-all duration-300 bg-white/90 backdrop-blur-sm shadow-lg"
             autoFocus
           />
           {name && (
             <motion.div
-              className="absolute right-3 top-1/2 transform -translate-y-1/2"
+              className="absolute right-4 top-1/2 transform -translate-y-1/2"
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", bounce: 0.5 }}
             >
-              <span className="text-green-500 text-xl">✓</span>
+              <span className="text-green-500 text-2xl">✓</span>
             </motion.div>
           )}
         </motion.div>
 
         {name && (
           <motion.div
-            className="bg-gradient-to-r from-green-100 to-blue-100 p-3 rounded-xl border border-green-200"
+            className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-2xl border border-green-200"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring" }}
           >
-            <p className="text-green-700 font-medium">
-              Great to meet you, {name}! 🎉
+            <p className="text-green-700 font-semibold text-center">
+              Nice to meet you, {name}! 🎉
             </p>
           </motion.div>
         )}
 
-        <div className="flex flex-col space-y-3">
+        <div className="flex flex-col space-y-4">
           <motion.div
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
             <Button
               onClick={handleContinue}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 rounded-xl font-semibold"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl font-semibold text-lg shadow-xl"
               disabled={!name.trim()}
             >
               Continue
@@ -152,7 +149,7 @@ const NameStep = ({ data, updateData, nextStep, prevStep }: NameStepProps) => {
             <Button
               onClick={handleSkip}
               variant="ghost"
-              className="w-full text-gray-600 hover:text-gray-800 py-3 rounded-xl font-medium hover:bg-gray-100/50"
+              className="w-full text-gray-600 hover:text-gray-800 py-4 rounded-2xl font-medium hover:bg-gray-100/50 text-lg"
             >
               Just call me Genius 😎
             </Button>
@@ -167,7 +164,7 @@ const NameStep = ({ data, updateData, nextStep, prevStep }: NameStepProps) => {
         <Button
           onClick={prevStep}
           variant="ghost"
-          className="w-full text-gray-500 hover:text-gray-700 py-2 rounded-xl"
+          className="w-full text-gray-500 hover:text-gray-700 py-3 rounded-2xl"
         >
           ← Back
         </Button>
@@ -175,22 +172,30 @@ const NameStep = ({ data, updateData, nextStep, prevStep }: NameStepProps) => {
 
       {/* Background decorative elements */}
       <div className="absolute -z-10 inset-0 overflow-hidden">
-        <motion.div
-          className="absolute top-5 right-5 text-3xl opacity-30"
-          animate={{ rotate: [0, 10, -10, 0] }}
-          transition={{ duration: 4, repeat: Infinity }}
-        >
-          🌟
-        </motion.div>
-        <motion.div
-          className="absolute bottom-5 left-5 text-2xl opacity-30"
-          animate={{ y: [-5, 5, -5] }}
-          transition={{ duration: 3, repeat: Infinity }}
-        >
-          👋
-        </motion.div>
+        {['🌟', '👋', '💫'].map((icon, index) => (
+          <motion.div
+            key={index}
+            className={`absolute text-3xl opacity-20`}
+            style={{
+              left: `${[85, 15, 50][index]}%`,
+              top: `${[15, 85, 50][index]}%`,
+            }}
+            animate={{
+              rotate: [0, 10, -10, 0],
+              y: [-5, 5, -5],
+              scale: [1, 1.1, 1],
+            }}
+            transition={{
+              duration: Math.random() * 4 + 3,
+              repeat: Infinity,
+              delay: index * 0.5,
+            }}
+          >
+            {icon}
+          </motion.div>
+        ))}
       </div>
-    </motion.div>
+    </StepWrapper>
   );
 };
 

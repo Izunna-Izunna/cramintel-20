@@ -3,16 +3,16 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const encouragingMessages = [
-  "You're crushing it! 🔥",
-  "Almost there, genius! 🧠",
-  "Looking good! ✨",
+  "You're absolutely crushing it! 🔥",
+  "Looking fantastic so far! ✨",
+  "What a superstar! ⭐",
   "You've got this! 💪",
-  "Fantastic progress! 🎯",
-  "Keep going, superstar! ⭐",
-  "You're on fire! 🚀",
+  "Incredible progress! 🚀",
+  "Keep up the amazing work! 🎯",
+  "You're on fire! ⚡",
   "Brilliant choices! 💡",
-  "Way to go! 🎉",
-  "Unstoppable! ⚡"
+  "Outstanding! 🌟",
+  "Unstoppable energy! 💫"
 ];
 
 const EncouragingMessage = () => {
@@ -32,22 +32,26 @@ const EncouragingMessage = () => {
   }, []);
 
   return (
-    <div className="fixed top-20 right-6 z-20 pointer-events-none">
+    <div className="fixed top-24 right-6 z-20 pointer-events-none">
       <AnimatePresence>
         {isVisible && (
           <motion.div
-            className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full shadow-lg"
-            initial={{ opacity: 0, scale: 0.8, x: 100 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            exit={{ opacity: 0, scale: 0.8, x: 100 }}
-            transition={{ type: "spring", bounce: 0.5 }}
+            className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-sm border border-white/20"
+            initial={{ opacity: 0, scale: 0.8, x: 100, y: -20 }}
+            animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, x: 100, y: -20 }}
+            transition={{ type: "spring", bounce: 0.5, duration: 0.6 }}
           >
             <motion.span
-              animate={{ scale: [1, 1.1, 1] }}
-              transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+              className="font-semibold text-sm"
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 0.8, repeat: Infinity, repeatDelay: 2 }}
             >
               {encouragingMessages[currentMessage]}
             </motion.span>
+            
+            {/* Subtle glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl blur-xl opacity-30 -z-10" />
           </motion.div>
         )}
       </AnimatePresence>

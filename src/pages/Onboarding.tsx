@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -12,7 +13,7 @@ import StudyStyleStep from '@/components/onboarding/StudyStyleStep';
 import FirstActionStep from '@/components/onboarding/FirstActionStep';
 import CompletionStep from '@/components/onboarding/CompletionStep';
 import ProgressBar from '@/components/onboarding/ProgressBar';
-import AnimatedBackground from '@/components/onboarding/AnimatedBackground';
+import ProfessionalBackground from '@/components/onboarding/ProfessionalBackground';
 import EncouragingMessage from '@/components/onboarding/EncouragingMessage';
 import ParticleCelebration from '@/components/onboarding/ParticleCelebration';
 import { supabase } from '@/integrations/supabase/client';
@@ -153,7 +154,7 @@ const Onboarding = () => {
     enter: { 
       opacity: 0, 
       x: 100,
-      scale: 0.9
+      scale: 0.95
     },
     center: { 
       opacity: 1, 
@@ -163,7 +164,7 @@ const Onboarding = () => {
     exit: { 
       opacity: 0, 
       x: -100,
-      scale: 0.9
+      scale: 0.95
     }
   };
 
@@ -202,8 +203,8 @@ const Onboarding = () => {
   };
 
   return (
-    <div className="min-h-screen relative flex flex-col overflow-hidden">
-      <AnimatedBackground />
+    <div className="min-h-screen relative flex flex-col overflow-hidden bg-black">
+      <ProfessionalBackground />
       
       {currentStep > 1 && currentStep < totalSteps && <EncouragingMessage />}
       
@@ -217,6 +218,7 @@ const Onboarding = () => {
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6, type: "spring" }}
+          className="relative z-10"
         >
           <ProgressBar currentStep={currentStep} totalSteps={totalSteps} />
         </motion.div>
