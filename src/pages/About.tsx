@@ -174,28 +174,28 @@ const About = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {[
                     {
-                      name: "Kwame Asante",
+                      name: "John Smith",
                       role: "Founder & CEO",
-                      bio: "University of Ghana student who experienced the struggle firsthand. Now leading CramIntel's mission to transform student success.",
-                      image: "/lovable-uploads/aa5291bd-2417-4c1e-9a02-0bcc71a92507.png"
+                      bio: "University student who experienced the academic challenges firsthand. Now leading CramIntel's mission to transform student success.",
+                      image: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?auto=format&fit=crop&w=300&h=300"
                     },
                     {
-                      name: "Adaora Okafor",
+                      name: "Jane Doe",
                       role: "AI/ML Engineer",
                       bio: "PhD in Machine Learning, specializing in educational AI and predictive algorithms for academic success.",
-                      image: "/lovable-uploads/e502f601-c519-43a8-86f5-5fa89ae50d2f.png"
+                      image: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=300&h=300"
                     },
                     {
-                      name: "Samuel Mensah",
+                      name: "Michael Johnson",
                       role: "Education Specialist",
                       bio: "Former university lecturer with 10+ years experience in West African higher education systems and curriculum design.",
-                      image: "/lovable-uploads/3de85ddd-15e1-4216-9697-f91abb9a47ce.png"
+                      image: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=300&h=300"
                     },
                     {
-                      name: "Fatima Bello",
+                      name: "Sarah Wilson",
                       role: "Student Success Manager",
                       bio: "Psychology graduate focused on learning optimization and student support. Ensures our tools truly help students succeed.",
-                      image: "/lovable-uploads/a9bb9110-964a-43b0-a5ab-7162140cd133.png"
+                      image: "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&w=300&h=300"
                     }
                   ].map((member, i) => (
                     <Card key={i} className="bg-gray-50 border border-gray-100 overflow-hidden">
