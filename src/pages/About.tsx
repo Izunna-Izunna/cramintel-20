@@ -1,3 +1,4 @@
+
 import { ArrowLeft, CheckCircle, ArrowRight, Users, Target, Brain, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from "framer-motion";
@@ -164,53 +165,58 @@ const About = () => {
                 transition={{ duration: 0.6, delay: 0.6 }}
                 className="mb-16"
               >
-                <h2 className="text-3xl font-bold mb-6">Meet Our Team</h2>
+                <h2 className="text-3xl font-bold mb-6">Join Our Growing Team</h2>
                 <p className="text-gray-600 mb-8">
-                  Our diverse team combines expertise in artificial intelligence, education technology, 
-                  and deep understanding of West African university systems to deliver solutions that 
+                  We're building a diverse team that combines expertise in artificial intelligence, education technology, 
+                  and deep understanding of West African university systems. Join us in creating solutions that 
                   truly work for students.
                 </p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {[
                     {
-                      name: "John Smith",
-                      role: "Founder & CEO",
-                      bio: "University student who experienced the academic challenges firsthand. Now leading CramIntel's mission to transform student success.",
-                      image: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?auto=format&fit=crop&w=300&h=300"
+                      name: "Team Member A",
+                      role: "AI/ML Engineer Position",
+                      bio: "We're looking for a passionate AI engineer to help build intelligent study tools that transform student success.",
+                      bgColor: "bg-blue-100"
                     },
                     {
-                      name: "Jane Doe",
-                      role: "AI/ML Engineer",
-                      bio: "PhD in Machine Learning, specializing in educational AI and predictive algorithms for academic success.",
-                      image: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=300&h=300"
+                      name: "Team Member B",
+                      role: "Education Specialist Position",
+                      bio: "Join us as an education expert to ensure our platform truly understands West African university systems.",
+                      bgColor: "bg-green-100"
                     },
                     {
-                      name: "Michael Johnson",
-                      role: "Education Specialist",
-                      bio: "Former university lecturer with 10+ years experience in West African higher education systems and curriculum design.",
-                      image: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=300&h=300"
+                      name: "Team Member C",
+                      role: "Student Success Manager Position",
+                      bio: "Help us support thousands of students by designing user experiences that maximize learning outcomes.",
+                      bgColor: "bg-purple-100"
                     },
                     {
-                      name: "Sarah Wilson",
-                      role: "Student Success Manager",
-                      bio: "Psychology graduate focused on learning optimization and student support. Ensures our tools truly help students succeed.",
-                      image: "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&w=300&h=300"
+                      name: "Team Member D",
+                      role: "Software Engineer Position",
+                      bio: "Build the future of educational technology with us using cutting-edge web technologies and AI integration.",
+                      bgColor: "bg-orange-100"
                     }
                   ].map((member, i) => (
                     <Card key={i} className="bg-gray-50 border border-gray-100 overflow-hidden">
                       <CardContent className="p-6">
                         <div className="flex flex-col items-center text-center">
-                          <div className="w-32 h-32 relative mb-4 rounded-full overflow-hidden">
-                            <img 
-                              src={member.image} 
-                              alt={member.name} 
-                              className="w-full h-full object-cover filter grayscale" 
-                            />
+                          <div className={`w-32 h-32 relative mb-4 rounded-full ${member.bgColor} flex items-center justify-center`}>
+                            <Users className="w-16 h-16 text-gray-600" />
                           </div>
                           <h3 className="font-bold text-lg">{member.name}</h3>
                           <p className="text-blue-600 text-sm mb-2 font-medium">{member.role}</p>
-                          <p className="text-gray-600 text-sm">{member.bio}</p>
+                          <p className="text-gray-600 text-sm mb-4">{member.bio}</p>
+                          <div className="mt-auto pt-4 border-t border-gray-200 w-full">
+                            <p className="text-xs text-gray-500 mb-2">Interested in joining our team?</p>
+                            <a 
+                              href="mailto:paschalugwuanyi98@gmail.com?subject=Team Application - CramIntel" 
+                              className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
+                            >
+                              Contact us
+                            </a>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
