@@ -13,9 +13,9 @@ const CramIntelLogo: React.FC<CramIntelLogoProps> = ({
   className 
 }) => {
   const sizeClasses = {
-    sm: 'h-36 w-auto',
-    md: 'h-48 w-auto',
-    lg: 'h-60 w-auto'
+    sm: 'h-18 w-auto',
+    md: 'h-24 w-auto',
+    lg: 'h-30 w-auto'
   };
 
   const gradientId = `cramintel-gradient-${variant}-${Math.random().toString(36).substr(2, 9)}`;
