@@ -80,7 +80,7 @@ serve(async (req) => {
 
     console.log('File uploaded successfully:', uploadData.path);
 
-    // Save material metadata to database
+    // Save material metadata to database with proper initial status
     const { data: materialData, error: dbError } = await supabase
       .from('cramintel_materials')
       .insert({
@@ -93,6 +93,8 @@ serve(async (req) => {
         course: course,
         material_type: materialType,
         processed: false,
+        processing_status: 'pending',
+        processing_progress: 0,
         tags: []
       })
       .select()
@@ -111,20 +113,52 @@ serve(async (req) => {
 
     console.log('Material saved to database:', materialData.id);
 
-    // Trigger background processing
+    // Immediately trigger background processing with proper error handling
+    let processingTriggered = false;
     try {
-      await supabase.functions.invoke('process-material', {
-        body: { materialId: materialData.id }
+      console.log('Triggering background processing for material:', materialData.id);
+      
+      const { data: processResult, error: processError } = await supabase.functions.invoke('process-material', {
+        body: { materialId: materialData.id },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
       });
-      console.log('Background processing triggered');
+
+      if (processError) {
+        console.error('Failed to trigger processing:', processError);
+        throw processError;
+      }
+
+      console.log('Background processing triggered successfully:', processResult);
+      processingTriggered = true;
+      
     } catch (processError) {
       console.error('Failed to trigger background processing:', processError);
-      // Don't fail the upload if background processing fails
+      
+      // Update material status to indicate processing failed to start
+      await supabase
+        .from('cramintel_materials')
+        .update({ 
+          processing_status: 'error',
+          processing_progress: 0 
+        })
+        .eq('id', materialData.id);
+        
+      return new Response(JSON.stringify({
+        error: 'Material uploaded but processing failed to start',
+        material: materialData,
+        processingError: processError.message
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     return new Response(JSON.stringify({
       success: true,
       material: materialData,
+      processingTriggered,
       message: 'Material uploaded successfully and processing started'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

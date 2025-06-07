@@ -1,12 +1,12 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FileText, Brain, CheckCircle, AlertCircle } from 'lucide-react';
+import { FileText, Brain, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 
 interface ProcessingAnimationProps {
-  status: 'extracting_text' | 'processing_content' | 'generating_flashcards' | 'saving_flashcards' | 'completed' | 'error';
+  status: 'pending' | 'extracting_text' | 'processing_content' | 'generating_flashcards' | 'saving_flashcards' | 'completed' | 'error';
   progress: number;
   fileName: string;
 }
@@ -14,6 +14,13 @@ interface ProcessingAnimationProps {
 export function ProcessingAnimation({ status, progress, fileName }: ProcessingAnimationProps) {
   const getStatusInfo = () => {
     switch (status) {
+      case 'pending':
+        return {
+          icon: Clock,
+          title: 'Preparing to Process',
+          description: 'Setting up processing pipeline for your document...',
+          color: 'text-gray-500'
+        };
       case 'extracting_text':
         return {
           icon: FileText,
@@ -46,7 +53,7 @@ export function ProcessingAnimation({ status, progress, fileName }: ProcessingAn
         return {
           icon: CheckCircle,
           title: 'Processing Complete!',
-          description: 'Your flashcards are ready for studying',
+          description: 'Your 20 flashcards are ready for studying',
           color: 'text-green-500'
         };
       case 'error':
@@ -108,27 +115,27 @@ export function ProcessingAnimation({ status, progress, fileName }: ProcessingAn
           {/* Processing Steps */}
           <div className="space-y-2 text-left">
             <div className="flex items-center space-x-2 text-xs">
-              <div className={`w-2 h-2 rounded-full ${progress >= 20 ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className={progress >= 20 ? 'text-green-600' : 'text-gray-500'}>Extract content</span>
+              <div className={`w-2 h-2 rounded-full ${progress >= 10 ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <span className={progress >= 10 ? 'text-green-600' : 'text-gray-500'}>Extract content</span>
             </div>
             <div className="flex items-center space-x-2 text-xs">
-              <div className={`w-2 h-2 rounded-full ${progress >= 40 ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className={progress >= 40 ? 'text-green-600' : 'text-gray-500'}>Analyze structure</span>
+              <div className={`w-2 h-2 rounded-full ${progress >= 30 ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <span className={progress >= 30 ? 'text-green-600' : 'text-gray-500'}>Analyze structure</span>
             </div>
             <div className="flex items-center space-x-2 text-xs">
-              <div className={`w-2 h-2 rounded-full ${progress >= 60 ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className={progress >= 60 ? 'text-green-600' : 'text-gray-500'}>Generate flashcards</span>
+              <div className={`w-2 h-2 rounded-full ${progress >= 70 ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <span className={progress >= 70 ? 'text-green-600' : 'text-gray-500'}>Generate flashcards</span>
             </div>
             <div className="flex items-center space-x-2 text-xs">
-              <div className={`w-2 h-2 rounded-full ${progress >= 80 ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className={progress >= 80 ? 'text-green-600' : 'text-gray-500'}>Save to deck</span>
+              <div className={`w-2 h-2 rounded-full ${progress >= 90 ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <span className={progress >= 90 ? 'text-green-600' : 'text-gray-500'}>Save to deck</span>
             </div>
           </div>
 
           {/* Estimated Time */}
           {status !== 'completed' && status !== 'error' && (
             <p className="text-xs text-gray-500">
-              Estimated time: {Math.max(1, Math.ceil((100 - progress) / 20))} minutes
+              Estimated time: {Math.max(1, Math.ceil((100 - progress) / 25))} minutes
             </p>
           )}
         </div>

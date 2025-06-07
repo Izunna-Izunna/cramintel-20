@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Upload, FileText, Image, BookOpen, Camera, CheckCircle, X } from 'lucide-react';
+import { Upload, FileText, Image, BookOpen, Camera, CheckCircle, X, AlertCircle } from 'lucide-react';
 import { TagChip } from '../TagChip';
 import { UploadedMaterialsList } from './UploadedMaterialsList';
 import { ProcessingAnimation } from '@/components/ProcessingAnimation';
@@ -17,7 +18,7 @@ interface UploadedFile {
   type: string;
 }
 
-type ProcessingStatus = 'extracting_text' | 'processing_content' | 'generating_flashcards' | 'saving_flashcards' | 'completed' | 'error';
+type ProcessingStatus = 'pending' | 'extracting_text' | 'processing_content' | 'generating_flashcards' | 'saving_flashcards' | 'completed' | 'error';
 
 export function EnhancedUploadSection() {
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
@@ -26,10 +27,11 @@ export function EnhancedUploadSection() {
   const [selectedType, setSelectedType] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('extracting_text');
+  const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('pending');
   const [processingProgress, setProcessingProgress] = useState(0);
   const [showProcessing, setShowProcessing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [currentMaterialId, setCurrentMaterialId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -79,6 +81,64 @@ export function EnhancedUploadSection() {
     input.click();
   };
 
+  // Real-time processing status monitoring
+  const monitorProcessingStatus = (materialId: string) => {
+    const checkStatus = async () => {
+      try {
+        const { data: material, error } = await supabase
+          .from('cramintel_materials')
+          .select('processed, processing_status, processing_progress')
+          .eq('id', materialId)
+          .single();
+
+        if (error) {
+          console.error('Error checking status:', error);
+          return;
+        }
+
+        console.log('Processing status:', material);
+
+        if (material.processing_status) {
+          setProcessingStatus(material.processing_status as ProcessingStatus);
+        }
+        if (material.processing_progress !== undefined) {
+          setProcessingProgress(material.processing_progress);
+        }
+
+        // If completed successfully
+        if (material.processed && material.processing_status === 'completed') {
+          setShowProcessing(false);
+          setRefreshKey(prev => prev + 1);
+          toast({
+            title: "Processing Complete! ✨",
+            description: "20 flashcards have been generated and are ready for study.",
+          });
+          return;
+        }
+
+        // If failed
+        if (material.processing_status === 'error') {
+          setShowProcessing(false);
+          toast({
+            title: "Processing Failed ❌",
+            description: "There was an error processing your material. Please try uploading again.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        // Continue monitoring if still processing
+        if (!material.processed) {
+          setTimeout(checkStatus, 2000); // Check every 2 seconds
+        }
+      } catch (error) {
+        console.error('Error monitoring status:', error);
+      }
+    };
+
+    checkStatus();
+  };
+
   const handleSubmit = async () => {
     if (!uploadedFile || !selectedCourse || !selectedType || !user) {
       toast({
@@ -108,6 +168,7 @@ export function EnhancedUploadSection() {
 
       setUploadProgress(50);
 
+      console.log('Calling upload-material function...');
       const { data, error } = await supabase.functions.invoke('upload-material', {
         body: formData,
         headers: {
@@ -118,23 +179,40 @@ export function EnhancedUploadSection() {
       setUploadProgress(80);
 
       if (error) {
+        console.error('Upload function error:', error);
         throw error;
+      }
+
+      console.log('Upload response:', data);
+
+      if (!data.success) {
+        throw new Error(data.error || 'Upload failed');
       }
 
       setUploadProgress(100);
 
-      toast({
-        title: "Upload Successful! 🎉",
-        description: "Your material is being processed. 20 quality flashcards will be generated automatically.",
-      });
-      
-      // Start processing animation
-      setShowProcessing(true);
-      setProcessingStatus('extracting_text');
-      setProcessingProgress(0);
-
-      // Simulate processing progress
-      simulateProcessingProgress();
+      // Check if processing was triggered successfully
+      if (data.processingTriggered) {
+        toast({
+          title: "Upload Successful! 🎉",
+          description: "Your material is being processed. 20 quality flashcards will be generated automatically.",
+        });
+        
+        // Start monitoring processing status
+        setCurrentMaterialId(data.material.id);
+        setShowProcessing(true);
+        setProcessingStatus('extracting_text');
+        setProcessingProgress(10);
+        
+        // Start real-time monitoring
+        monitorProcessingStatus(data.material.id);
+      } else {
+        toast({
+          title: "Upload Successful ⚠️",
+          description: "Material uploaded but processing may need to be started manually.",
+          variant: "destructive"
+        });
+      }
       
       // Reset form
       setUploadedFile(null);
@@ -147,7 +225,6 @@ export function EnhancedUploadSection() {
       
     } catch (error) {
       console.error('Upload error:', error);
-      setProcessingStatus('error');
       toast({
         title: "Upload Failed",
         description: error.message || "There was an error uploading your file. Please try again.",
@@ -158,43 +235,6 @@ export function EnhancedUploadSection() {
     }
   };
 
-  const simulateProcessingProgress = () => {
-    const progressSteps = [
-      { status: 'extracting_text' as ProcessingStatus, progress: 20, delay: 2000 },
-      { status: 'processing_content' as ProcessingStatus, progress: 40, delay: 3000 },
-      { status: 'generating_flashcards' as ProcessingStatus, progress: 70, delay: 15000 },
-      { status: 'saving_flashcards' as ProcessingStatus, progress: 90, delay: 3000 },
-      { status: 'completed' as ProcessingStatus, progress: 100, delay: 2000 }
-    ];
-
-    let currentStep = 0;
-    const updateProgress = () => {
-      if (currentStep < progressSteps.length) {
-        const step = progressSteps[currentStep];
-        setProcessingStatus(step.status);
-        setProcessingProgress(step.progress);
-        
-        if (step.status === 'completed') {
-          setTimeout(() => {
-            setShowProcessing(false);
-            setRefreshKey(prev => prev + 1);
-            toast({
-              title: "Processing Complete! ✨",
-              description: "20 flashcards have been generated and are ready for study.",
-            });
-          }, 2000);
-        } else {
-          setTimeout(() => {
-            currentStep++;
-            updateProgress();
-          }, step.delay);
-        }
-      }
-    };
-
-    updateProgress();
-  };
-
   const resetUpload = () => {
     setUploadedFile(null);
     setFileName('');
@@ -202,6 +242,7 @@ export function EnhancedUploadSection() {
     setSelectedType('');
     setUploadProgress(0);
     setShowProcessing(false);
+    setCurrentMaterialId(null);
   };
 
   return (
