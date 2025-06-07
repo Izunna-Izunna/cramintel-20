@@ -7,8 +7,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { FileText, Trash2, Eye, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PDFViewer } from './PDFViewer';
-import { PdfViewer } from '@/components/ui/PdfViewer';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Material {
   id: string;
@@ -28,8 +26,6 @@ export function UploadedMaterialsList() {
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedPdf, setSelectedPdf] = useState<{ url: string; name: string } | null>(null);
   const [loadingFileUrl, setLoadingFileUrl] = useState<string | null>(null);
-  const [enhancedViewerOpen, setEnhancedViewerOpen] = useState(false);
-  const [selectedPdfEnhanced, setSelectedPdfEnhanced] = useState<{ url: string; name: string } | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -116,8 +112,6 @@ export function UploadedMaterialsList() {
   };
 
   const handleViewMaterial = async (material: Material) => {
-    console.log('Attempting to view material:', material.name, 'Type:', material.file_type);
-    
     if (material.file_type !== 'application/pdf') {
       toast({
         title: "Preview Not Available",
@@ -138,7 +132,6 @@ export function UploadedMaterialsList() {
 
     try {
       setLoadingFileUrl(material.id);
-      console.log('Generating signed URL for path:', material.file_path);
       
       // Generate a signed URL for the file
       const { data: signedUrlData, error: urlError } = await supabase.storage
@@ -156,7 +149,6 @@ export function UploadedMaterialsList() {
       }
 
       if (!signedUrlData.signedUrl) {
-        console.error('No signed URL generated');
         toast({
           title: "Error",
           description: "Failed to generate file access URL.",
@@ -165,8 +157,6 @@ export function UploadedMaterialsList() {
         return;
       }
 
-      console.log('Signed URL generated successfully:', signedUrlData.signedUrl);
-      
       setSelectedPdf({
         url: signedUrlData.signedUrl,
         name: material.name
@@ -177,61 +167,6 @@ export function UploadedMaterialsList() {
       toast({
         title: "Error",
         description: "Failed to open file. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingFileUrl(null);
-    }
-  };
-
-  const handleViewMaterialEnhanced = async (material: Material) => {
-    console.log('Opening enhanced viewer for:', material.name);
-    
-    if (material.file_type !== 'application/pdf') {
-      toast({
-        title: "Preview Not Available",
-        description: "Enhanced PDF preview is currently only available for PDF files.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!material.file_path) {
-      toast({
-        title: "File Not Available",
-        description: "The file path is not available for this material.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      setLoadingFileUrl(material.id);
-      
-      const { data: signedUrlData, error: urlError } = await supabase.storage
-        .from('cramintel-materials')
-        .createSignedUrl(material.file_path, 3600);
-
-      if (urlError || !signedUrlData.signedUrl) {
-        console.error('Error creating signed URL:', urlError);
-        toast({
-          title: "Error",
-          description: "Failed to access the file.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      setSelectedPdfEnhanced({
-        url: signedUrlData.signedUrl,
-        name: material.name
-      });
-      setEnhancedViewerOpen(true);
-    } catch (error) {
-      console.error('Error opening enhanced viewer:', error);
-      toast({
-        title: "Error",
-        description: "Failed to open enhanced viewer.",
         variant: "destructive"
       });
     } finally {
@@ -344,32 +279,19 @@ export function UploadedMaterialsList() {
                   
                   <div className="flex gap-2 ml-4">
                     {material.processed && material.file_type === 'application/pdf' && (
-                      <>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-gray-600 hover:text-gray-800"
-                          onClick={() => handleViewMaterial(material)}
-                          disabled={loadingFileUrl === material.id}
-                          title="Standard PDF Viewer"
-                        >
-                          {loadingFileUrl === material.id ? (
-                            <div className="w-4 h-4 animate-spin rounded-full border-2 border-gray-600 border-t-transparent" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-blue-600 hover:text-blue-800"
-                          onClick={() => handleViewMaterialEnhanced(material)}
-                          disabled={loadingFileUrl === material.id}
-                          title="Enhanced PDF Viewer"
-                        >
-                          <FileText className="w-4 h-4" />
-                        </Button>
-                      </>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-gray-600 hover:text-gray-800"
+                        onClick={() => handleViewMaterial(material)}
+                        disabled={loadingFileUrl === material.id}
+                      >
+                        {loadingFileUrl === material.id ? (
+                          <div className="w-4 h-4 animate-spin rounded-full border-2 border-gray-600 border-t-transparent" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </Button>
                     )}
                     <Button 
                       variant="ghost" 
@@ -387,7 +309,7 @@ export function UploadedMaterialsList() {
         </CardContent>
       </Card>
 
-      {/* Original PDF Viewer Modal */}
+      {/* PDF Viewer Modal */}
       {selectedPdf && (
         <PDFViewer
           isOpen={pdfViewerOpen}
@@ -398,25 +320,6 @@ export function UploadedMaterialsList() {
           fileUrl={selectedPdf.url}
           fileName={selectedPdf.name}
         />
-      )}
-
-      {/* Enhanced PDF Viewer Modal */}
-      {selectedPdfEnhanced && (
-        <Dialog open={enhancedViewerOpen} onOpenChange={setEnhancedViewerOpen}>
-          <DialogContent className="max-w-7xl h-[90vh] p-0">
-            <DialogHeader className="p-4 border-b">
-              <DialogTitle>{selectedPdfEnhanced.name}</DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 overflow-hidden">
-              <PdfViewer
-                sourceUrl={selectedPdfEnhanced.url}
-                initialPage={1}
-                showControls={true}
-                height="calc(90vh - 80px)"
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
       )}
     </>
   );

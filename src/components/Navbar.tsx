@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Menu, X, ChevronDown, LogOut, User } from "lucide-react";
@@ -103,15 +102,19 @@ const Navbar = () => {
             <NavigationMenu className={cn(isScrolled ? "" : "text-white")}>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuLink className={cn(navigationMenuTriggerStyle(), isScrolled ? "text-gray-700 hover:text-gray-900" : "text-gray-100 hover:text-white bg-transparent hover:bg-gray-800")} asChild>
-                    <Link to="/">Home</Link>
-                  </NavigationMenuLink>
+                  <Link to="/">
+                    <NavigationMenuLink className={cn(navigationMenuTriggerStyle(), isScrolled ? "text-gray-700 hover:text-gray-900" : "text-gray-100 hover:text-white bg-transparent hover:bg-gray-800")}>
+                      Home
+                    </NavigationMenuLink>
+                  </Link>
                 </NavigationMenuItem>
                 
                 <NavigationMenuItem>
-                  <NavigationMenuLink className={cn(navigationMenuTriggerStyle(), isScrolled ? "text-gray-700 hover:text-gray-900" : "text-gray-100 hover:text-white bg-transparent hover:bg-gray-800")} asChild>
-                    <Link to="/about">About</Link>
-                  </NavigationMenuLink>
+                  <Link to="/about">
+                    <NavigationMenuLink className={cn(navigationMenuTriggerStyle(), isScrolled ? "text-gray-700 hover:text-gray-900" : "text-gray-100 hover:text-white bg-transparent hover:bg-gray-800")}>
+                      About
+                    </NavigationMenuLink>
+                  </Link>
                 </NavigationMenuItem>
                 
                 <NavigationMenuItem>
@@ -171,9 +174,11 @@ const Navbar = () => {
                 </NavigationMenuItem>
                 
                 <NavigationMenuItem>
-                  <NavigationMenuLink className={cn(navigationMenuTriggerStyle(), isScrolled ? "text-gray-700 hover:text-gray-900" : "text-gray-100 hover:text-white bg-transparent hover:bg-gray-800")} asChild>
-                    <Link to="/blog">Blog</Link>
-                  </NavigationMenuLink>
+                  <Link to="/blog">
+                    <NavigationMenuLink className={cn(navigationMenuTriggerStyle(), isScrolled ? "text-gray-700 hover:text-gray-900" : "text-gray-100 hover:text-white bg-transparent hover:bg-gray-800")}>
+                      Blog
+                    </NavigationMenuLink>
+                  </Link>
                 </NavigationMenuItem>
                 
                 {/* Authentication-aware navigation */}

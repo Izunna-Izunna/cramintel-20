@@ -21,15 +21,11 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    include: ['react-pdf', 'pdfjs-dist']
+    include: ['react-pdf']
   },
   build: {
     commonjsOptions: {
-      include: [/react-pdf/, /pdfjs-dist/, /node_modules/]
+      include: [/react-pdf/, /node_modules/]
     }
-  },
-  define: {
-    // Ensure proper PDF.js worker handling
-    'process.env': {}
   }
 }));
