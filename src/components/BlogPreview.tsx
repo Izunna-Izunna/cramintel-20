@@ -1,4 +1,3 @@
-
 import { Link } from 'react-router-dom';
 import { ArrowRight, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +10,14 @@ const BlogPreview = () => {
   const recentPosts = [...blogPosts]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 3);
+
+  // Override the first post's image with the new one
+  if (recentPosts.length > 0) {
+    recentPosts[0] = {
+      ...recentPosts[0],
+      imageUrl: "/lovable-uploads/b5536834-441a-48d9-a259-cd21a359d718.png"
+    };
+  }
 
   return (
     <section id="blog" className="py-12 md:py-24 px-4 md:px-12 bg-white">
