@@ -58,8 +58,8 @@ const About = () => {
               >
                 <div className="bg-blue-50 rounded-xl p-6 text-center">
                   <Users className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                  <h3 className="text-2xl font-bold text-blue-600">10,000+</h3>
-                  <p className="text-gray-600">Students Helped</p>
+                  <h3 className="text-2xl font-bold text-blue-600">500+</h3>
+                  <p className="text-gray-600">Beta Students</p>
                 </div>
                 <div className="bg-green-50 rounded-xl p-6 text-center">
                   <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-2" />
@@ -140,20 +140,21 @@ const About = () => {
                     and limited study time, too many brilliant students were struggling to achieve their potential.
                   </p>
                   <p className="text-gray-600 mb-4">
-                    Our founders, having experienced these challenges firsthand during their university years, 
-                    recognized that the problem wasn't a lack of intelligence or effort—it was a lack of 
+                    In 2023, our founders began researching this challenge during their own university years, 
+                    recognizing that the problem wasn't a lack of intelligence or effort—it was a lack of 
                     direction. Students needed to know what to study, not just how to study.
                   </p>
                   <p className="text-gray-600 mb-4">
-                    In 2023, we assembled a team of AI engineers, education specialists, and former students 
-                    who understood the unique challenges of West African universities. We developed our 
+                    Throughout 2024, we assembled a team of AI engineers, education specialists, and former students 
+                    who understood the unique challenges of West African universities. We developed and refined our 
                     proprietary exam prediction algorithm that analyzes lecture patterns, past questions, 
                     and assignment trends to predict what's most likely to appear on exams.
                   </p>
                   <p className="text-gray-600">
-                    Today, CramIntel serves thousands of students across multiple universities, helping them 
-                    achieve better grades while reducing study stress. Our AI continues to learn and improve, 
-                    making our predictions more accurate and our study tools more effective with each semester.
+                    After extensive beta testing with select student groups and achieving remarkable results, 
+                    we're excited to officially launch CramIntel in 2025. We're preparing to serve thousands 
+                    of students across multiple universities, helping them achieve better grades while reducing 
+                    study stress. Our AI continues to learn and improve with each interaction.
                   </p>
                 </div>
               </motion.div>
@@ -248,11 +249,11 @@ const About = () => {
             <div className="mt-16 pt-8 border-t border-gray-200">
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/student-dashboard" className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all group">
-                  Start Your Success Journey
+                  Join Our Launch Community
                   <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Link>
                 <Link to="/study-guides" className="inline-flex items-center px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all group">
-                  View Study Resources
+                  Get Early Access
                   <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
