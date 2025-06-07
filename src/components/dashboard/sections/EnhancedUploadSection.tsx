@@ -4,11 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Upload, FileText, Image, BookOpen, Plus, CheckCircle } from 'lucide-react';
-import { ProgressSteps } from '../ProgressSteps';
+import { Upload, FileText, Image, BookOpen, Camera, CheckCircle, X } from 'lucide-react';
 import { TagChip } from '../TagChip';
-
-type UploadStep = 'select' | 'details' | 'tags' | 'success';
+import { useToast } from '@/hooks/use-toast';
 
 interface UploadedFile {
   file: File;
@@ -17,29 +15,25 @@ interface UploadedFile {
 }
 
 export function EnhancedUploadSection() {
-  const [currentStep, setCurrentStep] = useState<UploadStep>('select');
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [fileName, setFileName] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState('');
+  const [selectedType, setSelectedType] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
 
-  const steps = [
-    { id: 1, title: 'Upload', completed: currentStep !== 'select' },
-    { id: 2, title: 'Details', completed: ['tags', 'success'].includes(currentStep) },
-    { id: 3, title: 'Tags', completed: currentStep === 'success' },
-    { id: 4, title: 'Done', completed: currentStep === 'success' }
+  const courseOptions = ['CSC 202', 'PHY 101', 'ENG 301', 'MTH 201', 'CHE 205'];
+  const typeOptions = [
+    { id: 'notes', label: 'Notes', icon: '📘' },
+    { id: 'past-question', label: 'Past Question', icon: '📝' },
+    { id: 'assignment', label: 'Assignment', icon: '🧪' },
+    { id: 'whisper', label: 'Whisper', icon: '🤫' }
   ];
 
-  const currentStepNumber = steps.find(step => {
-    if (currentStep === 'select') return step.id === 1;
-    if (currentStep === 'details') return step.id === 2;
-    if (currentStep === 'tags') return step.id === 3;
-    if (currentStep === 'success') return step.id === 4;
-    return false;
-  })?.id || 1;
-
-  const courseOptions = ['CSC 202', 'PHY 101', 'ENG 301', 'MTH 201'];
-  const topicOptions = ['Thermodynamics', 'Data Structures', 'Mechanics', 'Algorithms'];
-  const typeOptions = ['Notes', 'Past Question', 'Assignment', 'Whisper'];
+  const cleanFileName = (file: File) => {
+    const name = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
+    return name.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
 
   const handleFileUpload = (file: File) => {
     setUploadedFile({
@@ -47,259 +41,242 @@ export function EnhancedUploadSection() {
       type: file.type,
       preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
     });
-    setFileName(file.name.replace(/\.[^/.]+$/, ''));
-    setCurrentStep('details');
+    setFileName(cleanFileName(file));
   };
 
-  const handleTagSelect = (tag: string) => {
-    if (!selectedTags.includes(tag)) {
-      setSelectedTags([...selectedTags, tag]);
-    }
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
   };
 
-  const handleTagRemove = (tag: string) => {
-    setSelectedTags(selectedTags.filter(t => t !== tag));
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileUpload(file);
   };
 
-  const handleSubmit = () => {
-    setCurrentStep('success');
+  const handleTakePhoto = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) handleFileUpload(file);
+    };
+    input.click();
+  };
+
+  const handleSubmit = async () => {
+    if (!uploadedFile || !selectedCourse || !selectedType) return;
+    
+    setIsProcessing(true);
+    
+    // Simulate processing time
     setTimeout(() => {
-      setCurrentStep('select');
+      setIsProcessing(false);
+      toast({
+        title: "Uploaded!",
+        description: "This will now power your predictions and flashcards.",
+      });
+      
+      // Reset form
       setUploadedFile(null);
       setFileName('');
-      setSelectedTags([]);
-    }, 3000);
+      setSelectedCourse('');
+      setSelectedType('');
+    }, 2000);
+  };
+
+  const resetUpload = () => {
+    setUploadedFile(null);
+    setFileName('');
+    setSelectedCourse('');
+    setSelectedType('');
   };
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold text-gray-800 font-space mb-2">Upload Materials</h2>
-        <p className="text-gray-600">Organize your study materials with smart tagging and instant processing</p>
+        <p className="text-gray-600">Drop it. Tag it. Let the AI handle the rest.</p>
       </div>
 
-      {currentStep !== 'select' && (
-        <ProgressSteps steps={steps} currentStep={currentStepNumber} />
-      )}
+      <Card className="max-w-2xl mx-auto">
+        <CardContent className="p-8">
+          <AnimatePresence mode="wait">
+            {!uploadedFile ? (
+              <motion.div
+                key="upload"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                {/* Upload Area */}
+                <div
+                  className="border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors rounded-lg p-8 text-center cursor-pointer"
+                  onDrop={handleDrop}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => document.getElementById('file-upload')?.click()}
+                >
+                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Drop your files here</h3>
+                  <p className="text-gray-600 mb-4">PDF, JPG, PNG, DOCX, TXT supported</p>
+                  <div className="flex gap-3 justify-center">
+                    <Button className="bg-gray-800 hover:bg-gray-700">
+                      Browse Files
+                    </Button>
+                    <Button variant="outline" onClick={(e) => {
+                      e.stopPropagation();
+                      handleTakePhoto();
+                    }}>
+                      <Camera className="w-4 h-4 mr-2" />
+                      Take Photo
+                    </Button>
+                  </div>
+                </div>
 
-      <AnimatePresence mode="wait">
-        {currentStep === 'select' && (
-          <motion.div
-            key="select"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="grid grid-cols-1 md:grid-cols-2 gap-6"
-          >
-            <Card className="border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors">
-              <CardContent className="p-8 text-center">
                 <input
                   type="file"
                   id="file-upload"
                   className="hidden"
                   accept=".pdf,.jpg,.jpeg,.png,.txt,.docx"
-                  onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+                  onChange={handleFileSelect}
                 />
-                <label htmlFor="file-upload" className="cursor-pointer">
-                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Drag & Drop Files</h3>
-                  <p className="text-gray-600 mb-4">Drop your files here or click to browse</p>
-                  <Button className="bg-gray-800 hover:bg-gray-700">
-                    Choose Files
-                  </Button>
-                </label>
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Supported Formats
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
+                {/* Supported Formats */}
+                <div className="flex justify-center gap-6 text-sm text-gray-500">
+                  <div className="flex items-center gap-2">
                     <FileText className="w-4 h-4 text-blue-500" />
-                    <span>PDF Documents</span>
+                    <span>Documents</span>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <Image className="w-4 h-4 text-green-500" />
-                    <span>Images (JPG, PNG)</span>
+                    <span>Images</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <BookOpen className="w-4 h-4 text-purple-500" />
-                    <span>Text Files</span>
+                  <div className="flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-purple-500" />
+                    <span>Photos</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-
-        {currentStep === 'details' && (
-          <motion.div
-            key="details"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle>Name Your Material</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              </motion.div>
+            ) : (
+              <motion.div
+                key="details"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                {/* File Preview */}
                 <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                  <FileText className="w-8 h-8 text-blue-500" />
-                  <div>
-                    <p className="font-semibold">{uploadedFile?.file.name}</p>
-                    <p className="text-sm text-gray-600">{(uploadedFile?.file.size || 0) / 1024 > 1024 ? 
-                      `${((uploadedFile?.file.size || 0) / 1024 / 1024).toFixed(1)} MB` : 
-                      `${((uploadedFile?.file.size || 0) / 1024).toFixed(0)} KB`}
+                  <div className="flex-shrink-0">
+                    {uploadedFile.preview ? (
+                      <img src={uploadedFile.preview} alt="Preview" className="w-12 h-12 object-cover rounded" />
+                    ) : (
+                      <FileText className="w-12 h-12 text-blue-500" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{uploadedFile.file.name}</p>
+                    <p className="text-sm text-gray-600">
+                      {uploadedFile.file.size > 1024 * 1024 ? 
+                        `${(uploadedFile.file.size / 1024 / 1024).toFixed(1)} MB` : 
+                        `${(uploadedFile.file.size / 1024).toFixed(0)} KB`}
                     </p>
                   </div>
-                </div>
-                <Input
-                  value={fileName}
-                  onChange={(e) => setFileName(e.target.value)}
-                  placeholder="e.g., Thermodynamics Notes - Week 4"
-                  className="text-lg"
-                />
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setCurrentStep('select')}>
-                    Back
-                  </Button>
-                  <Button 
-                    onClick={() => setCurrentStep('tags')}
-                    disabled={!fileName.trim()}
-                    className="bg-gray-800 hover:bg-gray-700"
-                  >
-                    Continue
+                  <Button variant="ghost" size="icon" onClick={resetUpload}>
+                    <X className="w-4 h-4" />
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
 
-        {currentStep === 'tags' && (
-          <motion.div
-            key="tags"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle>Add Tags</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
+                {/* File Name */}
                 <div>
-                  <h4 className="font-semibold mb-2">Course</h4>
+                  <label className="block text-sm font-medium mb-2">Name (optional)</label>
+                  <Input
+                    value={fileName}
+                    onChange={(e) => setFileName(e.target.value)}
+                    placeholder="e.g., Thermodynamics Week 4 Notes"
+                    className="text-base"
+                  />
+                </div>
+
+                {/* Course Selection */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Course</label>
                   <div className="flex flex-wrap gap-2">
                     {courseOptions.map(course => (
                       <TagChip
                         key={course}
                         label={course}
-                        color={selectedTags.includes(course) ? 'blue' : 'default'}
-                        onClick={() => handleTagSelect(course)}
+                        color={selectedCourse === course ? 'blue' : 'default'}
+                        onClick={() => setSelectedCourse(course)}
                       />
                     ))}
                   </div>
                 </div>
 
+                {/* Material Type */}
                 <div>
-                  <h4 className="font-semibold mb-2">Topic</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {topicOptions.map(topic => (
-                      <TagChip
-                        key={topic}
-                        label={topic}
-                        color={selectedTags.includes(topic) ? 'green' : 'default'}
-                        onClick={() => handleTagSelect(topic)}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-2">Type</h4>
+                  <label className="block text-sm font-medium mb-2">Material Type</label>
                   <div className="flex flex-wrap gap-2">
                     {typeOptions.map(type => (
                       <TagChip
-                        key={type}
-                        label={type}
-                        color={selectedTags.includes(type) ? 'purple' : 'default'}
-                        onClick={() => handleTagSelect(type)}
+                        key={type.id}
+                        label={`${type.icon} ${type.label}`}
+                        color={selectedType === type.id ? 'green' : 'default'}
+                        onClick={() => setSelectedType(type.id)}
                       />
                     ))}
                   </div>
                 </div>
 
-                {selectedTags.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-2">Selected Tags</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedTags.map(tag => (
-                        <TagChip
-                          key={tag}
-                          label={tag}
-                          color="orange"
-                          removable
-                          onRemove={() => handleTagRemove(tag)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setCurrentStep('details')}>
-                    Back
+                {/* Submit Button */}
+                <div className="flex gap-3 pt-4">
+                  <Button variant="outline" onClick={resetUpload}>
+                    Cancel
                   </Button>
                   <Button 
                     onClick={handleSubmit}
-                    disabled={selectedTags.length === 0}
-                    className="bg-gray-800 hover:bg-gray-700"
+                    disabled={!selectedCourse || !selectedType || isProcessing}
+                    className="bg-gray-800 hover:bg-gray-700 flex-1"
                   >
-                    Upload & Process
+                    {isProcessing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload & Process
+                      </>
+                    )}
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        {currentStep === 'success' && (
-          <motion.div
-            key="success"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-          >
-            <Card className="text-center">
-              <CardContent className="p-8">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2, type: "spring" }}
-                >
-                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                </motion.div>
-                <h3 className="text-2xl font-bold mb-2">Success!</h3>
-                <p className="text-gray-600 mb-4">
-                  Your material has been processed. You'll now see predictions and flashcards from this content.
-                </p>
-                <div className="flex justify-center gap-3">
-                  <Button variant="outline">Generate Flashcards</Button>
-                  <Button className="bg-gray-800 hover:bg-gray-700">View Predictions</Button>
+          {/* Processing Success State */}
+          <AnimatePresence>
+            {isProcessing && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="absolute inset-0 bg-white/90 flex items-center justify-center rounded-lg"
+              >
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mx-auto mb-4" />
+                  <p className="text-gray-600">Processing your material...</p>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </CardContent>
+      </Card>
     </div>
   );
 }
