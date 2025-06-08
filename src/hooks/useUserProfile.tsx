@@ -3,6 +3,12 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
+interface Lecturer {
+  name: string;
+  course: string;
+  style: string;
+}
+
 interface UserProfile {
   id: string;
   name: string;
@@ -11,6 +17,7 @@ interface UserProfile {
   department: string;
   courses: string[];
   study_style: string;
+  lecturers: Lecturer[];
   avatar_url?: string;
 }
 
@@ -47,6 +54,7 @@ export function useUserProfile() {
           department: data.department || '',
           courses: data.courses || [],
           study_style: data.study_style || '',
+          lecturers: data.lecturers || [],
           avatar_url: data.avatar_url
         });
       } else {
@@ -58,7 +66,8 @@ export function useUserProfile() {
           school: '',
           department: '',
           courses: [],
-          study_style: ''
+          study_style: '',
+          lecturers: []
         });
       }
     } catch (err) {

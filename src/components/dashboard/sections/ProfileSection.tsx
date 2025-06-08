@@ -1,95 +1,55 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { User, Settings, Award, BookOpen, Plus, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { User, Settings, Award, BookOpen, Plus, X, GraduationCap } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-interface UserProfile {
-  id: string;
+interface Lecturer {
   name: string;
-  email: string;
-  school: string;
-  department: string;
-  courses: string[];
-  study_style: string;
-  avatar_url?: string;
+  course: string;
+  style: string;
 }
 
 export function ProfileSection() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { profile, loading, error, refetch } = useUserProfile();
   const [isSaving, setIsSaving] = useState(false);
   const [newCourse, setNewCourse] = useState('');
   const [isAddingCourse, setIsAddingCourse] = useState(false);
+  
+  // Lecturer management states
+  const [newLecturer, setNewLecturer] = useState<Lecturer>({ name: '', course: '', style: '' });
+  const [isAddingLecturer, setIsAddingLecturer] = useState(false);
 
   // Study style options
   const studyStyles = ['Visual', 'Auditory', 'Reading/Writing', 'Kinesthetic'];
+  
+  // Lecturer style options
+  const lecturerStyles = [
+    'Theoretical',
+    'Practical',
+    'Interactive',
+    'Traditional',
+    'Problem-based',
+    'Case Study',
+    'Research-focused',
+    'Exam-oriented'
+  ];
 
-  useEffect(() => {
-    if (user) {
-      fetchUserProfile();
-    }
-  }, [user]);
-
-  const fetchUserProfile = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('cramintel_user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile:', error);
-        return;
-      }
-
-      if (data) {
-        setProfile({
-          id: data.id,
-          name: data.name || '',
-          email: data.email || user.email || '',
-          school: data.school || '',
-          department: data.department || '',
-          courses: data.courses || [],
-          study_style: data.study_style || '',
-          avatar_url: data.avatar_url
-        });
-      } else {
-        // Create default profile if none exists
-        setProfile({
-          id: user.id,
-          name: '',
-          email: user.email || '',
-          school: '',
-          department: '',
-          courses: [],
-          study_style: ''
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleInputChange = (field: keyof UserProfile, value: string) => {
+  const handleInputChange = (field: keyof typeof profile, value: string) => {
     if (!profile) return;
-    setProfile(prev => prev ? { ...prev, [field]: value } : null);
+    refetch(); // This will trigger a re-fetch which updates the profile state
   };
 
-  const addCourse = () => {
+  const addCourse = async () => {
     if (!newCourse.trim() || !profile) return;
     
     const courseToAdd = newCourse.trim();
@@ -102,28 +62,169 @@ export function ProfileSection() {
       return;
     }
 
-    setProfile(prev => prev ? {
-      ...prev,
-      courses: [...prev.courses, courseToAdd]
-    } : null);
-    setNewCourse('');
-    setIsAddingCourse(false);
+    const updatedCourses = [...profile.courses, courseToAdd];
+    
+    try {
+      const { error } = await supabase
+        .from('cramintel_user_profiles')
+        .update({ courses: updatedCourses })
+        .eq('id', user?.id);
+
+      if (error) throw error;
+
+      setNewCourse('');
+      setIsAddingCourse(false);
+      refetch();
+      
+      toast({
+        title: "Course added",
+        description: "Course has been added to your profile.",
+      });
+    } catch (error) {
+      console.error('Error adding course:', error);
+      toast({
+        title: "Error adding course",
+        description: "Please try again later.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const removeCourse = (courseToRemove: string) => {
+  const removeCourse = async (courseToRemove: string) => {
     if (!profile) return;
-    setProfile(prev => prev ? {
-      ...prev,
-      courses: prev.courses.filter(course => course !== courseToRemove)
-    } : null);
+    
+    const updatedCourses = profile.courses.filter(course => course !== courseToRemove);
+    
+    try {
+      const { error } = await supabase
+        .from('cramintel_user_profiles')
+        .update({ courses: updatedCourses })
+        .eq('id', user?.id);
+
+      if (error) throw error;
+
+      refetch();
+      
+      toast({
+        title: "Course removed",
+        description: "Course has been removed from your profile.",
+      });
+    } catch (error) {
+      console.error('Error removing course:', error);
+      toast({
+        title: "Error removing course",
+        description: "Please try again later.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const selectStudyStyle = (style: string) => {
+  const addLecturer = async () => {
+    if (!newLecturer.name.trim() || !newLecturer.course || !newLecturer.style || !profile) return;
+    
+    const lecturerToAdd = {
+      name: newLecturer.name.trim(),
+      course: newLecturer.course,
+      style: newLecturer.style
+    };
+
+    // Check if lecturer already exists for this course
+    if (profile.lecturers.some(l => l.name === lecturerToAdd.name && l.course === lecturerToAdd.course)) {
+      toast({
+        title: "Lecturer already added",
+        description: "This lecturer is already added for this course.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const updatedLecturers = [...profile.lecturers, lecturerToAdd];
+    
+    try {
+      const { error } = await supabase
+        .from('cramintel_user_profiles')
+        .update({ lecturers: updatedLecturers })
+        .eq('id', user?.id);
+
+      if (error) throw error;
+
+      setNewLecturer({ name: '', course: '', style: '' });
+      setIsAddingLecturer(false);
+      refetch();
+      
+      toast({
+        title: "Lecturer added",
+        description: "Lecturer has been added to your profile.",
+      });
+    } catch (error) {
+      console.error('Error adding lecturer:', error);
+      toast({
+        title: "Error adding lecturer",
+        description: "Please try again later.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const removeLecturer = async (lecturerToRemove: Lecturer) => {
     if (!profile) return;
-    setProfile(prev => prev ? { ...prev, study_style: style } : null);
+    
+    const updatedLecturers = profile.lecturers.filter(
+      l => !(l.name === lecturerToRemove.name && l.course === lecturerToRemove.course)
+    );
+    
+    try {
+      const { error } = await supabase
+        .from('cramintel_user_profiles')
+        .update({ lecturers: updatedLecturers })
+        .eq('id', user?.id);
+
+      if (error) throw error;
+
+      refetch();
+      
+      toast({
+        title: "Lecturer removed",
+        description: "Lecturer has been removed from your profile.",
+      });
+    } catch (error) {
+      console.error('Error removing lecturer:', error);
+      toast({
+        title: "Error removing lecturer",
+        description: "Please try again later.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const saveProfile = async () => {
+  const selectStudyStyle = async (style: string) => {
+    if (!profile) return;
+    
+    try {
+      const { error } = await supabase
+        .from('cramintel_user_profiles')
+        .update({ study_style: style })
+        .eq('id', user?.id);
+
+      if (error) throw error;
+
+      refetch();
+      
+      toast({
+        title: "Study style updated",
+        description: "Your study style preference has been saved.",
+      });
+    } catch (error) {
+      console.error('Error updating study style:', error);
+      toast({
+        title: "Error updating study style",
+        description: "Please try again later.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const saveBasicInfo = async () => {
     if (!profile || !user) return;
 
     setIsSaving(true);
@@ -136,8 +237,6 @@ export function ProfileSection() {
           name: profile.name,
           school: profile.school,
           department: profile.department,
-          courses: profile.courses,
-          study_style: profile.study_style,
           updated_at: new Date().toISOString()
         });
 
@@ -166,7 +265,7 @@ export function ProfileSection() {
     }
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
@@ -201,6 +300,7 @@ export function ProfileSection() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* Personal Information Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -249,7 +349,7 @@ export function ProfileSection() {
                 </div>
               </div>
               <Button 
-                onClick={saveProfile}
+                onClick={saveBasicInfo}
                 disabled={isSaving}
                 className="bg-gray-800 hover:bg-gray-700"
               >
@@ -258,6 +358,7 @@ export function ProfileSection() {
             </CardContent>
           </Card>
 
+          {/* Study Preferences Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -339,6 +440,112 @@ export function ProfileSection() {
                         <Plus className="w-4 h-4" />
                         Add Course
                       </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Lecturers & Teaching Styles</Label>
+                  <p className="text-sm text-gray-600 mb-3">Add your lecturers and their teaching styles for better predictions</p>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      {profile.lecturers.map((lecturer, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <GraduationCap className="w-4 h-4 text-gray-500" />
+                            <div>
+                              <p className="font-medium">{lecturer.name}</p>
+                              <p className="text-sm text-gray-600">{lecturer.course} • {lecturer.style}</p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 hover:bg-red-100"
+                            onClick={() => removeLecturer(lecturer)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {isAddingLecturer ? (
+                      <div className="space-y-3 p-4 border rounded-lg">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div>
+                            <Label htmlFor="lecturer-name">Lecturer Name</Label>
+                            <Input
+                              id="lecturer-name"
+                              value={newLecturer.name}
+                              onChange={(e) => setNewLecturer(prev => ({ ...prev, name: e.target.value }))}
+                              placeholder="Dr. John Smith"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="lecturer-course">Course</Label>
+                            <Select 
+                              value={newLecturer.course} 
+                              onValueChange={(value) => setNewLecturer(prev => ({ ...prev, course: value }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select course" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {profile.courses.map(course => (
+                                  <SelectItem key={course} value={course}>{course}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="lecturer-style">Teaching Style</Label>
+                            <Select 
+                              value={newLecturer.style} 
+                              onValueChange={(value) => setNewLecturer(prev => ({ ...prev, style: value }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select style" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {lecturerStyles.map(style => (
+                                  <SelectItem key={style} value={style}>{style}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={addLecturer}>Add Lecturer</Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => {
+                              setIsAddingLecturer(false);
+                              setNewLecturer({ name: '', course: '', style: '' });
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsAddingLecturer(true)}
+                        className="flex items-center gap-1"
+                        disabled={profile.courses.length === 0}
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Lecturer
+                      </Button>
+                    )}
+                    
+                    {profile.courses.length === 0 && (
+                      <p className="text-sm text-gray-500 italic">
+                        Add courses first before adding lecturers
+                      </p>
                     )}
                   </div>
                 </div>
