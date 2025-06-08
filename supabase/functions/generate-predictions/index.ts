@@ -143,12 +143,16 @@ Format the response as JSON with this structure:
       throw new Error('Invalid AI response format')
     }
 
+    // Ensure confidence score is within valid range (0-100) for integer storage
+    let confidenceScore = style === 'exam-paper' ? 85 : parsedResponse.overall_confidence
+    confidenceScore = Math.max(0, Math.min(100, Math.round(confidenceScore)))
+
     // Save prediction to database
     const predictionData = {
       user_id: user.id,
       course: context.course,
       questions: style === 'exam-paper' ? parsedResponse : parsedResponse.predictions,
-      confidence_score: style === 'exam-paper' ? 85 : parsedResponse.overall_confidence,
+      confidence_score: confidenceScore,
       prediction_type: style,
       status: 'active'
     }
