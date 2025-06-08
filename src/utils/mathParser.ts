@@ -23,6 +23,8 @@ export function parseMathContent(text: string): TextSegment[] {
 
   // Find block math expressions (highest priority)
   let match;
+  
+  // Find $$ block math
   while ((match = blockMathRegex.exec(text)) !== null) {
     allMatches.push({
       match,
@@ -40,7 +42,7 @@ export function parseMathContent(text: string): TextSegment[] {
     });
   }
 
-  // Find inline math expressions, but exclude those inside block math
+  // Find block ranges to avoid processing inline math inside them
   const blockRanges = allMatches
     .filter(m => m.type === 'block')
     .map(m => ({
@@ -48,14 +50,14 @@ export function parseMathContent(text: string): TextSegment[] {
       end: m.match.index! + m.match[0].length
     }));
 
-  // Reset regex
+  // Reset regex and find inline math expressions
   inlineMathRegex.lastIndex = 0;
   while ((match = inlineMathRegex.exec(text)) !== null) {
     const isInsideBlock = blockRanges.some(range => 
       match.index! >= range.start && match.index! < range.end
     );
     
-    if (!isInsideBlock && match[1]) {
+    if (!isInsideBlock && match[1] && match[1].trim()) {
       allMatches.push({
         match,
         type: 'inline',
@@ -71,7 +73,7 @@ export function parseMathContent(text: string): TextSegment[] {
       match.index! >= range.start && match.index! < range.end
     );
     
-    if (!isInsideBlock && match[1]) {
+    if (!isInsideBlock && match[1] && match[1].trim()) {
       allMatches.push({
         match,
         type: 'inline',
