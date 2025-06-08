@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, AlertCircle } from 'lucide-react';
+import { Send, AlertCircle, Trash2 } from 'lucide-react';
 import { AIModeSelector, AIMode } from './ai-chat/AIModeSelector';
 import { MaterialAttachment } from './ai-chat/MaterialAttachment';
 import { ChatMessage } from './ai-chat/ChatMessage';
@@ -30,19 +31,155 @@ export function AIChatSection() {
   const [selectedMode, setSelectedMode] = useState<AIMode>('tutor');
   const [attachedMaterials, setAttachedMaterials] = useState<AttachedMaterial[]>([]);
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Load chat history on component mount
+  useEffect(() => {
+    if (user) {
+      loadChatHistory();
+    }
+  }, [user]);
+
+  const loadChatHistory = async () => {
+    if (!user) return;
+
+    try {
+      // Get the most recent conversation
+      const { data: conversations, error: convError } = await supabase
+        .from('cramintel_chat_conversations')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (convError) {
+        console.error('Error loading conversations:', convError);
+        return;
+      }
+
+      if (conversations && conversations.length > 0) {
+        const conversation = conversations[0];
+        setConversationId(conversation.id);
+
+        // Load messages for this conversation
+        const { data: chatMessages, error: msgError } = await supabase
+          .from('cramintel_chat_messages')
+          .select('*')
+          .eq('conversation_id', conversation.id)
+          .order('timestamp', { ascending: true });
+
+        if (msgError) {
+          console.error('Error loading messages:', msgError);
+          return;
+        }
+
+        if (chatMessages && chatMessages.length > 0) {
+          const formattedMessages: Message[] = chatMessages.map((msg) => ({
+            id: msg.id,
+            type: msg.role as 'bot' | 'user',
+            content: msg.content,
+            timestamp: msg.timestamp
+          }));
+          setMessages(formattedMessages);
+        } else {
+          // If no messages, add welcome message
+          addWelcomeMessage();
+        }
+      } else {
+        // Create new conversation and add welcome message
+        await createNewConversation();
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+      addWelcomeMessage();
+    }
+  };
+
+  const createNewConversation = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('cramintel_chat_conversations')
+        .insert({
+          user_id: user.id,
+          title: 'AI Tutor Chat',
+          course: 'General'
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating conversation:', error);
+        return;
+      }
+
+      setConversationId(data.id);
+      addWelcomeMessage();
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      addWelcomeMessage();
+    }
+  };
+
+  const addWelcomeMessage = () => {
+    const welcomeMessage: Message = {
+      id: Date.now().toString(),
       type: 'bot',
       content: `Hello! I'm your AI tutor. I'm currently in ${selectedMode} mode, ready to help you learn. You can attach materials and ask me questions about them, or just chat directly!`,
       mode: selectedMode,
       timestamp: new Date().toISOString()
+    };
+    setMessages([welcomeMessage]);
+  };
+
+  const saveMessageToDatabase = async (message: Message) => {
+    if (!user || !conversationId) return;
+
+    try {
+      await supabase
+        .from('cramintel_chat_messages')
+        .insert({
+          conversation_id: conversationId,
+          role: message.type,
+          content: message.content,
+          timestamp: message.timestamp
+        });
+
+      // Update conversation timestamp
+      await supabase
+        .from('cramintel_chat_conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', conversationId);
+    } catch (error) {
+      console.error('Error saving message:', error);
     }
-  ]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  };
+
+  const clearChatHistory = async () => {
+    if (!user || !conversationId) return;
+
+    try {
+      // Delete all messages in the current conversation
+      await supabase
+        .from('cramintel_chat_messages')
+        .delete()
+        .eq('conversation_id', conversationId);
+
+      // Reset messages and add welcome message
+      setMessages([]);
+      addWelcomeMessage();
+      setError(null);
+    } catch (error) {
+      console.error('Error clearing chat history:', error);
+      setError('Failed to clear chat history');
+    }
+  };
 
   const handleModeChange = (mode: AIMode) => {
     setSelectedMode(mode);
@@ -54,6 +191,7 @@ export function AIChatSection() {
       timestamp: new Date().toISOString()
     };
     setMessages(prev => [...prev, modeMessage]);
+    saveMessageToDatabase(modeMessage);
   };
 
   const getModeDescription = (mode: AIMode): string => {
@@ -82,8 +220,6 @@ export function AIChatSection() {
         return null;
       }
 
-      // For now, return basic material info
-      // In the future, this would fetch the actual processed content
       return `Material: ${data.name}\nType: ${data.material_type}\nCourse: ${data.course}`;
     } catch (error) {
       console.error('Error fetching material content:', error);
@@ -102,12 +238,12 @@ export function AIChatSection() {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    saveMessageToDatabase(userMessage);
     setMessage('');
     setIsLoading(true);
     setError(null);
 
     try {
-      // Fetch content for attached materials
       const materialsWithContent = await Promise.all(
         attachedMaterials.map(async (material) => {
           if (material.type === 'material') {
@@ -118,7 +254,6 @@ export function AIChatSection() {
         })
       );
 
-      // Call the AI chat edge function
       const { data, error } = await supabase.functions.invoke('ai-chat', {
         body: {
           message: userMessage.content,
@@ -140,6 +275,7 @@ export function AIChatSection() {
       };
 
       setMessages(prev => [...prev, botResponse]);
+      saveMessageToDatabase(botResponse);
     } catch (error: any) {
       console.error('Error sending message:', error);
       
@@ -162,6 +298,7 @@ export function AIChatSection() {
       };
 
       setMessages(prev => [...prev, errorBotResponse]);
+      saveMessageToDatabase(errorBotResponse);
     } finally {
       setIsLoading(false);
     }
@@ -181,9 +318,20 @@ export function AIChatSection() {
 
   return (
     <div className="space-y-6 relative">
-      <div>
-        <h2 className="text-3xl font-bold text-gray-800 font-space mb-2">AI Tutor</h2>
-        <p className="text-gray-600">Get personalized help with different AI modes and attach your materials for context</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-800 font-space mb-2">AI Tutor</h2>
+          <p className="text-gray-600">Get personalized help with different AI modes and attach your materials for context</p>
+        </div>
+        <Button
+          onClick={clearChatHistory}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+        >
+          <Trash2 className="w-4 h-4" />
+          Clear History
+        </Button>
       </div>
 
       {error && (
