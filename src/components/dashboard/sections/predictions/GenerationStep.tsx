@@ -157,9 +157,9 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
         <motion.div
           animate={{ rotate: isGenerating ? 360 : 0 }}
           transition={{ duration: 2, repeat: isGenerating ? Infinity : 0, ease: "linear" }}
-          className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4"
+          className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"
         >
-          <Brain className="w-8 h-8 text-purple-600" />
+          <Brain className="w-8 h-8 text-gray-600" />
         </motion.div>
         <h3 className="text-2xl font-bold text-gray-800 mb-2">
           {error ? 'Generation Failed' : isGenerating ? 'Generating Your Predictions' : 'Predictions Complete'}
@@ -178,7 +178,7 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
               <p className="text-red-600 mb-4 whitespace-pre-wrap">{error}</p>
               <div className="space-y-2">
-                <Button onClick={generatePredictions} className="bg-purple-600 hover:bg-purple-700">
+                <Button onClick={generatePredictions} className="bg-gray-800 hover:bg-gray-900 text-white">
                   <Sparkles className="w-4 h-4 mr-2" />
                   Try Again
                 </Button>
@@ -196,7 +196,7 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <motion.div
-                    className="bg-purple-600 h-2 rounded-full"
+                    className="bg-gray-800 h-2 rounded-full"
                     initial={{ width: 0 }}
                     animate={{ width: `${progress}%` }}
                     transition={{ duration: 0.5 }}
@@ -213,7 +213,7 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
                       animate={{ scale: [1, 1.2, 1] }}
                       transition={{ duration: 1, repeat: Infinity }}
                     >
-                      <Sparkles className="w-5 h-5 text-purple-500" />
+                      <Sparkles className="w-5 h-5 text-gray-500" />
                     </motion.div>
                   )}
                   <span className="text-gray-700">{currentTask}</span>
@@ -236,8 +236,8 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
 
       {!isGenerating && !error && (
         <div className="flex justify-between">
-          <Button variant="outline" onClick={onBack}>Back to Style</Button>
-          <Button onClick={onNext} className="bg-purple-600 hover:bg-purple-700">
+          <Button variant="outline" onClick={onBack} className="border-gray-300 text-gray-700 hover:bg-gray-50">Back to Style</Button>
+          <Button onClick={onNext} className="bg-gray-800 hover:bg-gray-900 text-white">
             View Results
           </Button>
         </div>
@@ -245,8 +245,8 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
 
       {!isGenerating && error && (
         <div className="flex justify-between">
-          <Button variant="outline" onClick={onBack}>Back to Style</Button>
-          <Button onClick={generatePredictions} className="bg-purple-600 hover:bg-purple-700">
+          <Button variant="outline" onClick={onBack} className="border-gray-300 text-gray-700 hover:bg-gray-50">Back to Style</Button>
+          <Button onClick={generatePredictions} className="bg-gray-800 hover:bg-gray-900 text-white">
             <Sparkles className="w-4 h-4 mr-2" />
             Retry Generation
           </Button>

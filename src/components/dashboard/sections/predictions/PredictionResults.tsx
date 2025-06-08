@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, TrendingUp, MessageSquare, BookOpen, CheckCircle, Share, Download } from 'lucide-react';
@@ -117,7 +118,7 @@ export function PredictionResults({ predictionData, onBack, onClose }: Predictio
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
           >
-            <Card className="hover:shadow-md transition-shadow">
+            <Card className="hover:shadow-md transition-shadow border border-gray-200">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -154,23 +155,23 @@ export function PredictionResults({ predictionData, onBack, onClose }: Predictio
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8"
+        className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8"
       >
         <h4 className="font-semibold text-gray-800 mb-4">🧠 Actionable Follow-Ups:</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Button variant="outline" size="sm" className="justify-start">
+          <Button variant="outline" size="sm" className="justify-start border-gray-300 text-gray-700 hover:bg-gray-50">
             <BookOpen className="w-4 h-4 mr-2" />
             Generate Flashcards
           </Button>
-          <Button variant="outline" size="sm" className="justify-start">
+          <Button variant="outline" size="sm" className="justify-start border-gray-300 text-gray-700 hover:bg-gray-50">
             <CheckCircle className="w-4 h-4 mr-2" />
             Save to Dashboard
           </Button>
-          <Button variant="outline" size="sm" className="justify-start">
+          <Button variant="outline" size="sm" className="justify-start border-gray-300 text-gray-700 hover:bg-gray-50">
             <Share className="w-4 h-4 mr-2" />
             Share with Circle
           </Button>
-          <Button variant="outline" size="sm" className="justify-start">
+          <Button variant="outline" size="sm" className="justify-start border-gray-300 text-gray-700 hover:bg-gray-50">
             <MessageSquare className="w-4 h-4 mr-2" />
             Ask AI to Explain
           </Button>
@@ -178,15 +179,15 @@ export function PredictionResults({ predictionData, onBack, onClose }: Predictio
       </motion.div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} className="border-gray-300 text-gray-700 hover:bg-gray-50">
           Generate Again
         </Button>
         <div className="flex gap-3">
-          <Button variant="outline">
+          <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
             <Download className="w-4 h-4 mr-2" />
             Export PDF
           </Button>
-          <Button onClick={onClose} className="bg-purple-600 hover:bg-purple-700">
+          <Button onClick={onClose} className="bg-gray-800 hover:bg-gray-900 text-white">
             Done
           </Button>
         </div>

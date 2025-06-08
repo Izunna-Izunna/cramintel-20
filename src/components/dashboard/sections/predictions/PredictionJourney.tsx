@@ -136,13 +136,13 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-4">
             {currentStep !== 1 && currentStep !== 'results' && (
-              <Button variant="ghost" size="sm" onClick={handleBack}>
+              <Button variant="ghost" size="sm" onClick={handleBack} className="hover:bg-gray-100">
                 <ArrowLeft className="w-4 h-4" />
               </Button>
             )}
             <h2 className="text-xl font-bold text-gray-800">AI Predictions Journey</h2>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-gray-100">
             <X className="w-4 h-4" />
           </Button>
         </div>

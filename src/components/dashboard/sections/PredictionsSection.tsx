@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, TrendingUp, Clock, Brain, Plus } from 'lucide-react';
 import { PredictionJourney } from './predictions/PredictionJourney';
-import { usePredictions } from '@/hooks/usePredictions';
+import { SavedPredictionView } from './predictions/SavedPredictionView';
+import { usePredictions, Prediction } from '@/hooks/usePredictions';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function PredictionsSection() {
   const [showJourney, setShowJourney] = useState(false);
+  const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
   const { predictions, loading } = usePredictions();
 
   const formatTimeAgo = (dateString: string) => {
@@ -90,7 +92,7 @@ export function PredictionsSection() {
           </div>
           <Button 
             onClick={() => setShowJourney(true)}
-            className="bg-purple-600 hover:bg-purple-700"
+            className="bg-gray-800 hover:bg-gray-900 text-white"
             size="lg"
           >
             <Brain className="w-5 h-5 mr-2" />
@@ -102,8 +104,8 @@ export function PredictionsSection() {
           // Empty state
           <Card className="border-dashed border-2 border-gray-300">
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-                <Brain className="w-8 h-8 text-purple-600" />
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Brain className="w-8 h-8 text-gray-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-800 mb-2">No Predictions Yet</h3>
               <p className="text-gray-600 text-center mb-6 max-w-md">
@@ -111,7 +113,7 @@ export function PredictionsSection() {
               </p>
               <Button 
                 onClick={() => setShowJourney(true)}
-                className="bg-purple-600 hover:bg-purple-700"
+                className="bg-gray-800 hover:bg-gray-900 text-white"
               >
                 <Sparkles className="w-4 h-4 mr-2" />
                 Create Your First Prediction
@@ -123,14 +125,18 @@ export function PredictionsSection() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
               {predictions.map((prediction) => (
-                <Card key={prediction.id} className="hover:shadow-md transition-shadow">
+                <Card 
+                  key={prediction.id} 
+                  className="hover:shadow-md transition-shadow cursor-pointer border border-gray-200 hover:border-gray-300"
+                  onClick={() => setSelectedPrediction(prediction)}
+                >
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
                         {getTypeIcon(prediction.prediction_type)}
                         <CardTitle className="text-lg">{getTypeLabel(prediction.prediction_type)}</CardTitle>
                       </div>
-                      <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                      <Badge variant="secondary" className="bg-gray-100 text-gray-700">
                         {Math.round(prediction.confidence_score)}% likely
                       </Badge>
                     </div>
@@ -153,14 +159,14 @@ export function PredictionsSection() {
                 </Card>
               ))}
               
-              <Card className="border-dashed border-2 border-purple-200 hover:border-purple-300 transition-colors cursor-pointer">
+              <Card className="border-dashed border-2 border-gray-200 hover:border-gray-300 transition-colors cursor-pointer">
                 <CardContent 
                   className="flex items-center justify-center py-8"
                   onClick={() => setShowJourney(true)}
                 >
                   <div className="text-center">
-                    <Plus className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                    <p className="text-purple-600 font-medium">Generate More Predictions</p>
+                    <Plus className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                    <p className="text-gray-600 font-medium">Generate More Predictions</p>
                     <p className="text-sm text-gray-500 mt-1">Add new materials for better accuracy</p>
                   </div>
                 </CardContent>
@@ -181,7 +187,7 @@ export function PredictionsSection() {
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div 
-                          className="bg-green-500 h-2 rounded-full" 
+                          className="bg-gray-800 h-2 rounded-full" 
                           style={{ 
                             width: `${predictions.length > 0 ? predictions.reduce((acc, p) => acc + p.confidence_score, 0) / predictions.length : 0}%` 
                           }}
@@ -230,6 +236,13 @@ export function PredictionsSection() {
 
       {showJourney && (
         <PredictionJourney onClose={() => setShowJourney(false)} />
+      )}
+
+      {selectedPrediction && (
+        <SavedPredictionView 
+          prediction={selectedPrediction} 
+          onClose={() => setSelectedPrediction(null)} 
+        />
       )}
     </>
   );
