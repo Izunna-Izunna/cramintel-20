@@ -17,7 +17,6 @@ interface FlashcardQuestion {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -28,7 +27,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get the authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'No authorization header' }), {
@@ -37,7 +35,6 @@ serve(async (req) => {
       });
     }
 
-    // Set the auth context
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
@@ -59,7 +56,7 @@ serve(async (req) => {
 
     console.log('Processing material:', materialId);
 
-    // Update processing status to extracting_text
+    // Update processing status
     await supabase
       .from('cramintel_materials')
       .update({ 
@@ -87,66 +84,35 @@ serve(async (req) => {
     let extractedText = '';
 
     try {
-      // Extract text based on file type
       if (material.file_type?.includes('pdf')) {
         console.log('Extracting text from PDF:', material.file_path);
         
-        try {
-          // Download the PDF file from storage
-          const { data: fileData, error: downloadError } = await supabase.storage
-            .from('cramintel-materials')
-            .download(material.file_path);
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('cramintel-materials')
+          .download(material.file_path);
 
-          if (downloadError || !fileData) {
-            throw new Error(`Failed to download PDF: ${downloadError?.message}`);
-          }
+        if (downloadError || !fileData) {
+          throw new Error(`Failed to download PDF: ${downloadError?.message}`);
+        }
 
-          // Convert to ArrayBuffer and extract text using unpdf
-          const arrayBuffer = await fileData.arrayBuffer();
-          const uint8Array = new Uint8Array(arrayBuffer);
-          
-          console.log('PDF file size:', uint8Array.length, 'bytes');
-          
-          // Get document proxy and extract text
-          const pdf = await getDocumentProxy(uint8Array);
-          const { text } = await extractText(pdf, { mergePages: true });
-          
-          console.log('PDF text extraction completed, length:', text.length);
-          
-          // Validate extracted text quality
-          if (text && text.trim().length > 100) {
-            extractedText = text;
-            console.log('Using extracted PDF text for processing');
-          } else {
-            console.warn('Extracted text too short or empty, using fallback content');
-            throw new Error('Insufficient text content extracted from PDF');
-          }
-          
-        } catch (pdfError) {
-          console.error('PDF processing error:', pdfError);
-          
-          // Fallback to enhanced placeholder content
-          extractedText = `Study material: ${material.name}
-Course: ${material.course}
-Material Type: ${material.material_type}
-
-This is a ${material.course} ${material.material_type} document titled "${material.name}".
-
-Key topics likely covered in this material include:
-- Fundamental concepts and definitions related to ${material.course}
-- Important theories and principles
-- Practical applications and examples
-- Problem-solving methods and techniques
-- Critical analysis and evaluation methods
-- Review questions and practice problems
-- Case studies and real-world scenarios
-- Technical terminology and vocabulary
-
-Please note: PDF text extraction encountered an issue. The flashcards generated will focus on general ${material.course} concepts that are commonly found in ${material.material_type} materials.`;
+        const arrayBuffer = await fileData.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        console.log('PDF file size:', uint8Array.length, 'bytes');
+        
+        const pdf = await getDocumentProxy(uint8Array);
+        const { text } = await extractText(pdf, { mergePages: true });
+        
+        console.log('PDF text extraction completed, length:', text.length);
+        
+        if (text && text.trim().length > 200) {
+          extractedText = text;
+          console.log('Using extracted PDF text for processing');
+        } else {
+          throw new Error('Insufficient text content extracted from PDF');
         }
         
       } else if (material.file_type?.includes('text')) {
-        // Handle text files
         const { data: fileData, error: downloadError } = await supabase.storage
           .from('cramintel-materials')
           .download(material.file_path);
@@ -157,71 +123,50 @@ Please note: PDF text extraction encountered an issue. The flashcards generated 
 
         extractedText = await fileData.text();
       } else {
-        // For other file types, create enhanced placeholder content
-        extractedText = `Study material: ${material.name}
-Course: ${material.course}
+        // Better fallback for non-text files
+        extractedText = `Course Material Analysis: ${material.name}
+Subject: ${material.course}
 Material Type: ${material.material_type}
 
-This ${material.material_type} focuses on ${material.course} concepts. Key areas of study typically include:
-- Fundamental principles and theories
-- Practical applications and methodologies
-- Critical thinking and analysis skills
-- Problem-solving techniques
-- Industry best practices
-- Technical concepts and terminology
+Academic Content Overview:
+This ${material.material_type} is designed for ${material.course} students and covers essential curriculum topics.
 
-Note: This material type requires specialized processing. Flashcards will focus on core ${material.course} concepts.`;
+Core Learning Areas for ${material.course}:
+
+1. Fundamental Concepts and Theories
+- Key principles that form the foundation of ${material.course}
+- Historical development and evolution of ideas
+- Current theoretical frameworks and models
+
+2. Terminology and Definitions
+- Essential vocabulary specific to ${material.course}
+- Technical terms and their applications
+- Industry-standard nomenclature
+
+3. Practical Applications
+- Real-world examples and case studies
+- Problem-solving methodologies
+- Hands-on techniques and procedures
+
+4. Critical Analysis Skills
+- Evaluation methods and criteria
+- Comparative analysis techniques
+- Research and investigation approaches
+
+5. Current Developments
+- Recent advances in the field
+- Emerging trends and technologies
+- Future directions and implications
+
+Study Focus Areas:
+Students should concentrate on understanding how these concepts interconnect and apply to practical scenarios within ${material.course}.`;
       }
     } catch (extractionError) {
       console.error('Text extraction failed:', extractionError);
-      // Fallback to basic content if extraction fails
-      extractedText = `Study material: ${material.name}
-Course: ${material.course}
-Material Type: ${material.material_type}
-
-This is a ${material.course} study material. Key concepts typically covered include:
-- Core principles and theories
-- Practical applications
-- Problem-solving approaches
-- Analysis and evaluation methods
-- Technical skills and knowledge
-- Industry standards and practices
-
-Note: Detailed content extraction was not available, so these flashcards focus on general ${material.course} concepts.`;
+      throw new Error(`Content extraction failed: ${extractionError.message}`);
     }
 
-    // Validate final text quality
-    if (!extractedText || extractedText.trim().length < 50) {
-      console.warn('Final extracted text is insufficient, creating enhanced fallback');
-      extractedText = `Comprehensive ${material.course} Study Guide - ${material.name}
-
-This ${material.material_type} covers essential ${material.course} concepts including:
-
-Core Topics:
-- Fundamental principles and theoretical foundations
-- Key definitions and terminology
-- Mathematical concepts and formulas (if applicable)
-- Practical applications and real-world examples
-- Problem-solving methodologies and techniques
-
-Advanced Concepts:
-- Critical analysis and evaluation methods
-- Comparative studies and case analyses
-- Industry best practices and standards
-- Current trends and developments
-- Research methods and data interpretation
-
-Study Focus Areas:
-- Conceptual understanding and knowledge retention
-- Application of theories to practical scenarios
-- Problem-solving and analytical thinking
-- Communication of ideas and findings
-- Integration of concepts across different areas
-
-This comprehensive approach ensures thorough coverage of ${material.course} material for effective learning and exam preparation.`;
-    }
-
-    // Update processing status to processing_content
+    // Update processing status
     await supabase
       .from('cramintel_materials')
       .update({ 
@@ -230,7 +175,7 @@ This comprehensive approach ensures thorough coverage of ${material.course} mate
       })
       .eq('id', materialId);
 
-    // Clean and preprocess the text
+    // Clean text
     const cleanText = extractedText
       .replace(/\s+/g, ' ')
       .replace(/[^\w\s.,!?;:()\-\[\]]/g, '')
@@ -238,7 +183,11 @@ This comprehensive approach ensures thorough coverage of ${material.course} mate
 
     console.log('Cleaned text length:', cleanText.length);
 
-    // Update processing status to generating_flashcards
+    if (cleanText.length < 100) {
+      throw new Error('Insufficient content for flashcard generation');
+    }
+
+    // Update processing status
     await supabase
       .from('cramintel_materials')
       .update({ 
@@ -250,11 +199,16 @@ This comprehensive approach ensures thorough coverage of ${material.course} mate
     // Generate flashcards using OpenAI
     let flashcards: FlashcardQuestion[] = [];
 
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
     try {
       const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+          'Authorization': `Bearer ${openaiApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -262,42 +216,41 @@ This comprehensive approach ensures thorough coverage of ${material.course} mate
           messages: [
             {
               role: 'system',
-              content: `You are an expert educator who creates high-quality flashcards for students. 
+              content: `You are an expert educator creating study flashcards from academic material.
 
-IMPORTANT REQUIREMENTS:
-- Generate EXACTLY 20 flashcards, no more, no less
-- Each flashcard should test specific knowledge from the content
-- Make questions clear, concise, and testable
+REQUIREMENTS:
+- Generate EXACTLY 20 flashcards from the provided content
+- Base questions on specific information from the text
+- Create meaningful, educational questions that test understanding
 - Provide complete, accurate answers
-- Vary difficulty levels: 6 easy, 8 medium, 6 hard
-- Focus on key concepts, definitions, formulas, and important facts
-- Avoid yes/no questions
-- Make sure questions are self-contained (don't reference "the text")
+- Distribute difficulty: 6 easy, 8 medium, 6 hard
+- Focus on key concepts, definitions, and important facts
+- Make questions specific and clear
 
-Return your response as a JSON array with exactly this structure:
+Return ONLY a JSON array:
 [
   {
-    "question": "What is...",
-    "answer": "Complete answer here",
+    "question": "Specific question from the content",
+    "answer": "Complete, accurate answer",
     "difficulty": "easy|medium|hard",
-    "topic": "specific topic if applicable"
+    "topic": "specific topic area"
   }
 ]
 
-Do not include any text before or after the JSON array.`
+No text before or after the JSON.`
             },
             {
               role: 'user',
-              content: `Create exactly 20 high-quality flashcards from this ${material.course} ${material.material_type} content:
+              content: `Create 20 flashcards from this ${material.course} material:
 
-${cleanText.length > 8000 ? cleanText.substring(0, 8000) + '...' : cleanText}
+${cleanText.substring(0, 12000)}
 
 Course: ${material.course}
-Material Type: ${material.material_type}
+Type: ${material.material_type}
 Title: ${material.name}`
             }
           ],
-          temperature: 0.7,
+          temperature: 0.3,
           max_tokens: 4000,
         }),
       });
@@ -305,48 +258,37 @@ Title: ${material.name}`
       if (!openaiResponse.ok) {
         const errorText = await openaiResponse.text();
         console.error('OpenAI API error:', errorText);
-        throw new Error(`OpenAI API error: ${openaiResponse.status}`);
+        throw new Error(`OpenAI API failed: ${openaiResponse.status}`);
       }
 
       const openaiData = await openaiResponse.json();
       const flashcardsContent = openaiData.choices[0]?.message?.content;
 
       if (!flashcardsContent) {
-        throw new Error('No flashcards content received from OpenAI');
+        throw new Error('No flashcards received from OpenAI');
       }
 
-      try {
-        flashcards = JSON.parse(flashcardsContent);
-        
-        // Validate we got exactly 20 flashcards
-        if (!Array.isArray(flashcards) || flashcards.length !== 20) {
-          console.warn(`Expected 20 flashcards, got ${flashcards.length}`);
-          // If we didn't get exactly 20, pad or trim to 20
-          if (flashcards.length < 20) {
-            // Duplicate some flashcards to reach 20
-            while (flashcards.length < 20) {
-              const randomCard = flashcards[Math.floor(Math.random() * flashcards.length)];
-              flashcards.push({ ...randomCard });
-            }
-          } else if (flashcards.length > 20) {
-            // Trim to exactly 20
-            flashcards = flashcards.slice(0, 20);
+      flashcards = JSON.parse(flashcardsContent);
+      
+      if (!Array.isArray(flashcards) || flashcards.length !== 20) {
+        console.warn(`Expected 20 flashcards, got ${flashcards.length}`);
+        if (flashcards.length < 20) {
+          while (flashcards.length < 20) {
+            const randomCard = flashcards[Math.floor(Math.random() * flashcards.length)];
+            flashcards.push({ ...randomCard });
           }
+        } else {
+          flashcards = flashcards.slice(0, 20);
         }
-      } catch (parseError) {
-        console.error('Failed to parse flashcards JSON:', parseError);
-        // Generate fallback flashcards
-        flashcards = generateFallbackFlashcards(material, cleanText);
       }
+
+      console.log(`Successfully generated ${flashcards.length} flashcards using OpenAI`);
     } catch (openaiError) {
-      console.error('OpenAI request failed:', openaiError);
-      // Generate fallback flashcards
-      flashcards = generateFallbackFlashcards(material, cleanText);
+      console.error('OpenAI processing failed:', openaiError);
+      throw new Error(`Flashcard generation failed: ${openaiError.message}`);
     }
 
-    console.log(`Generated ${flashcards.length} flashcards`);
-
-    // Update processing status to saving_flashcards
+    // Update processing status
     await supabase
       .from('cramintel_materials')
       .update({ 
@@ -355,7 +297,7 @@ Title: ${material.name}`
       })
       .eq('id', materialId);
 
-    // Create a deck for these flashcards
+    // Create deck and save flashcards
     const { data: deck, error: deckError } = await supabase
       .from('cramintel_decks')
       .insert({
@@ -375,7 +317,7 @@ Title: ${material.name}`
       throw new Error('Failed to create flashcard deck');
     }
 
-    // Save flashcards to database
+    // Save flashcards
     const flashcardInserts = flashcards.map(card => ({
       question: card.question,
       answer: card.answer,
@@ -406,10 +348,10 @@ Title: ${material.name}`
       .insert(deckFlashcardInserts);
 
     if (linkError) {
-      console.error('Error linking flashcards to deck:', linkError);
+      console.error('Error linking flashcards:', linkError);
     }
 
-    // Mark material as processed
+    // Mark as completed
     await supabase
       .from('cramintel_materials')
       .update({ 
@@ -425,7 +367,7 @@ Title: ${material.name}`
       success: true,
       flashcards_generated: flashcards.length,
       deck_id: deck.id,
-      message: `Successfully generated ${flashcards.length} flashcards`
+      message: `Successfully generated ${flashcards.length} flashcards from content`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -433,7 +375,6 @@ Title: ${material.name}`
   } catch (error) {
     console.error('Error in process-material function:', error);
     
-    // Try to update the material status to error
     try {
       const { materialId } = await req.json();
       if (materialId) {
@@ -454,25 +395,12 @@ Title: ${material.name}`
       console.error('Failed to update error status:', updateError);
     }
 
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      details: 'Material processing failed'
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
-
-function generateFallbackFlashcards(material: any, text: string): FlashcardQuestion[] {
-  const fallbackCards: FlashcardQuestion[] = [];
-  
-  // Generate 20 basic flashcards based on available information
-  for (let i = 1; i <= 20; i++) {
-    fallbackCards.push({
-      question: `What is an important concept from ${material.name}? (Question ${i})`,
-      answer: `This is a key concept from the ${material.material_type} for ${material.course}. Review the original material for specific details.`,
-      difficulty: i <= 6 ? 'easy' : i <= 14 ? 'medium' : 'hard',
-      topic: material.course
-    });
-  }
-  
-  return fallbackCards;
-}
