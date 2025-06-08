@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +8,7 @@ import { FlashcardDeck } from '@/hooks/useFlashcardDecks';
 import { useFlashcards } from '@/hooks/useFlashcardDecks';
 import { useStudyAnalytics } from '@/hooks/useStudyAnalytics';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MathText } from '@/components/ui/MathText';
 
 interface StudyInterfaceProps {
   deck: FlashcardDeck;
@@ -219,17 +219,17 @@ export function StudyInterface({ deck, onExit, onComplete }: StudyInterfaceProps
                   {!isFlipped ? (
                     <div style={{ backfaceVisibility: 'hidden' }}>
                       <h3 className="text-lg font-semibold mb-4 text-gray-800">Question:</h3>
-                      <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                      <MathText className="text-xl text-gray-700 leading-relaxed mb-6">
                         {currentCard.question || 'No question available'}
-                      </p>
+                      </MathText>
                       <p className="text-sm text-gray-500">Click to reveal answer</p>
                     </div>
                   ) : (
                     <div style={{ transform: 'rotateY(180deg)', backfaceVisibility: 'hidden' }}>
                       <h3 className="text-lg font-semibold mb-4 text-gray-800">Answer:</h3>
-                      <p className="text-xl text-gray-700 leading-relaxed">
+                      <MathText className="text-xl text-gray-700 leading-relaxed">
                         {currentCard.answer || 'No answer available'}
-                      </p>
+                      </MathText>
                     </div>
                   )}
                 </motion.div>

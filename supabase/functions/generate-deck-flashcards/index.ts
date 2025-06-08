@@ -186,7 +186,7 @@ This material supports comprehensive understanding of ${material.course} concept
           messages: [
             {
               role: 'system',
-              content: `You are an expert educator creating high-quality flashcards. 
+              content: `You are an expert educator creating high-quality flashcards with proper mathematical formatting. 
 
 CRITICAL REQUIREMENTS:
 - Generate EXACTLY ${targetCards} flashcards from the provided content
@@ -198,11 +198,27 @@ CRITICAL REQUIREMENTS:
 - Questions should be clear and specific
 - Avoid yes/no questions
 
+MATHEMATICAL FORMATTING:
+- Use LaTeX syntax for all mathematical expressions
+- Wrap inline math with single dollar signs: $expression$
+- Wrap block math with double dollar signs: $$expression$$
+- Use proper LaTeX notation for:
+  - Fractions: \\frac{numerator}{denominator}
+  - Subscripts: variable_{subscript}
+  - Superscripts: variable^{superscript}
+  - Greek letters: \\alpha, \\beta, \\sigma, \\delta, etc.
+  - Mathematical symbols: \\times, \\div, \\leq, \\geq, \\approx, etc.
+
+EXAMPLES:
+- Instead of "δ = (W*L^3)/(48*E*I)", write: $\\delta = \\frac{W \\times L^3}{48 \\times E \\times I}$
+- Instead of "σ = M*c/I", write: $\\sigma = \\frac{M \\times c}{I}$
+- Instead of "F = ma", write: $F = ma$
+
 Return ONLY a JSON array with this exact structure:
 [
   {
-    "question": "Clear, specific question based on the content",
-    "answer": "Complete, accurate answer with sufficient detail",
+    "question": "Clear, specific question with proper LaTeX formatting for math",
+    "answer": "Complete, accurate answer with LaTeX-formatted mathematical expressions",
     "difficulty": "easy|medium|hard",
     "topic": "specific topic from the material"
   }
@@ -212,7 +228,7 @@ Do NOT include any text before or after the JSON array.`
             },
             {
               role: 'user',
-              content: `Create exactly ${targetCards} high-quality flashcards from this ${material.course} content:
+              content: `Create exactly ${targetCards} high-quality flashcards with proper mathematical formatting from this ${material.course} content:
 
 CONTENT TO STUDY:
 ${cleanText.substring(0, 12000)}
@@ -222,7 +238,7 @@ MATERIAL INFO:
 - Type: ${material.material_type}
 - Title: ${material.name}
 
-Focus on the most important concepts, definitions, and practical applications from this specific content.`
+Focus on the most important concepts, definitions, formulas, and practical applications from this specific content. Use proper LaTeX formatting for all mathematical expressions.`
             }
           ],
           temperature: 0.3,
@@ -319,7 +335,7 @@ Focus on the most important concepts, definitions, and practical applications fr
     return new Response(JSON.stringify({
       success: true,
       flashcards_generated: flashcards.length,
-      message: `Successfully generated ${flashcards.length} flashcards from material content`
+      message: `Successfully generated ${flashcards.length} flashcards with mathematical formatting from material content`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
