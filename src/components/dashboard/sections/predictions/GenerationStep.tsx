@@ -5,6 +5,7 @@ import { Brain, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface PredictionData {
   clues: Array<{
@@ -33,6 +34,7 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
   const [progress, setProgress] = useState(0);
   const [currentTask, setCurrentTask] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const tasks = [
     'Analyzing uploaded materials...',
@@ -52,33 +54,42 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
       // Simulate progress through tasks
       for (let i = 0; i < tasks.length; i++) {
         setCurrentTask(tasks[i]);
-        setProgress(((i + 1) / tasks.length) * 90); // Leave 10% for final processing
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        setProgress(((i + 1) / tasks.length) * 80); // Leave 20% for final processing
+        await new Promise(resolve => setTimeout(resolve, 800));
       }
+
+      setCurrentTask('Calling AI service...');
+      setProgress(85);
 
       // Get material content for clues that reference materials
       const enrichedClues = await Promise.all(
         predictionData.clues.map(async (clue) => {
           if (clue.materialId && !clue.content) {
-            // In a real implementation, you'd fetch the processed content
-            // For now, we'll use the material name as content
-            const { data: material } = await supabase
-              .from('cramintel_materials')
-              .select('name, material_type, course')
-              .eq('id', clue.materialId)
-              .single();
-            
-            return {
-              ...clue,
-              content: material ? `Material: ${material.name} (${material.material_type}) from ${material.course}` : clue.name
-            };
+            try {
+              const { data: material } = await supabase
+                .from('cramintel_materials')
+                .select('name, material_type, course')
+                .eq('id', clue.materialId)
+                .single();
+              
+              return {
+                ...clue,
+                content: material ? `Material: ${material.name} (${material.material_type}) from ${material.course}` : clue.name
+              };
+            } catch (err) {
+              console.error('Error fetching material:', err);
+              return clue;
+            }
           }
           return clue;
         })
       );
 
+      setProgress(90);
+      setCurrentTask('Processing with AI...');
+
       // Call the edge function
-      const { data, error } = await supabase.functions.invoke('generate-predictions', {
+      const { data, error: functionError } = await supabase.functions.invoke('generate-predictions', {
         body: {
           clues: enrichedClues,
           context: predictionData.context,
@@ -86,12 +97,35 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
         }
       });
 
-      if (error) {
-        throw new Error(error.message || 'Failed to generate predictions');
+      if (functionError) {
+        console.error('Edge function error:', functionError);
+        
+        // Provide more specific error messages
+        let errorMessage = 'Failed to generate predictions';
+        if (functionError.message?.includes('not configured')) {
+          errorMessage = 'AI service is not properly configured. Please contact support.';
+        } else if (functionError.message?.includes('Unauthorized')) {
+          errorMessage = 'Authentication error. Please try logging out and back in.';
+        } else if (functionError.message?.includes('timeout')) {
+          errorMessage = 'Request timed out. Please try again with fewer materials.';
+        } else if (functionError.message) {
+          errorMessage = functionError.message;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Unknown error occurred during prediction generation');
       }
 
       setProgress(100);
       setCurrentTask('Predictions generated successfully!');
+      
+      toast({
+        title: "Success!",
+        description: "Your predictions have been generated and saved.",
+      });
       
       // Wait a moment before proceeding
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -99,7 +133,14 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
       onNext();
     } catch (err) {
       console.error('Error generating predictions:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred while generating predictions');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while generating predictions';
+      setError(errorMessage);
+      
+      toast({
+        title: "Generation Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -135,11 +176,16 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
           {error ? (
             <div className="text-center">
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-              <p className="text-red-600 mb-4">{error}</p>
-              <Button onClick={generatePredictions} className="bg-purple-600 hover:bg-purple-700">
-                <Sparkles className="w-4 h-4 mr-2" />
-                Try Again
-              </Button>
+              <p className="text-red-600 mb-4 whitespace-pre-wrap">{error}</p>
+              <div className="space-y-2">
+                <Button onClick={generatePredictions} className="bg-purple-600 hover:bg-purple-700">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+                <p className="text-sm text-gray-500">
+                  If the problem persists, try reducing the number of materials or contact support.
+                </p>
+              </div>
             </div>
           ) : (
             <>
