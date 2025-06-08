@@ -29,8 +29,25 @@ export function StudyInterface({ deck, onExit, onComplete }: StudyInterfaceProps
   const currentCard = flashcards[currentCardIndex];
   const progress = flashcards.length > 0 ? ((currentCardIndex + 1) / flashcards.length) * 100 : 0;
 
+  // Debug logging
+  useEffect(() => {
+    console.log('🎯 StudyInterface Debug Info:', {
+      deckId: deck.id,
+      deckName: deck.name,
+      flashcardsCount: flashcards.length,
+      currentCardIndex,
+      currentCard,
+      loading
+    });
+  }, [deck, flashcards, currentCardIndex, currentCard, loading]);
+
   const handleAnswer = async (correct: boolean) => {
-    if (!currentCard) return;
+    if (!currentCard) {
+      console.log('⚠️ No current card available for answer');
+      return;
+    }
+
+    console.log('📝 Handling answer:', { correct, cardId: currentCard.id });
 
     await updateFlashcardMastery(currentCard.id, correct);
     
@@ -125,6 +142,25 @@ export function StudyInterface({ deck, onExit, onComplete }: StudyInterfaceProps
     );
   }
 
+  // Safety check for current card
+  if (!currentCard) {
+    console.error('❌ Current card is null/undefined:', { currentCardIndex, flashcardsLength: flashcards.length });
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center py-12">
+            <Brain className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">Card loading error</h3>
+            <p className="text-gray-600 mb-6">Unable to load the current flashcard</p>
+            <Button onClick={handleExit}>
+              Return to Decks
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-4xl mx-auto">
@@ -159,6 +195,11 @@ export function StudyInterface({ deck, onExit, onComplete }: StudyInterfaceProps
           </div>
         </div>
 
+        {/* Debug Info (remove in production) */}
+        <div className="mb-4 p-2 bg-yellow-100 rounded text-xs">
+          <strong>Debug:</strong> Card ID: {currentCard.id}, Question: {currentCard.question ? 'Present' : 'Missing'}, Answer: {currentCard.answer ? 'Present' : 'Missing'}
+        </div>
+
         {/* Flashcard */}
         <div className="mb-8">
           <motion.div
@@ -170,29 +211,27 @@ export function StudyInterface({ deck, onExit, onComplete }: StudyInterfaceProps
             <Card className="absolute inset-0 shadow-lg">
               <CardContent className="h-full flex items-center justify-center p-8">
                 <motion.div
-                  className="text-center"
+                  className="text-center w-full"
                   animate={{ rotateY: isFlipped ? 180 : 0 }}
                   transition={{ duration: 0.6 }}
                   style={{ transformStyle: 'preserve-3d' }}
                 >
-                  <div style={{ backfaceVisibility: 'hidden' }}>
-                    {!isFlipped ? (
-                      <div>
-                        <h3 className="text-lg font-semibold mb-4 text-gray-800">Question:</h3>
-                        <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                          {currentCard?.question}
-                        </p>
-                        <p className="text-sm text-gray-500">Click to reveal answer</p>
-                      </div>
-                    ) : (
-                      <div style={{ transform: 'rotateY(180deg)' }}>
-                        <h3 className="text-lg font-semibold mb-4 text-gray-800">Answer:</h3>
-                        <p className="text-xl text-gray-700 leading-relaxed">
-                          {currentCard?.answer}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                  {!isFlipped ? (
+                    <div style={{ backfaceVisibility: 'hidden' }}>
+                      <h3 className="text-lg font-semibold mb-4 text-gray-800">Question:</h3>
+                      <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                        {currentCard.question || 'No question available'}
+                      </p>
+                      <p className="text-sm text-gray-500">Click to reveal answer</p>
+                    </div>
+                  ) : (
+                    <div style={{ transform: 'rotateY(180deg)', backfaceVisibility: 'hidden' }}>
+                      <h3 className="text-lg font-semibold mb-4 text-gray-800">Answer:</h3>
+                      <p className="text-xl text-gray-700 leading-relaxed">
+                        {currentCard.answer || 'No answer available'}
+                      </p>
+                    </div>
+                  )}
                 </motion.div>
               </CardContent>
             </Card>
@@ -249,11 +288,11 @@ export function StudyInterface({ deck, onExit, onComplete }: StudyInterfaceProps
         {/* Card Info */}
         <div className="mt-8 text-center">
           <div className="inline-flex items-center gap-4 text-sm text-gray-600 bg-white px-4 py-2 rounded-lg shadow">
-            <span>Difficulty: {currentCard?.difficulty_level}</span>
+            <span>Difficulty: {currentCard.difficulty_level || 'N/A'}</span>
             <span>•</span>
-            <span>Mastery: {currentCard?.mastery_level}/5</span>
+            <span>Mastery: {currentCard.mastery_level || 0}/5</span>
             <span>•</span>
-            <span>Reviewed: {currentCard?.times_reviewed} times</span>
+            <span>Reviewed: {currentCard.times_reviewed || 0} times</span>
           </div>
         </div>
       </div>
