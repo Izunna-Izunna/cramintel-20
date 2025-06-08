@@ -1,10 +1,21 @@
-
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Users, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+
+// Keep the OnboardingData type export for the step components
+export interface OnboardingData {
+  name: string;
+  email: string;
+  password: string;
+  school: string;
+  department: string;
+  courses: string[];
+  studyStyle: string;
+  firstAction: string;
+}
 
 const Onboarding = () => {
   const { user } = useAuth();
@@ -14,6 +25,13 @@ const Onboarding = () => {
   useEffect(() => {
     if (user) {
       navigate('/dashboard');
+    }
+  }, [user, navigate]);
+
+  // Redirect new users to waitlist instead of onboarding
+  useEffect(() => {
+    if (!user) {
+      navigate('/waitlist');
     }
   }, [user, navigate]);
 
