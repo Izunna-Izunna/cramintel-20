@@ -3,11 +3,13 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send } from 'lucide-react';
+import { Send, AlertCircle } from 'lucide-react';
 import { AIModeSelector, AIMode } from './ai-chat/AIModeSelector';
 import { MaterialAttachment } from './ai-chat/MaterialAttachment';
 import { ChatMessage } from './ai-chat/ChatMessage';
 import { QuickActions } from './ai-chat/QuickActions';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface AttachedMaterial {
   id: string;
@@ -38,6 +40,8 @@ export function AIChatSection() {
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const handleModeChange = (mode: AIMode) => {
     setSelectedMode(mode);
@@ -63,8 +67,31 @@ export function AIChatSection() {
     return descriptions[mode];
   };
 
+  const fetchMaterialContent = async (materialId: string): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('cramintel_materials')
+        .select('*')
+        .eq('id', materialId)
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching material:', error);
+        return null;
+      }
+
+      // For now, return basic material info
+      // In the future, this would fetch the actual processed content
+      return `Material: ${data.name}\nType: ${data.material_type}\nCourse: ${data.course}`;
+    } catch (error) {
+      console.error('Error fetching material content:', error);
+      return null;
+    }
+  };
+
   const handleSendMessage = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() || !user) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -76,35 +103,67 @@ export function AIChatSection() {
     setMessages(prev => [...prev, userMessage]);
     setMessage('');
     setIsLoading(true);
+    setError(null);
 
-    // Simulate AI response (replace with actual AI integration)
-    setTimeout(() => {
+    try {
+      // Fetch content for attached materials
+      const materialsWithContent = await Promise.all(
+        attachedMaterials.map(async (material) => {
+          if (material.type === 'material') {
+            const content = await fetchMaterialContent(material.id);
+            return { ...material, content };
+          }
+          return material;
+        })
+      );
+
+      // Call the AI chat edge function
+      const { data, error } = await supabase.functions.invoke('ai-chat', {
+        body: {
+          message: userMessage.content,
+          mode: selectedMode,
+          attachedMaterials: materialsWithContent
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
       const botResponse: Message = {
         id: (Date.now() + 1).toString(),
         type: 'bot',
-        content: generateMockResponse(selectedMode, message, attachedMaterials),
+        content: data.response,
         mode: selectedMode,
         timestamp: new Date().toISOString()
       };
-      setMessages(prev => [...prev, botResponse]);
-      setIsLoading(false);
-    }, 1000);
-  };
 
-  const generateMockResponse = (mode: AIMode, userMessage: string, materials: AttachedMaterial[]): string => {
-    const materialContext = materials.length > 0 ? 
-      `\n\nBased on the ${materials.length} attached material(s): ${materials.map(m => m.name).join(', ')}, ` : '';
-    
-    const responses = {
-      tutor: `Let me break this down step by step for you.${materialContext}First, let's identify the key concept...`,
-      explain: `Here's a detailed explanation of your question.${materialContext}The main idea is...`,
-      quiz: `Let me create a quick quiz based on your question.${materialContext}Question 1: What is...?`,
-      summarize: `Here's a summary of the key points.${materialContext}Main concepts: 1)... 2)... 3)...`,
-      analyze: `Let's analyze this critically.${materialContext}I notice several patterns here...`,
-      practice: `Here are some practice problems for you.${materialContext}Problem 1: Try to solve...`
-    };
-    
-    return responses[mode] || "I'm here to help! How can I assist you?";
+      setMessages(prev => [...prev, botResponse]);
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      
+      let errorMessage = 'Sorry, I encountered an error. Please try again.';
+      
+      if (error.message?.includes('OpenAI')) {
+        errorMessage = 'AI service is currently unavailable. Please check if the OpenAI API key is configured.';
+      } else if (error.message?.includes('Unauthorized')) {
+        errorMessage = 'Authentication error. Please try signing in again.';
+      }
+
+      setError(errorMessage);
+      
+      const errorBotResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'bot',
+        content: errorMessage,
+        mode: selectedMode,
+        timestamp: new Date().toISOString()
+      };
+
+      setMessages(prev => [...prev, errorBotResponse]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleQuickAction = (action: string) => {
@@ -125,6 +184,13 @@ export function AIChatSection() {
         <h2 className="text-3xl font-bold text-gray-800 font-space mb-2">AI Tutor</h2>
         <p className="text-gray-600">Get personalized help with different AI modes and attach your materials for context</p>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2 text-red-700">
+          <AlertCircle className="w-5 h-5" />
+          <span>{error}</span>
+        </div>
+      )}
 
       <Card className="h-[calc(100vh-200px)] flex flex-col">
         <AIModeSelector selectedMode={selectedMode} onModeChange={handleModeChange} />
@@ -163,19 +229,22 @@ export function AIChatSection() {
               <Input
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                 placeholder={`Ask something in ${selectedMode} mode...`}
                 className="flex-1"
-                disabled={isLoading}
+                disabled={isLoading || !user}
               />
               <Button 
                 onClick={handleSendMessage}
                 className="bg-gray-800 hover:bg-gray-700"
-                disabled={isLoading || !message.trim()}
+                disabled={isLoading || !message.trim() || !user}
               >
                 <Send className="w-4 h-4" />
               </Button>
             </div>
+            {!user && (
+              <p className="text-xs text-gray-500 mt-2">Please sign in to use the AI tutor.</p>
+            )}
           </div>
         </CardContent>
 
