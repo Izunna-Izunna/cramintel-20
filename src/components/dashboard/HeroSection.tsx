@@ -2,10 +2,12 @@
 import React from 'react';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserProfile } from '@/hooks/useUserProfile';
 
 export function HeroSection() {
   const { user } = useAuth();
   const { stats, loading } = useDashboardData();
+  const { profile } = useUserProfile();
 
   if (loading) {
     return (
@@ -16,7 +18,7 @@ export function HeroSection() {
     );
   }
 
-  const userName = user?.email?.split('@')[0] || 'Student';
+  const userName = profile?.name || user?.email?.split('@')[0] || 'Student';
 
   return (
     <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-lg p-8 text-white relative overflow-hidden">
