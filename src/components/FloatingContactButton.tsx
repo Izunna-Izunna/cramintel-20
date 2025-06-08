@@ -38,8 +38,8 @@ const FloatingContactButton = () => {
         });
       }
     } else {
-      // User not onboarded, redirect to onboarding
-      navigate('/onboarding');
+      // User not onboarded, redirect to waitlist (not onboarding)
+      navigate('/waitlist');
     }
   };
   
@@ -50,7 +50,7 @@ const FloatingContactButton = () => {
       onClick={handleClick}
       className="fixed bottom-6 right-6 z-50 bg-gray-800 hover:bg-gray-700 text-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all"
       size="icon"
-      aria-label="Get Started or Contact Us"
+      aria-label="Join Waitlist or Contact Us"
     >
       <MessageSquare className="h-6 w-6" />
     </Button>

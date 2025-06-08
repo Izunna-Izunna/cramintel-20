@@ -1,5 +1,5 @@
 
-import { ArrowRight, Code, Cpu, Layers, MessageSquare } from "lucide-react";
+import { ArrowRight, Code, Cpu, Layers, MessageSquare, Clock } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -46,12 +46,12 @@ const Hero = () => {
     }
   };
   
-  const handleGetStarted = () => {
-    navigate('/onboarding');
-  };
-
   const handleJoinWaitlist = () => {
     navigate('/waitlist');
+  };
+
+  const handleExistingUser = () => {
+    navigate('/auth');
   };
   
   return <motion.div className="relative mt-16 md:mt-0 w-full max-w-[100vw]" initial="hidden" animate="visible" variants={containerVariants}>
@@ -64,6 +64,15 @@ const Hero = () => {
         <div className="banner-overlay bg-transparent pt-21 md:pt-24 w-full">
           <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center h-full">
             <motion.div className="w-full max-w-4xl text-center" variants={itemVariants}>
+              {/* Launch Status Badge */}
+              <motion.div 
+                variants={itemVariants}
+                className="inline-flex items-center gap-2 bg-blue-600/20 backdrop-blur-sm border border-blue-400/30 rounded-full px-4 py-2 mb-6"
+              >
+                <Clock className="w-4 h-4 text-blue-300" />
+                <span className="text-blue-200 text-sm font-medium">Launching Soon - Join the Waitlist</span>
+              </motion.div>
+
               <motion.h1 className="banner-title text-white text-3xl md:text-5xl lg:text-6xl font-bold" variants={itemVariants}>Cut the noise. Learn what counts.</motion.h1>
               <motion.p className="banner-subtitle text-gray-300 mt-4 md:mt-6 text-sm md:text-base max-w-2xl mx-auto" variants={itemVariants}>
                 AI-powered exam predictions, smart flashcards, and study tools designed for West African university students.
@@ -98,7 +107,7 @@ const Hero = () => {
                 className="text-white/60 text-xs md:text-sm mt-4"
                 variants={itemVariants}
               >
-                Already have an account? <button onClick={handleGetStarted} className="text-blue-400 hover:text-blue-300 underline">Get Started</button>
+                Already have an account? <button onClick={handleExistingUser} className="text-blue-400 hover:text-blue-300 underline">Sign in here</button>
               </motion.p>
             </motion.div>
           </div>

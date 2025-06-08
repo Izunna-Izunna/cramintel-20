@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Eye, EyeOff, ArrowLeft, Sparkles, Zap, Target } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, Sparkles, Zap, Target, Clock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -180,10 +180,10 @@ const Auth = () => {
             <Card className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl">
               <CardHeader className="text-center pb-8">
                 <CardTitle className="text-2xl font-bold text-gray-900">
-                  Sign In to Continue
+                  Existing Users Only
                 </CardTitle>
                 <p className="text-gray-600 mt-2">
-                  Access your personalized study dashboard
+                  Sign in to access your dashboard
                 </p>
               </CardHeader>
               
@@ -250,28 +250,28 @@ const Auth = () => {
                   </motion.div>
                 </form>
 
-                {/* New User Section */}
+                {/* Launch Status Section */}
                 <motion.div 
                   variants={itemVariants}
-                  className="mt-8 p-6 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200"
+                  className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-100 rounded-xl border border-blue-200"
                 >
                   <div className="text-center space-y-4">
                     <div className="flex items-center justify-center gap-2 mb-3">
-                      <Sparkles className="w-5 h-5 text-gray-700" />
-                      <span className="font-semibold text-gray-900">New to CramIntel?</span>
+                      <Clock className="w-5 h-5 text-blue-700" />
+                      <span className="font-semibold text-blue-900">Platform Launching Soon!</span>
                     </div>
-                    <p className="text-sm text-gray-700 leading-relaxed">
-                      🚀 Experience our comprehensive guided setup designed to personalize your learning journey and maximize your academic success.
+                    <p className="text-sm text-blue-800 leading-relaxed">
+                      🚀 We're putting the finishing touches on CramIntel. New registrations are temporarily closed as we prepare for launch.
                     </p>
                     <motion.div
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
                       <Button
-                        onClick={() => navigate('/onboarding')}
-                        className="w-full bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white font-medium h-11"
+                        onClick={() => navigate('/waitlist')}
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium h-11"
                       >
-                        Start Your Journey →
+                        Join Our Waitlist →
                       </Button>
                     </motion.div>
                   </div>
@@ -279,7 +279,7 @@ const Auth = () => {
 
                 <motion.div variants={itemVariants} className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
                   <p className="text-sm text-gray-600 text-center leading-relaxed">
-                    💡 Our guided onboarding creates a personalized study experience with your courses, preferences, and learning goals
+                    🎓 Be the first to experience our AI-powered study tools when we launch. Join thousands of students already on our waitlist!
                   </p>
                 </motion.div>
               </CardContent>
