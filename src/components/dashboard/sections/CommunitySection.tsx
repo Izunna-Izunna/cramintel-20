@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,10 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Users, MessageCircle, Heart, Share, Calendar, Trophy, Zap, Bell, ArrowRight, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export function CommunitySection() {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -32,11 +35,51 @@ export function CommunitySection() {
     }
   };
 
-  const handleNotifySignup = (e: React.FormEvent) => {
+  const handleNotifySignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
-      setSubscribed(true);
-      setEmail('');
+    if (!email) return;
+
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase
+        .from('waitlist_signups')
+        .insert([
+          {
+            email: email,
+            first_name: null,
+            university: null,
+            role: 'Community Notification'
+          }
+        ]);
+
+      if (error) {
+        if (error.code === '23505') { // Unique constraint violation
+          toast({
+            title: "Already subscribed!",
+            description: "This email is already on our notification list.",
+            variant: "default"
+          });
+        } else {
+          throw error;
+        }
+      } else {
+        setSubscribed(true);
+        setEmail('');
+        toast({
+          title: "Successfully subscribed! 🎉",
+          description: "We'll notify you when community features are ready.",
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting notification signup:', error);
+      toast({
+        title: "Something went wrong",
+        description: "Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -113,10 +156,15 @@ export function CommunitySection() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-300"
                   required
+                  disabled={isSubmitting}
                 />
-                <Button type="submit" className="bg-white text-gray-800 hover:bg-gray-100">
+                <Button 
+                  type="submit" 
+                  className="bg-white text-gray-800 hover:bg-gray-100"
+                  disabled={isSubmitting}
+                >
                   <Bell className="w-4 h-4 mr-2" />
-                  Notify Me
+                  {isSubmitting ? 'Saving...' : 'Notify Me'}
                 </Button>
               </form>
             ) : (
