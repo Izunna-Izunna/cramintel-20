@@ -1,9 +1,5 @@
 
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { FileText, Brain, Target } from 'lucide-react';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -13,93 +9,50 @@ export function HeroSection() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        </div>
+      <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-lg p-8 text-white animate-pulse">
+        <div className="h-8 bg-gray-600 rounded w-1/2 mb-4"></div>
+        <div className="h-6 bg-gray-600 rounded w-1/3"></div>
       </div>
     );
   }
 
-  const progressPercentage = (stats.weeklyUploads / stats.weeklyTarget) * 100;
+  const userName = user?.email?.split('@')[0] || 'Student';
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800 font-space">
-          Welcome back, {user?.email?.split('@')[0] || 'Student'}! 🎓
-        </h1>
-        <p className="text-gray-600 mt-2">Here's your study progress overview</p>
-      </div>
+    <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-lg p-8 text-white relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400 rounded-full opacity-10 transform translate-x-16 -translate-y-16"></div>
+      
+      <div className="flex justify-between items-start relative z-10">
+        {/* Left side - Main content */}
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+            Hey {userName}, let's focus on what matters today 
+            <span className="text-2xl">👇</span>
+          </h1>
+          <p className="text-slate-300 text-lg">
+            You're making great progress! Keep up the momentum.
+          </p>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText className="w-5 h-5 text-blue-500" />
-                  <span className="text-sm font-medium text-gray-600">Weekly Progress</span>
-                </div>
-                <div className="text-2xl font-bold text-gray-800">
-                  {stats.weeklyUploads}/{stats.weeklyTarget}
-                </div>
-                <p className="text-sm text-gray-500 mt-1">Materials uploaded</p>
-              </div>
+        {/* Right side - Stats */}
+        <div className="flex flex-col gap-4 ml-8">
+          {/* Weekly uploads */}
+          <div className="bg-black/20 rounded-lg px-4 py-3 min-w-[200px]">
+            <div className="text-slate-300 text-sm mb-1">Weekly uploads</div>
+            <div className="text-white font-semibold">
+              {stats.weeklyUploads}/{stats.weeklyTarget} materials
             </div>
-            <div className="mt-4">
-              <Progress value={Math.min(progressPercentage, 100)} className="h-2" />
-              <p className="text-xs text-gray-500 mt-2">
-                {progressPercentage >= 100 ? '🎉 Target achieved!' : `${Math.round(progressPercentage)}% of weekly goal`}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card className="border-l-4 border-l-green-500">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Brain className="w-5 h-5 text-green-500" />
-                  <span className="text-sm font-medium text-gray-600">Flashcards</span>
-                </div>
-                <div className="text-2xl font-bold text-gray-800">{stats.totalFlashcards}</div>
-                <p className="text-sm text-gray-500 mt-1">Ready for review</p>
-              </div>
-            </div>
-            <div className="mt-4">
-              <Badge variant={stats.totalFlashcards > 0 ? "default" : "secondary"}>
-                {stats.totalFlashcards > 0 ? 'Active' : 'Getting started'}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-purple-500">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Target className="w-5 h-5 text-purple-500" />
-                  <span className="text-sm font-medium text-gray-600">Study Streak</span>
-                </div>
-                <div className="text-2xl font-bold text-gray-800">{stats.studyStreak}</div>
-                <p className="text-sm text-gray-500 mt-1">Days in a row</p>
-              </div>
-            </div>
-            <div className="mt-4">
-              <Badge variant={stats.studyStreak > 0 ? "default" : "outline"}>
-                {stats.studyStreak > 0 ? `${stats.studyStreak} day streak!` : 'Start your streak'}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
+          {/* Flashcard decks */}
+          <div className="flex items-center gap-2 text-green-400">
+            <span className="text-lg">✅</span>
+            <span className="text-sm">
+              {stats.totalFlashcards > 0 ? `${Math.floor(stats.totalFlashcards / 10)} flashcard decks reviewed today` : 'No flashcard reviews yet'}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
