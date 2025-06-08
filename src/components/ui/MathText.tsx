@@ -17,19 +17,30 @@ export function MathText({ children, className = '' }: MathTextProps) {
         switch (segment.type) {
           case 'block-math':
             return (
-              <div key={index} className="my-4">
+              <div key={index} className="my-4 flex justify-center">
                 <MathFormula block={true}>{segment.content}</MathFormula>
               </div>
             );
           case 'inline-math':
             return (
-              <span key={index}>
+              <span key={index} className="inline-flex items-center">
                 <MathFormula>{segment.content}</MathFormula>
               </span>
             );
           case 'text':
           default:
-            return <span key={index}>{segment.content}</span>;
+            // Split by newlines and render each line properly
+            const lines = segment.content.split('\n');
+            return (
+              <span key={index}>
+                {lines.map((line, lineIndex) => (
+                  <React.Fragment key={lineIndex}>
+                    {line}
+                    {lineIndex < lines.length - 1 && <br />}
+                  </React.Fragment>
+                ))}
+              </span>
+            );
         }
       })}
     </div>

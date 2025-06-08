@@ -11,13 +11,34 @@ interface MathFormulaProps {
 export function MathFormula({ children, block = false }: MathFormulaProps) {
   try {
     if (block) {
-      return <BlockMath math={children} />;
+      return (
+        <BlockMath 
+          math={children}
+          settings={{
+            throwOnError: false,
+            displayMode: true,
+            colorIsTextColor: true
+          }}
+        />
+      );
     } else {
-      return <InlineMath math={children} />;
+      return (
+        <InlineMath 
+          math={children}
+          settings={{
+            throwOnError: false,
+            colorIsTextColor: true
+          }}
+        />
+      );
     }
   } catch (error) {
     console.warn('Failed to render LaTeX:', children, error);
     // Fallback to plain text if LaTeX parsing fails
-    return <span className="font-mono text-red-600">{children}</span>;
+    return (
+      <span className={`font-mono text-red-600 ${block ? 'block my-2' : 'inline'}`}>
+        {children}
+      </span>
+    );
   }
 }

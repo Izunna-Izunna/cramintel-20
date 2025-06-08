@@ -2,6 +2,7 @@
 import React from 'react';
 import { Bot, User, BookOpen, Lightbulb, Target, FileQuestion, Brain, MessageSquare } from 'lucide-react';
 import { AIMode } from './AIModeSelector';
+import { MathText } from '@/components/ui/MathText';
 
 interface ChatMessageProps {
   type: 'bot' | 'user';
@@ -45,7 +46,11 @@ export function ChatMessage({ type, content, mode, timestamp }: ChatMessageProps
             ? 'bg-gray-50 border border-gray-200' 
             : 'bg-gray-800 text-white'
         }`}>
-          <div className="text-sm leading-relaxed whitespace-pre-wrap">{content}</div>
+          <MathText className={`text-sm leading-relaxed ${
+            type === 'bot' ? 'text-gray-900' : 'text-white'
+          }`}>
+            {content}
+          </MathText>
           {timestamp && (
             <div className="text-xs text-gray-500 mt-1">
               {new Date(timestamp).toLocaleTimeString()}
