@@ -5,23 +5,105 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaterials } from '@/hooks/useMaterials';
-import { AlertCircle, FileText, Brain } from 'lucide-react';
+import { AlertCircle, FileText, Brain, Eye, EyeOff } from 'lucide-react';
 
 export default function TestPredictions() {
   const { user } = useAuth();
   const { materials } = useMaterials();
   const [testResults, setTestResults] = useState<any>(null);
+  const [extractedContent, setExtractedContent] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showFullContent, setShowFullContent] = useState<{[key: string]: boolean}>({});
+
+  const extractTextFromFile = async (filePath: string, fileType: string, materialName: string) => {
+    try {
+      console.log(`Extracting text from: ${materialName} (${fileType})`);
+      
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('cramintel-materials')
+        .download(filePath);
+
+      if (downloadError || !fileData) {
+        console.error('Failed to download file:', downloadError);
+        return {
+          materialName,
+          error: `Failed to download: ${downloadError?.message || 'Unknown error'}`,
+          content: '',
+          contentLength: 0
+        };
+      }
+
+      let textContent = '';
+      
+      if (fileType?.includes('text') || fileType?.includes('plain')) {
+        textContent = await fileData.text();
+      } else if (fileType?.includes('pdf')) {
+        // Try to read PDF as text (some PDFs have extractable text)
+        try {
+          textContent = await fileData.text();
+          if (!textContent || textContent.length < 100) {
+            textContent = 'PDF content extraction requires OCR - text layer not available or insufficient';
+          }
+        } catch (error) {
+          textContent = 'PDF content extraction failed - binary format detected';
+        }
+      } else {
+        // Try to read other file types as text
+        try {
+          textContent = await fileData.text();
+          if (!textContent) {
+            textContent = 'File content could not be extracted as text';
+          }
+        } catch (error) {
+          textContent = `File reading failed: ${error.message}`;
+        }
+      }
+
+      return {
+        materialName,
+        fileType,
+        content: textContent,
+        contentLength: textContent.length,
+        error: null
+      };
+
+    } catch (error) {
+      console.error('Error extracting text:', error);
+      return {
+        materialName,
+        error: error.message,
+        content: '',
+        contentLength: 0
+      };
+    }
+  };
 
   const runPredictionTest = async () => {
     if (!user || materials.length === 0) return;
 
     setLoading(true);
     setTestResults(null);
+    setExtractedContent([]);
 
     try {
-      console.log('Starting prediction test...');
+      console.log('Starting comprehensive prediction test...');
       
+      // Extract content from all materials first
+      const contentExtractionPromises = materials.slice(0, 5).map(async (material) => {
+        if (material.file_path) {
+          return await extractTextFromFile(material.file_path, material.file_type, material.name);
+        }
+        return {
+          materialName: material.name,
+          error: 'No file path available',
+          content: '',
+          contentLength: 0
+        };
+      });
+
+      const extractedResults = await Promise.all(contentExtractionPromises);
+      setExtractedContent(extractedResults);
+
       // Prepare test data
       const testClues = materials.slice(0, 2).map(material => ({
         id: material.id,
@@ -74,12 +156,19 @@ export default function TestPredictions() {
     }
   };
 
+  const toggleContentVisibility = (materialName: string) => {
+    setShowFullContent(prev => ({
+      ...prev,
+      [materialName]: !prev[materialName]
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Prediction System Test</h1>
-          <p className="text-gray-600">Debug page to see exactly what's happening during prediction generation</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Comprehensive Prediction System Test</h1>
+          <p className="text-gray-600">Deep debug page to see exactly what's happening during prediction generation</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -101,6 +190,9 @@ export default function TestPredictions() {
                       <div className="font-medium">{material.name}</div>
                       <div className="text-sm text-gray-600">
                         Course: {material.course} | Type: {material.material_type}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        File: {material.file_type} | Size: {material.file_size ? `${Math.round(material.file_size / 1024)}KB` : 'Unknown'}
                       </div>
                       <div className="text-xs text-gray-500">
                         ID: {material.id}
@@ -127,7 +219,7 @@ export default function TestPredictions() {
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-gray-600 mb-2">
-                    This will test the prediction system with your first 2 materials for CEDR 341 (entrepreneurship course).
+                    This will extract ALL content from your materials and test the prediction system with CEDR 341 (entrepreneurship course).
                   </p>
                 </div>
                 
@@ -136,7 +228,7 @@ export default function TestPredictions() {
                   disabled={loading || materials.length === 0 || !user}
                   className="w-full bg-gray-800 hover:bg-gray-900 text-white"
                 >
-                  {loading ? 'Running Test...' : 'Run Prediction Test'}
+                  {loading ? 'Running Comprehensive Test...' : 'Run Full Content Test'}
                 </Button>
 
                 {!user && (
@@ -149,6 +241,89 @@ export default function TestPredictions() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Extracted Content Section */}
+        {extractedContent.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                📄 Extracted Content Analysis
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {extractedContent.map((content, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h3 className="font-semibold text-lg">{content.materialName}</h3>
+                        <div className="text-sm text-gray-600">
+                          Type: {content.fileType || 'Unknown'} | 
+                          Length: {content.contentLength.toLocaleString()} characters
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => toggleContentVisibility(content.materialName)}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-2"
+                      >
+                        {showFullContent[content.materialName] ? (
+                          <>
+                            <EyeOff className="w-4 h-4" />
+                            Hide Content
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-4 h-4" />
+                            Show Content
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    {content.error ? (
+                      <div className="bg-red-50 border border-red-200 p-3 rounded">
+                        <p className="text-red-700">❌ Error: {content.error}</p>
+                      </div>
+                    ) : (
+                      <div>
+                        {content.contentLength === 0 ? (
+                          <div className="bg-amber-50 border border-amber-200 p-3 rounded">
+                            <p className="text-amber-700">⚠️ No content extracted</p>
+                          </div>
+                        ) : (
+                          <div className="bg-green-50 border border-green-200 p-3 rounded">
+                            <p className="text-green-700 mb-2">✅ Content extracted successfully</p>
+                            
+                            {/* Content Preview */}
+                            <div className="bg-white border p-3 rounded text-sm">
+                              <div className="font-medium mb-2">Preview (first 500 characters):</div>
+                              <div className="text-gray-600 font-mono text-xs bg-gray-50 p-2 rounded overflow-auto">
+                                {content.content.substring(0, 500)}
+                                {content.content.length > 500 && '...'}
+                              </div>
+                            </div>
+
+                            {/* Full Content (when toggled) */}
+                            {showFullContent[content.materialName] && (
+                              <div className="mt-3 bg-white border p-3 rounded">
+                                <div className="font-medium mb-2">Full Content:</div>
+                                <div className="text-gray-700 text-sm font-mono bg-gray-50 p-3 rounded max-h-96 overflow-auto whitespace-pre-wrap">
+                                  {content.content}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Test Results */}
         {testResults && (
