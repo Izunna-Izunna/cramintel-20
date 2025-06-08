@@ -9,6 +9,7 @@ export interface Material {
   material_type: string;
   course: string;
   file_type: string;
+  file_name: string;
   processed: boolean;
   upload_date: string;
   file_path?: string;
