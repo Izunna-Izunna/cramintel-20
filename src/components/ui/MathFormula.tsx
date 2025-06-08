@@ -9,7 +9,7 @@ interface MathFormulaProps {
 }
 
 export function MathFormula({ children, block = false }: MathFormulaProps) {
-  // Clean the LaTeX content
+  // Clean the LaTeX content more thoroughly
   const cleanedContent = children
     .replace(/\\,/g, ' ') // Replace \, with space
     .replace(/\s+/g, ' ') // Normalize whitespace
@@ -25,7 +25,8 @@ export function MathFormula({ children, block = false }: MathFormulaProps) {
               throwOnError: false,
               displayMode: true,
               colorIsTextColor: true,
-              strict: false
+              strict: false,
+              trust: true
             }}
           />
         </div>
@@ -38,7 +39,8 @@ export function MathFormula({ children, block = false }: MathFormulaProps) {
             settings={{
               throwOnError: false,
               colorIsTextColor: true,
-              strict: false
+              strict: false,
+              trust: true
             }}
           />
         </span>

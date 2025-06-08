@@ -17,15 +17,13 @@ export function MathText({ children, className = '' }: MathTextProps) {
         switch (segment.type) {
           case 'block-math':
             return (
-              <div key={index} className="my-4 flex justify-center">
+              <div key={index} className="my-4">
                 <MathFormula block={true}>{segment.content}</MathFormula>
               </div>
             );
           case 'inline-math':
             return (
-              <span key={index} className="inline-flex items-center">
-                <MathFormula>{segment.content}</MathFormula>
-              </span>
+              <MathFormula key={index}>{segment.content}</MathFormula>
             );
           case 'text':
           default:

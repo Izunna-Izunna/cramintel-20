@@ -1,4 +1,3 @@
-
 export interface TextSegment {
   type: 'text' | 'inline-math' | 'block-math';
   content: string;
@@ -9,89 +8,66 @@ export function parseMathContent(text: string): TextSegment[] {
   let currentIndex = 0;
   
   // Enhanced regular expressions for different math patterns
-  const blockMathRegex = /\$\$([\s\S]*?)\$\$/g;
-  const inlineMathRegex = /\$((?:[^$\\]|\\.)*)?\$/g;
-  const altBlockMathRegex = /\\\[([\s\S]*?)\\\]/g;
-  const altInlineMathRegex = /\\\(((?:[^\\]|\\.)*)?\\\)/g;
+  // Order matters - we need to process block math first to avoid conflicts
+  const patterns = [
+    // Block math patterns (process first)
+    { regex: /\\\[([\s\S]*?)\\\]/g, type: 'block' as const },
+    { regex: /\$\$([\s\S]*?)\$\$/g, type: 'block' as const },
+    // Inline math patterns
+    { regex: /\\\(((?:[^\\]|\\[^)])*?)\\\)/g, type: 'inline' as const },
+    { regex: /\$([^$\n]+?)\$/g, type: 'inline' as const }
+  ];
   
   // Collect all math expressions with their positions
   const allMatches: Array<{
-    match: RegExpExecArray;
-    type: 'block' | 'inline';
+    start: number;
+    end: number;
     content: string;
+    type: 'block' | 'inline';
   }> = [];
 
-  // Find block math expressions (highest priority)
-  let match;
+  // Find all math expressions
+  patterns.forEach(pattern => {
+    let match;
+    pattern.regex.lastIndex = 0; // Reset regex
+    
+    while ((match = pattern.regex.exec(text)) !== null) {
+      if (match.index !== undefined && match[1]) {
+        const content = match[1].trim();
+        if (content) {
+          allMatches.push({
+            start: match.index,
+            end: match.index + match[0].length,
+            content: content,
+            type: pattern.type
+          });
+        }
+      }
+    }
+  });
+
+  // Sort matches by position and remove overlaps
+  allMatches.sort((a, b) => a.start - b.start);
   
-  // Find $$ block math
-  while ((match = blockMathRegex.exec(text)) !== null) {
-    allMatches.push({
-      match,
-      type: 'block',
-      content: match[1]?.trim() || ''
-    });
-  }
-
-  // Find alternative block math \[...\]
-  while ((match = altBlockMathRegex.exec(text)) !== null) {
-    allMatches.push({
-      match,
-      type: 'block',
-      content: match[1]?.trim() || ''
-    });
-  }
-
-  // Find block ranges to avoid processing inline math inside them
-  const blockRanges = allMatches
-    .filter(m => m.type === 'block')
-    .map(m => ({
-      start: m.match.index!,
-      end: m.match.index! + m.match[0].length
-    }));
-
-  // Reset regex and find inline math expressions
-  inlineMathRegex.lastIndex = 0;
-  while ((match = inlineMathRegex.exec(text)) !== null) {
-    const isInsideBlock = blockRanges.some(range => 
-      match.index! >= range.start && match.index! < range.end
+  // Remove overlapping matches (keep the first one found)
+  const filteredMatches = [];
+  for (const match of allMatches) {
+    const hasOverlap = filteredMatches.some(existing => 
+      (match.start >= existing.start && match.start < existing.end) ||
+      (match.end > existing.start && match.end <= existing.end) ||
+      (match.start <= existing.start && match.end >= existing.end)
     );
     
-    if (!isInsideBlock && match[1] && match[1].trim()) {
-      allMatches.push({
-        match,
-        type: 'inline',
-        content: match[1].trim()
-      });
+    if (!hasOverlap) {
+      filteredMatches.push(match);
     }
   }
-
-  // Find alternative inline math \(...\)
-  altInlineMathRegex.lastIndex = 0;
-  while ((match = altInlineMathRegex.exec(text)) !== null) {
-    const isInsideBlock = blockRanges.some(range => 
-      match.index! >= range.start && match.index! < range.end
-    );
-    
-    if (!isInsideBlock && match[1] && match[1].trim()) {
-      allMatches.push({
-        match,
-        type: 'inline',
-        content: match[1].trim()
-      });
-    }
-  }
-
-  // Sort matches by position
-  allMatches.sort((a, b) => a.match.index! - b.match.index!);
 
   // Process segments
-  allMatches.forEach(({ match, type, content }) => {
-    if (match.index === undefined) return;
-    
+  filteredMatches.forEach(match => {
     // Add text before the math expression
-    if (match.index > currentIndex) {
-      const textContent = text.slice(currentIndex, match.index);
+    if (match.start > currentIndex) {
+      const textContent = text.slice(currentIndex, match.start);
       if (textContent.trim() || textContent.includes('\n')) {
         segments.push({
           type: 'text',
@@ -101,14 +77,12 @@ export function parseMathContent(text: string): TextSegment[] {
     }
     
     // Add the math expression
-    if (content) {
-      segments.push({
-        type: type === 'block' ? 'block-math' : 'inline-math',
-        content: content
-      });
-    }
+    segments.push({
+      type: match.type === 'block' ? 'block-math' : 'inline-math',
+      content: match.content
+    });
     
-    currentIndex = match.index + match[0].length;
+    currentIndex = match.end;
   });
   
   // Add remaining text
