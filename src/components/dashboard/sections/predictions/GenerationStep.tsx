@@ -1,9 +1,10 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Brain, Scan, Users, Volume2, VolumeX, GraduationCap, Calculator } from 'lucide-react';
+import { Brain, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
+import { Card, CardContent } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PredictionData {
   clues: Array<{
@@ -11,6 +12,7 @@ interface PredictionData {
     name: string;
     type: 'past-questions' | 'assignment' | 'whisper';
     content?: string;
+    materialId?: string;
   }>;
   context: {
     course: string;
@@ -27,144 +29,183 @@ interface GenerationStepProps {
 }
 
 export function GenerationStep({ predictionData, onNext, onBack }: GenerationStepProps) {
+  const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [currentPhase, setCurrentPhase] = useState(0);
-  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [currentTask, setCurrentTask] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  const isExamPaper = predictionData.style === 'exam-paper';
-
-  const examPaperPhases = [
-    { text: "Analyzing exam structure patterns...", icon: GraduationCap, duration: 2000 },
-    { text: "Extracting calculation problems...", icon: Calculator, duration: 2500 },
-    { text: "Formatting mathematical expressions...", icon: Brain, duration: 2000 },
-    { text: "Generating full exam paper...", icon: Scan, duration: 2000 }
+  const tasks = [
+    'Analyzing uploaded materials...',
+    'Processing course context...',
+    'Identifying patterns and themes...',
+    'Generating AI predictions...',
+    'Calculating confidence scores...',
+    'Finalizing results...'
   ];
 
-  const standardPhases = [
-    { text: "Looking at your past questions...", icon: Scan, duration: 2000 },
-    { text: "Scanning for assignment patterns...", icon: Brain, duration: 2500 },
-    { text: "Factoring in what students are saying...", icon: Users, duration: 2000 },
-    { text: "Generating predictions...", icon: Brain, duration: 1500 }
-  ];
+  const generatePredictions = async () => {
+    setIsGenerating(true);
+    setError(null);
+    setProgress(0);
 
-  const phases = isExamPaper ? examPaperPhases : standardPhases;
+    try {
+      // Simulate progress through tasks
+      for (let i = 0; i < tasks.length; i++) {
+        setCurrentTask(tasks[i]);
+        setProgress(((i + 1) / tasks.length) * 90); // Leave 10% for final processing
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      // Get material content for clues that reference materials
+      const enrichedClues = await Promise.all(
+        predictionData.clues.map(async (clue) => {
+          if (clue.materialId && !clue.content) {
+            // In a real implementation, you'd fetch the processed content
+            // For now, we'll use the material name as content
+            const { data: material } = await supabase
+              .from('cramintel_materials')
+              .select('name, material_type, course')
+              .eq('id', clue.materialId)
+              .single();
+            
+            return {
+              ...clue,
+              content: material ? `Material: ${material.name} (${material.material_type}) from ${material.course}` : clue.name
+            };
+          }
+          return clue;
+        })
+      );
+
+      // Call the edge function
+      const { data, error } = await supabase.functions.invoke('generate-predictions', {
+        body: {
+          clues: enrichedClues,
+          context: predictionData.context,
+          style: predictionData.style
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to generate predictions');
+      }
+
+      setProgress(100);
+      setCurrentTask('Predictions generated successfully!');
+      
+      // Wait a moment before proceeding
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      onNext();
+    } catch (err) {
+      console.error('Error generating predictions:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred while generating predictions');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   useEffect(() => {
-    let totalTime = 0;
-    phases.forEach((phase, index) => {
-      setTimeout(() => {
-        setCurrentPhase(index);
-      }, totalTime);
-      totalTime += phase.duration;
-    });
-
-    // Progress animation
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(progressInterval);
-          setTimeout(onNext, 500);
-          return 100;
-        }
-        return prev + 1;
-      });
-    }, isExamPaper ? 100 : 80); // Slightly longer for exam paper generation
-
-    return () => {
-      clearInterval(progressInterval);
-    };
-  }, [onNext, isExamPaper]);
-
-  const CurrentIcon = phases[currentPhase]?.icon || Brain;
+    // Auto-start generation when component mounts
+    generatePredictions();
+  }, []);
 
   return (
-    <div className="max-w-2xl mx-auto text-center">
-      <div className="mb-8">
+    <div className="max-w-2xl mx-auto">
+      <div className="text-center mb-8">
         <motion.div
-          key={currentPhase}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${
-            isExamPaper ? 'bg-orange-100' : 'bg-purple-100'
-          }`}
+          animate={{ rotate: isGenerating ? 360 : 0 }}
+          transition={{ duration: 2, repeat: isGenerating ? Infinity : 0, ease: "linear" }}
+          className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4"
         >
-          <CurrentIcon className={`w-10 h-10 ${
-            isExamPaper ? 'text-orange-600' : 'text-purple-600'
-          }`} />
+          <Brain className="w-8 h-8 text-purple-600" />
         </motion.div>
-
-        <motion.h3
-          key={currentPhase}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-xl font-bold text-gray-800 mb-2"
-        >
-          {phases[currentPhase]?.text || "Generating predictions..."}
-        </motion.h3>
-
-        <p className="text-gray-600 mb-8">
-          {isExamPaper 
-            ? "Creating a professional exam paper with proper mathematical formatting"
-            : "Our AI is analyzing your materials to create targeted predictions"
-          }
+        <h3 className="text-2xl font-bold text-gray-800 mb-2">
+          {error ? 'Generation Failed' : isGenerating ? 'Generating Your Predictions' : 'Predictions Complete'}
+        </h3>
+        <p className="text-gray-600">
+          {error ? 'Something went wrong while generating your predictions' : 
+           isGenerating ? 'Our AI is analyzing your materials and creating personalized predictions' :
+           'Your predictions have been generated successfully'}
         </p>
       </div>
 
-      <div className="mb-8">
-        <div className="flex justify-between text-sm mb-2">
-          <span>{isExamPaper ? 'Generating Exam Paper' : 'Generating Predictions'}</span>
-          <span>{Math.round(progress)}%</span>
-        </div>
-        <Progress value={progress} className="h-3" />
-      </div>
+      <Card className="mb-8">
+        <CardContent className="p-6">
+          {error ? (
+            <div className="text-center">
+              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <p className="text-red-600 mb-4">{error}</p>
+              <Button onClick={generatePredictions} className="bg-purple-600 hover:bg-purple-700">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Try Again
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="mb-6">
+                <div className="flex justify-between text-sm mb-2">
+                  <span>Progress</span>
+                  <span>{Math.round(progress)}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <motion.div
+                    className="bg-purple-600 h-2 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ duration: 0.5 }}
+                  />
+                </div>
+              </div>
 
-      <div className="bg-gray-50 rounded-lg p-6 mb-8">
-        <h4 className="font-semibold text-gray-800 mb-4">What CramIntel is analyzing:</h4>
-        <div className="space-y-2 text-sm text-gray-600">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            <span>{predictionData.clues.length} uploaded materials</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span>Course: {predictionData.context.course}</span>
-          </div>
-          {predictionData.context.topics.length > 0 && (
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-              <span>{predictionData.context.topics.length} topic filters</span>
-            </div>
-          )}
-          {predictionData.context.lecturer && (
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-              <span>Lecturer behavioral patterns</span>
-            </div>
-          )}
-          {isExamPaper && (
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-              <span>Mathematical equation formatting</span>
-            </div>
-          )}
-        </div>
-      </div>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  {progress >= 100 ? (
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <motion.div
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    >
+                      <Sparkles className="w-5 h-5 text-purple-500" />
+                    </motion.div>
+                  )}
+                  <span className="text-gray-700">{currentTask}</span>
+                </div>
 
-      <div className="flex items-center justify-between">
-        <Button variant="outline" onClick={onBack} disabled={progress > 50}>
-          Back
-        </Button>
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setAudioEnabled(!audioEnabled)}
-          className="flex items-center gap-2"
-        >
-          {audioEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-          {audioEnabled ? 'Disable' : 'Enable'} Audio
-        </Button>
-      </div>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-800 mb-2">Analysis Summary:</h4>
+                  <ul className="text-sm text-gray-600 space-y-1">
+                    <li>• Course: {predictionData.context.course}</li>
+                    <li>• Topics: {predictionData.context.topics.join(', ')}</li>
+                    <li>• Materials: {predictionData.clues.length} items</li>
+                    <li>• Format: {predictionData.style === 'exam-paper' ? 'Full Exam Paper' : 'Question Predictions'}</li>
+                  </ul>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {!isGenerating && !error && (
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={onBack}>Back to Style</Button>
+          <Button onClick={onNext} className="bg-purple-600 hover:bg-purple-700">
+            View Results
+          </Button>
+        </div>
+      )}
+
+      {!isGenerating && error && (
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={onBack}>Back to Style</Button>
+          <Button onClick={generatePredictions} className="bg-purple-600 hover:bg-purple-700">
+            <Sparkles className="w-4 h-4 mr-2" />
+            Retry Generation
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
