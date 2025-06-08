@@ -7,6 +7,91 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Helper function to generate realistic content for materials (simulates OCR)
+function generateContentForMaterial(material: any): string {
+  const templates = {
+    'past-question': `Past Examination Questions - ${material.course}
+
+SECTION A: Answer All Questions
+
+1. Define the following terms and explain their significance in ${material.course}:
+   a) [Key concept 1]
+   b) [Key concept 2]
+   c) [Key concept 3]
+
+2. Explain the relationship between [concept A] and [concept B] in the context of ${material.course}.
+
+3. List and briefly describe three practical applications of [main topic] in real-world scenarios.
+
+SECTION B: Answer Any Two Questions
+
+4. Derive the fundamental equation for [key formula] and explain each component.
+
+5. A practical problem involving [calculation type]. Given: [parameters]. Find: [solution requirements].
+
+6. Compare and contrast [concept X] and [concept Y], highlighting their advantages and limitations.`,
+
+    'assignment': `Assignment: ${material.name}
+Course: ${material.course}
+
+Instructions: Complete all questions below. Show all working clearly.
+
+Question 1: Theoretical Analysis
+Analyze the principles of [main topic] as covered in class. Your analysis should include:
+- Definition of key terms
+- Explanation of underlying principles  
+- Real-world applications
+- Critical evaluation
+
+Question 2: Problem Solving
+Solve the following calculation problems:
+a) [Calculation problem 1]
+b) [Calculation problem 2]
+c) [Calculation problem 3]
+
+Question 3: Research Component
+Research and report on current developments in [field]. Include recent advances and future trends.`,
+
+    'notes': `${material.course} - Lecture Notes
+${material.name}
+
+Chapter 1: Introduction to [Main Topic]
+- Definition and scope
+- Historical development
+- Current applications
+- Key terminology
+
+Chapter 2: Fundamental Principles
+- Basic concepts and theories
+- Mathematical foundations
+- Practical implications
+- Case studies
+
+Chapter 3: Advanced Applications
+- Complex problem solving
+- Integration with other fields
+- Future developments
+- Industry standards
+
+Key Points to Remember:
+• [Important concept 1]
+• [Important concept 2]
+• [Important concept 3]
+
+Common Exam Topics:
+- Definitions and explanations
+- Principle applications
+- Problem-solving methods
+- Comparative analysis`
+  }
+
+  const template = templates[material.material_type as keyof typeof templates] || templates['notes']
+  return template.replace(/\[([^\]]+)\]/g, (match, content) => {
+    // Replace placeholders with course-specific content
+    return content.toLowerCase().includes('course') ? material.course : `${content} (${material.course})`
+  })
+}
+
 interface ContentAnalysis {
   topics: string[];
   keyTerms: string[];
@@ -352,25 +437,30 @@ serve(async (req) => {
 
     // Process clues with content analysis
     for (const clue of clues) {
-      if (clue.type === 'whisper' && clue.content) {
-        whisperTexts.push(clue.content)
-      } else if (clue.materialId) {
-        // Fetch material content from database
-        const { data: material } = await supabaseClient
-          .from('cramintel_materials')
-          .select('*')
-          .eq('id', clue.materialId)
-          .single()
+      try {
+        if (clue.type === 'whisper' && clue.content) {
+          whisperTexts.push(clue.content)
+        } else if (clue.materialId) {
+          // Fetch material content from database
+          const { data: material } = await supabaseClient
+            .from('cramintel_materials')
+            .select('*')
+            .eq('id', clue.materialId)
+            .single()
 
-        if (material) {
-          // Simulate content extraction (in real implementation, this would use OCR)
-          const materialContent = this.generateContentForMaterial(material)
-          processedMaterials.push({
-            ...material,
-            content: materialContent,
-            type: clue.type
-          })
+          if (material) {
+            // Generate content for material (simulates OCR)
+            const materialContent = generateContentForMaterial(material)
+            processedMaterials.push({
+              ...material,
+              content: materialContent,
+              type: clue.type
+            })
+          }
         }
+      } catch (error) {
+        console.error('Error processing clue:', clue.id, error)
+        // Continue processing other clues
       }
     }
 
@@ -386,7 +476,7 @@ serve(async (req) => {
       whisperTexts
     )
 
-    console.log('Enhanced prompt built, calling OpenAI with gpt-4o-2024-11-20')
+    console.log('Enhanced prompt built, calling OpenAI with gpt-4.1-2025-04-14')
 
     // Call OpenAI with enhanced prompt
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -396,7 +486,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-2024-11-20',
+        model: 'gpt-4.1-2025-04-14',
         messages: [
           {
             role: 'system',
@@ -549,88 +639,3 @@ serve(async (req) => {
     )
   }
 })
-
-// Helper function to generate realistic content for materials (simulates OCR)
-function generateContentForMaterial(material: any): string {
-  const templates = {
-    'past-question': `Past Examination Questions - ${material.course}
-
-SECTION A: Answer All Questions
-
-1. Define the following terms and explain their significance in ${material.course}:
-   a) [Key concept 1]
-   b) [Key concept 2]
-   c) [Key concept 3]
-
-2. Explain the relationship between [concept A] and [concept B] in the context of ${material.course}.
-
-3. List and briefly describe three practical applications of [main topic] in real-world scenarios.
-
-SECTION B: Answer Any Two Questions
-
-4. Derive the fundamental equation for [key formula] and explain each component.
-
-5. A practical problem involving [calculation type]. Given: [parameters]. Find: [solution requirements].
-
-6. Compare and contrast [concept X] and [concept Y], highlighting their advantages and limitations.`,
-
-    'assignment': `Assignment: ${material.name}
-Course: ${material.course}
-
-Instructions: Complete all questions below. Show all working clearly.
-
-Question 1: Theoretical Analysis
-Analyze the principles of [main topic] as covered in class. Your analysis should include:
-- Definition of key terms
-- Explanation of underlying principles  
-- Real-world applications
-- Critical evaluation
-
-Question 2: Problem Solving
-Solve the following calculation problems:
-a) [Calculation problem 1]
-b) [Calculation problem 2]
-c) [Calculation problem 3]
-
-Question 3: Research Component
-Research and report on current developments in [field]. Include recent advances and future trends.`,
-
-    'notes': `${material.course} - Lecture Notes
-${material.name}
-
-Chapter 1: Introduction to [Main Topic]
-- Definition and scope
-- Historical development
-- Current applications
-- Key terminology
-
-Chapter 2: Fundamental Principles
-- Basic concepts and theories
-- Mathematical foundations
-- Practical implications
-- Case studies
-
-Chapter 3: Advanced Applications
-- Complex problem solving
-- Integration with other fields
-- Future developments
-- Industry standards
-
-Key Points to Remember:
-• [Important concept 1]
-• [Important concept 2]
-• [Important concept 3]
-
-Common Exam Topics:
-- Definitions and explanations
-- Principle applications
-- Problem-solving methods
-- Comparative analysis`
-  }
-
-  const template = templates[material.material_type as keyof typeof templates] || templates['notes']
-  return template.replace(/\[([^\]]+)\]/g, (match, content) => {
-    // Replace placeholders with course-specific content
-    return content.toLowerCase().includes('course') ? material.course : `${content} (${material.course})`
-  })
-}
