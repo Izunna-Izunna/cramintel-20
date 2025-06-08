@@ -1,59 +1,179 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { motion } from 'framer-motion';
+import { Badge } from '@/components/ui/badge';
+import { Brain, RotateCcw, CheckCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+
+interface Flashcard {
+  id: string;
+  question: string;
+  answer: string;
+  course: string;
+  difficulty_level: string;
+}
 
 export function FlashcardOfTheDay() {
-  const [isFlipped, setIsFlipped] = useState(false);
+  const { user } = useAuth();
+  const [flashcard, setFlashcard] = useState<Flashcard | null>(null);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const flashcard = {
-    question: "What is the primary function of the CPU in a computer system?",
-    answer: "The CPU (Central Processing Unit) executes instructions, performs calculations, and manages data flow between different components of the computer system.",
-    subject: "Computer Science",
-    deck: "CSC 101 Fundamentals"
+  const fetchDailyFlashcard = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Get a random flashcard that's due for review
+      const { data: flashcards, error } = await supabase
+        .from('cramintel_flashcards')
+        .select('id, question, answer, course, difficulty_level')
+        .eq('user_id', user.id)
+        .order('last_reviewed', { ascending: true, nullsFirst: true })
+        .limit(5);
+
+      if (error) throw error;
+
+      if (flashcards && flashcards.length > 0) {
+        // Select a random flashcard from the top 5 most due for review
+        const randomIndex = Math.floor(Math.random() * flashcards.length);
+        setFlashcard(flashcards[randomIndex]);
+      }
+    } catch (error) {
+      console.error('Error fetching daily flashcard:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  useEffect(() => {
+    fetchDailyFlashcard();
+  }, [user]);
+
+  const handleNewCard = () => {
+    setShowAnswer(false);
+    fetchDailyFlashcard();
+  };
+
+  const markAsReviewed = async () => {
+    if (!flashcard) return;
+
+    try {
+      await supabase
+        .from('cramintel_flashcards')
+        .update({ 
+          last_reviewed: new Date().toISOString(),
+          times_reviewed: flashcard ? 1 : 0
+        })
+        .eq('id', flashcard.id);
+    } catch (error) {
+      console.error('Error marking flashcard as reviewed:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="w-5 h-5" />
+            <div className="h-5 bg-gray-200 rounded w-32 animate-pulse"></div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-full"></div>
+            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+            <div className="h-8 bg-gray-200 rounded w-24"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!flashcard) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="w-5 h-5" />
+            Flashcard of the Day
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-6">
+            <Brain className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">No flashcards available</p>
+            <p className="text-gray-400 text-xs mt-1">Upload materials to generate flashcards</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200 hover:shadow-lg transition-all duration-300">
-      <CardHeader className="p-4 sm:p-6">
-        <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-gray-800 font-space text-lg sm:text-xl">
-          🃏 Flashcard of the Day
-          <span className="text-xs sm:text-sm font-normal text-gray-600">from {flashcard.deck}</span>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Brain className="w-5 h-5" />
+          Flashcard of the Day
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-4 sm:p-6 pt-0">
-        <div className="relative h-40 sm:h-48 mb-4 md:mb-6">
-          <motion.div
-            className="absolute inset-0 bg-white rounded-xl shadow-sm border border-gray-200 cursor-pointer p-4 sm:p-6 flex items-center justify-center hover:shadow-md transition-shadow duration-300"
-            whileHover={{ scale: 1.02 }}
-            onClick={() => setIsFlipped(!isFlipped)}
-            animate={{ rotateY: isFlipped ? 180 : 0 }}
-            transition={{ duration: 0.6 }}
-            style={{ transformStyle: 'preserve-3d' }}
-          >
-            <div style={{ backfaceVisibility: 'hidden' }}>
-              {!isFlipped ? (
-                <div className="text-center">
-                  <p className="text-sm sm:text-lg font-semibold mb-2 md:mb-3 text-gray-800">Question:</p>
-                  <p className="text-sm sm:text-base text-gray-700 leading-relaxed">{flashcard.question}</p>
-                  <p className="text-xs sm:text-sm text-gray-500 mt-3 md:mt-4">Click to reveal answer</p>
-                </div>
-              ) : (
-                <div className="text-center" style={{ transform: 'rotateY(180deg)' }}>
-                  <p className="text-sm sm:text-lg font-semibold mb-2 md:mb-3 text-gray-700">Answer:</p>
-                  <p className="text-xs sm:text-base text-gray-600 leading-relaxed">{flashcard.answer}</p>
-                </div>
-              )}
-            </div>
-          </motion.div>
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Badge variant="outline">{flashcard.course}</Badge>
+          <Badge variant="secondary" className="text-xs">
+            {flashcard.difficulty_level}
+          </Badge>
         </div>
-        
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <span className="text-xs sm:text-sm text-gray-600 font-medium">{flashcard.subject}</span>
-          <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 hover:bg-gray-50 text-xs sm:text-sm w-full sm:w-auto">
-            Review more from this deck
-          </Button>
+
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h4 className="font-medium text-gray-800 mb-2">Question:</h4>
+          <p className="text-gray-700">{flashcard.question}</p>
+        </div>
+
+        {showAnswer && (
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <h4 className="font-medium text-blue-800 mb-2">Answer:</h4>
+            <p className="text-blue-700">{flashcard.answer}</p>
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          {!showAnswer ? (
+            <Button 
+              onClick={() => setShowAnswer(true)}
+              className="flex-1"
+            >
+              Show Answer
+            </Button>
+          ) : (
+            <>
+              <Button 
+                onClick={() => {
+                  markAsReviewed();
+                  handleNewCard();
+                }}
+                className="flex-1"
+                variant="default"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Got it!
+              </Button>
+              <Button 
+                onClick={handleNewCard}
+                variant="outline"
+                className="flex-1"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Next Card
+              </Button>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>

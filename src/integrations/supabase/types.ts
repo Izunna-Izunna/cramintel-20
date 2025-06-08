@@ -504,6 +504,7 @@ export type Database = {
           email: string
           first_action: string | null
           id: string
+          lecturers: Json | null
           name: string
           school: string | null
           study_style: string | null
@@ -517,6 +518,7 @@ export type Database = {
           email: string
           first_action?: string | null
           id: string
+          lecturers?: Json | null
           name: string
           school?: string | null
           study_style?: string | null
@@ -530,6 +532,7 @@ export type Database = {
           email?: string
           first_action?: string | null
           id?: string
+          lecturers?: Json | null
           name?: string
           school?: string | null
           study_style?: string | null
