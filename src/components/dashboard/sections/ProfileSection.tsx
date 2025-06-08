@@ -15,6 +15,7 @@ interface Lecturer {
   name: string;
   course: string;
   style: string;
+  [key: string]: string;
 }
 
 export function ProfileSection() {
@@ -143,7 +144,7 @@ export function ProfileSection() {
     try {
       const { error } = await supabase
         .from('cramintel_user_profiles')
-        .update({ lecturers: updatedLecturers })
+        .update({ lecturers: updatedLecturers as any })
         .eq('id', user?.id);
 
       if (error) throw error;
@@ -176,7 +177,7 @@ export function ProfileSection() {
     try {
       const { error } = await supabase
         .from('cramintel_user_profiles')
-        .update({ lecturers: updatedLecturers })
+        .update({ lecturers: updatedLecturers as any })
         .eq('id', user?.id);
 
       if (error) throw error;

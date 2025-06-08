@@ -7,6 +7,7 @@ interface Lecturer {
   name: string;
   course: string;
   style: string;
+  [key: string]: string; // Add index signature for Json compatibility
 }
 
 interface UserProfile {
@@ -46,6 +47,21 @@ export function useUserProfile() {
       }
 
       if (data) {
+        // Parse lecturers data safely
+        let lecturers: Lecturer[] = [];
+        if (data.lecturers) {
+          try {
+            if (Array.isArray(data.lecturers)) {
+              lecturers = data.lecturers as Lecturer[];
+            } else if (typeof data.lecturers === 'string') {
+              lecturers = JSON.parse(data.lecturers);
+            }
+          } catch (e) {
+            console.error('Error parsing lecturers data:', e);
+            lecturers = [];
+          }
+        }
+
         setProfile({
           id: data.id,
           name: data.name || '',
@@ -54,7 +70,7 @@ export function useUserProfile() {
           department: data.department || '',
           courses: data.courses || [],
           study_style: data.study_style || '',
-          lecturers: data.lecturers || [],
+          lecturers: lecturers,
           avatar_url: data.avatar_url
         });
       } else {

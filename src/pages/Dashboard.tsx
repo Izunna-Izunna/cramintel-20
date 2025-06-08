@@ -48,7 +48,7 @@ const Dashboard = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <HeroSection userData={userData} />
+              <HeroSection />
             </motion.div>
 
             <motion.div
