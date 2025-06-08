@@ -1,18 +1,19 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaterials } from '@/hooks/useMaterials';
-import { AlertCircle, FileText, Brain, Eye, EyeOff, Download, Search } from 'lucide-react';
+import { AlertCircle, FileText, Brain, Eye, EyeOff, Download, Search, Zap } from 'lucide-react';
 
 export default function TestPredictions() {
   const { user } = useAuth();
   const { materials } = useMaterials();
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
   const [extractedContent, setExtractedContent] = useState<any>(null);
+  const [predictions, setPredictions] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [predictionLoading, setPredictionLoading] = useState(false);
   const [showFullContent, setShowFullContent] = useState(false);
 
   const extractTextFromFile = async (material: any) => {
@@ -40,7 +41,6 @@ export default function TestPredictions() {
       if (material.file_type?.includes('text') || material.file_type?.includes('plain')) {
         textContent = await fileData.text();
       } else if (material.file_type?.includes('pdf')) {
-        // Try to read PDF as text (some PDFs have extractable text)
         try {
           textContent = await fileData.text();
           if (!textContent || textContent.length < 100) {
@@ -50,7 +50,6 @@ export default function TestPredictions() {
           textContent = 'PDF content extraction failed - binary format detected';
         }
       } else {
-        // Try to read other file types as text
         try {
           textContent = await fileData.text();
           if (!textContent) {
@@ -61,19 +60,16 @@ export default function TestPredictions() {
         }
       }
 
-      // Clean and analyze the content
       const cleanedContent = textContent
         .replace(/\s+/g, ' ')
         .replace(/[^\w\s.,!?;:()\-\[\]]/g, '')
         .trim();
 
-      // Extract key information
       const wordCount = textContent.split(/\s+/).filter(word => word.length > 0).length;
       const characterCount = textContent.length;
       const lineCount = textContent.split('\n').length;
       const paragraphCount = textContent.split(/\n\s*\n/).filter(p => p.trim().length > 0).length;
 
-      // Find potential course-related keywords
       const courseKeywords = [
         'entrepreneurship', 'business', 'startup', 'venture', 'innovation', 
         'business plan', 'market', 'revenue', 'profit', 'customer', 'strategy',
@@ -133,6 +129,7 @@ export default function TestPredictions() {
 
     setLoading(true);
     setExtractedContent(null);
+    setPredictions(null);
     setShowFullContent(false);
 
     try {
@@ -148,6 +145,58 @@ export default function TestPredictions() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generatePredictions = async () => {
+    if (!extractedContent || !extractedContent.content || extractedContent.error) {
+      alert('Please extract content first and ensure there are no errors');
+      return;
+    }
+
+    setPredictionLoading(true);
+    setPredictions(null);
+
+    try {
+      console.log('Generating predictions for material:', extractedContent.materialName);
+      
+      // Call the generate-predictions function with the extracted content
+      const { data, error } = await supabase.functions.invoke('generate-predictions', {
+        body: {
+          clues: [{
+            id: extractedContent.materialId,
+            type: 'material',
+            materialId: extractedContent.materialId,
+            content: extractedContent.content
+          }],
+          context: {
+            course: extractedContent.course || 'General Course',
+            examDate: null
+          },
+          style: 'predictions'
+        }
+      });
+
+      if (error) {
+        console.error('Error generating predictions:', error);
+        setPredictions({
+          error: `Failed to generate predictions: ${error.message}`,
+          predictions: []
+        });
+        return;
+      }
+
+      console.log('Predictions generated successfully:', data);
+      setPredictions(data);
+
+    } catch (error) {
+      console.error('Prediction generation failed:', error);
+      setPredictions({
+        error: error.message,
+        predictions: []
+      });
+    } finally {
+      setPredictionLoading(false);
     }
   };
 
@@ -169,8 +218,8 @@ export default function TestPredictions() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Material Content Analyzer</h1>
-          <p className="text-gray-600">Select a material to extract and analyze all its content in detail</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Material Content Analyzer & Predictor</h1>
+          <p className="text-gray-600">Select a material to extract content and generate quality exam predictions</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -234,13 +283,27 @@ export default function TestPredictions() {
                       </div>
                     </div>
                     
-                    <Button 
-                      onClick={() => analyzeMaterial(selectedMaterial)}
-                      disabled={loading}
-                      className="w-full"
-                    >
-                      {loading ? 'Analyzing Content...' : 'Extract & Analyze All Content'}
-                    </Button>
+                    <div className="flex gap-3">
+                      <Button 
+                        onClick={() => analyzeMaterial(selectedMaterial)}
+                        disabled={loading}
+                        className="flex-1"
+                      >
+                        {loading ? 'Analyzing Content...' : 'Extract & Analyze All Content'}
+                      </Button>
+                      
+                      {extractedContent && !extractedContent.error && (
+                        <Button 
+                          onClick={generatePredictions}
+                          disabled={predictionLoading}
+                          variant="outline"
+                          className="flex-1 flex items-center gap-2"
+                        >
+                          <Zap className="w-4 h-4" />
+                          {predictionLoading ? 'Generating...' : 'Generate Predictions'}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-8">
@@ -384,6 +447,141 @@ export default function TestPredictions() {
                                 </div>
                               </div>
                             )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Predictions Section */}
+            {predictions && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Zap className="w-5 h-5" />
+                    AI-Generated Exam Predictions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {predictions.error ? (
+                      <div className="bg-red-50 border border-red-200 p-4 rounded">
+                        <p className="text-red-700">❌ Prediction Error: {predictions.error}</p>
+                      </div>
+                    ) : (
+                      <div>
+                        {/* Prediction Summary */}
+                        {predictions.prediction && (
+                          <div className="bg-blue-50 border border-blue-200 p-4 rounded mb-6">
+                            <h3 className="font-semibold text-blue-800 mb-2">Prediction Summary:</h3>
+                            <div className="text-sm text-blue-700 grid grid-cols-2 gap-4">
+                              <div><strong>Confidence Score:</strong> {predictions.prediction.confidence_score}%</div>
+                              <div><strong>Course:</strong> {predictions.prediction.course}</div>
+                              <div><strong>Generated:</strong> {new Date(predictions.prediction.generated_at).toLocaleString()}</div>
+                              <div><strong>Status:</strong> {predictions.prediction.status}</div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Content Analysis Info */}
+                        {predictions.content_analysis && (
+                          <div className="bg-green-50 border border-green-200 p-4 rounded mb-6">
+                            <h3 className="font-semibold text-green-800 mb-2">Content Analysis:</h3>
+                            <div className="text-sm text-green-700">
+                              <div><strong>Materials Processed:</strong> {predictions.content_analysis.materials_processed}</div>
+                              <div><strong>Total Content Length:</strong> {predictions.content_analysis.total_content_length?.toLocaleString()} characters</div>
+                              <div><strong>Whispers Count:</strong> {predictions.content_analysis.whispers_count}</div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Generated Predictions */}
+                        {predictions.generated_content?.predictions && (
+                          <div>
+                            <h3 className="font-semibold text-lg mb-4">Quality Exam Predictions ({predictions.generated_content.predictions.length}):</h3>
+                            <div className="space-y-4">
+                              {predictions.generated_content.predictions.slice(0, 20).map((prediction, index) => (
+                                <div key={index} className="bg-white border rounded p-4 shadow-sm">
+                                  <div className="flex items-start justify-between mb-3">
+                                    <div className="text-sm font-medium text-gray-600">
+                                      Question #{index + 1}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {prediction.confidence && (
+                                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                          prediction.confidence >= 85 ? 'bg-green-100 text-green-700' :
+                                          prediction.confidence >= 70 ? 'bg-yellow-100 text-yellow-700' :
+                                          'bg-red-100 text-red-700'
+                                        }`}>
+                                          {prediction.confidence}% confidence
+                                        </span>
+                                      )}
+                                      {prediction.type && (
+                                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                                          {prediction.type}
+                                        </span>
+                                      )}
+                                      {prediction.difficulty && (
+                                        <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium">
+                                          {prediction.difficulty}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="mb-3">
+                                    <div className="font-medium text-gray-800 mb-2">Question:</div>
+                                    <div className="text-gray-700 bg-gray-50 p-3 rounded">
+                                      {prediction.question}
+                                    </div>
+                                  </div>
+
+                                  {prediction.reasoning && (
+                                    <div className="mb-3">
+                                      <div className="text-sm font-medium text-gray-600 mb-1">Reasoning:</div>
+                                      <div className="text-sm text-gray-600">
+                                        {prediction.reasoning}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {prediction.sources && prediction.sources.length > 0 && (
+                                    <div>
+                                      <div className="text-sm font-medium text-gray-600 mb-1">Sources:</div>
+                                      <div className="flex flex-wrap gap-1">
+                                        {prediction.sources.map((source, srcIndex) => (
+                                          <span key={srcIndex} className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
+                                            {source}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+
+                            {predictions.generated_content.predictions.length > 20 && (
+                              <div className="mt-4 text-center text-gray-500">
+                                Showing first 20 predictions out of {predictions.generated_content.predictions.length} total
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Overall Analysis */}
+                        {predictions.generated_content?.overall_confidence && (
+                          <div className="mt-6 bg-gray-50 border border-gray-200 p-4 rounded">
+                            <h3 className="font-semibold text-gray-800 mb-2">Overall Analysis:</h3>
+                            <div className="text-sm text-gray-700">
+                              <div><strong>Overall Confidence:</strong> {predictions.generated_content.overall_confidence}%</div>
+                              {predictions.generated_content.analysis_summary && (
+                                <div className="mt-2"><strong>Summary:</strong> {predictions.generated_content.analysis_summary}</div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
