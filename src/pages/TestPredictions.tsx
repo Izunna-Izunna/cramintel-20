@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,27 +43,69 @@ export default function TestPredictions() {
         textContent = await fileData.text();
       } else if (material.file_type?.includes('pdf')) {
         try {
-          textContent = await fileData.text();
-          if (!textContent || textContent.length < 100) {
-            textContent = 'PDF content extraction requires OCR - text layer not available or insufficient';
+          // For PDF files, we need better handling
+          const arrayBuffer = await fileData.arrayBuffer();
+          
+          // Try to extract text - if it fails, provide a helpful fallback
+          try {
+            textContent = await fileData.text();
+            
+            // Check if the content looks corrupted (contains many special characters)
+            const corruptedPattern = /[^\x20-\x7E\s]/g;
+            const corruptedCharCount = (textContent.match(corruptedPattern) || []).length;
+            const totalChars = textContent.length;
+            
+            if (totalChars === 0 || (corruptedCharCount / totalChars) > 0.3) {
+              throw new Error('PDF contains mostly binary/corrupted content');
+            }
+            
+            console.log('PDF text extracted successfully');
+          } catch (pdfError) {
+            console.error('PDF text extraction failed:', pdfError);
+            textContent = `PDF Text Extraction Issue: This PDF file contains images, scanned content, or encoded text that cannot be directly extracted as plain text.
+
+For testing purposes, here is sample ${material.course || 'course'} content:
+
+SAMPLE ACADEMIC CONTENT FOR ${material.course || 'COURSE'}
+
+Introduction to ${material.course || 'the subject'}:
+This material covers fundamental concepts and principles that are essential for understanding the core topics in ${material.course || 'this field'}.
+
+Key Learning Objectives:
+1. Understand the basic principles and theories
+2. Apply knowledge to practical problems
+3. Analyze and evaluate different approaches
+4. Synthesize information from multiple sources
+
+Important Topics Covered:
+- Theoretical foundations and background
+- Methodology and practical applications  
+- Case studies and real-world examples
+- Current trends and future developments
+
+Assessment Methods:
+Students will be evaluated through examinations that test both theoretical knowledge and practical application of concepts learned throughout the course.
+
+Note: This is sample content generated because the original PDF could not be properly extracted. For accurate predictions, please use text-based files or PDFs with selectable text.`;
           }
         } catch (error) {
-          textContent = 'PDF content extraction failed - binary format detected';
+          textContent = `PDF processing failed: ${error.message}. Please ensure the PDF contains selectable text, not just images.`;
         }
       } else {
         try {
           textContent = await fileData.text();
           if (!textContent) {
-            textContent = 'File content could not be extracted as text';
+            textContent = `File content could not be extracted as text. File type: ${material.file_type}`;
           }
         } catch (error) {
           textContent = `File reading failed: ${error.message}`;
         }
       }
 
+      // Clean and validate content
       const cleanedContent = textContent
         .replace(/\s+/g, ' ')
-        .replace(/[^\w\s.,!?;:()\-\[\]]/g, '')
+        .replace(/[^\w\s.,!?;:()\-\[\]"']/g, ' ')
         .trim();
 
       const wordCount = textContent.split(/\s+/).filter(word => word.length > 0).length;
@@ -70,10 +113,13 @@ export default function TestPredictions() {
       const lineCount = textContent.split('\n').length;
       const paragraphCount = textContent.split(/\n\s*\n/).filter(p => p.trim().length > 0).length;
 
+      // Course-specific keyword detection
       const courseKeywords = [
         'entrepreneurship', 'business', 'startup', 'venture', 'innovation', 
         'business plan', 'market', 'revenue', 'profit', 'customer', 'strategy',
-        'competition', 'funding', 'investment', 'pitch', 'marketing'
+        'competition', 'funding', 'investment', 'pitch', 'marketing', 'engineering',
+        'thermodynamics', 'mechanics', 'physics', 'mathematics', 'calculus',
+        'biology', 'chemistry', 'science', 'research', 'analysis', 'theory'
       ];
       
       const foundKeywords = courseKeywords.filter(keyword => 
@@ -100,7 +146,8 @@ export default function TestPredictions() {
         paragraphCount: paragraphCount,
         foundKeywords: foundKeywords,
         error: null,
-        extractionTimestamp: new Date().toISOString()
+        extractionTimestamp: new Date().toISOString(),
+        isContentValid: cleanedContent.length > 100 && !textContent.includes('PDF Text Extraction Issue')
       };
 
     } catch (error) {
@@ -159,19 +206,23 @@ export default function TestPredictions() {
 
     try {
       console.log('Generating predictions for material:', extractedContent.materialName);
+      console.log('Using course:', extractedContent.course);
+      console.log('Content length:', extractedContent.content.length);
       
-      // Call the generate-predictions function with the extracted content
+      // Call the generate-predictions function with the extracted content and correct course info
       const { data, error } = await supabase.functions.invoke('generate-predictions', {
         body: {
           clues: [{
             id: extractedContent.materialId,
             type: 'material',
             materialId: extractedContent.materialId,
-            content: extractedContent.content
+            content: extractedContent.content,
+            materialType: extractedContent.materialType
           }],
           context: {
             course: extractedContent.course || 'General Course',
-            examDate: null
+            examDate: null,
+            materialType: extractedContent.materialType
           },
           style: 'predictions'
         }
@@ -220,6 +271,11 @@ export default function TestPredictions() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Material Content Analyzer & Predictor</h1>
           <p className="text-gray-600">Select a material to extract content and generate quality exam predictions</p>
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
+            <p className="text-blue-800 text-sm">
+              <strong>Note:</strong> This tool works best with text-based files. PDF files with images or scanned content may not extract properly.
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -292,7 +348,7 @@ export default function TestPredictions() {
                         {loading ? 'Analyzing Content...' : 'Extract & Analyze All Content'}
                       </Button>
                       
-                      {extractedContent && !extractedContent.error && (
+                      {extractedContent && !extractedContent.error && extractedContent.isContentValid && (
                         <Button 
                           onClick={generatePredictions}
                           disabled={predictionLoading}
@@ -359,9 +415,9 @@ export default function TestPredictions() {
                         </div>
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-gray-600">Lines</div>
-                        <div className="text-lg font-semibold">
-                          {extractedContent.lineCount?.toLocaleString() || 'N/A'}
+                        <div className="text-sm font-medium text-gray-600">Content Quality</div>
+                        <div className={`text-lg font-semibold ${extractedContent.isContentValid ? 'text-green-600' : 'text-red-600'}`}>
+                          {extractedContent.isContentValid ? 'Good' : 'Poor'}
                         </div>
                       </div>
                     </div>
@@ -393,12 +449,19 @@ export default function TestPredictions() {
                           </div>
                         ) : (
                           <div className="space-y-4">
-                            <div className="bg-green-50 border border-green-200 p-4 rounded">
-                              <p className="text-green-700 mb-2">✅ Content extracted successfully</p>
-                              <div className="text-sm text-green-600">
+                            <div className={`border p-4 rounded ${extractedContent.isContentValid ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                              <p className={`mb-2 ${extractedContent.isContentValid ? 'text-green-700' : 'text-amber-700'}`}>
+                                {extractedContent.isContentValid ? '✅ Content extracted successfully' : '⚠️ Content extracted but may have quality issues'}
+                              </p>
+                              <div className={`text-sm ${extractedContent.isContentValid ? 'text-green-600' : 'text-amber-600'}`}>
                                 Original: {extractedContent.contentLength.toLocaleString()} characters | 
                                 Cleaned: {extractedContent.cleanedContentLength?.toLocaleString() || 'N/A'} characters
                               </div>
+                              {!extractedContent.isContentValid && (
+                                <div className="mt-2 text-sm text-amber-700">
+                                  <strong>Recommendation:</strong> For better predictions, use text files or PDFs with selectable text.
+                                </div>
+                              )}
                             </div>
 
                             {/* Content Display Controls */}
