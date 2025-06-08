@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +7,7 @@ import { AIModeSelector, AIMode } from './ai-chat/AIModeSelector';
 import { MaterialAttachment } from './ai-chat/MaterialAttachment';
 import { ChatMessage } from './ai-chat/ChatMessage';
 import { QuickActions } from './ai-chat/QuickActions';
+import { ScrollButtons } from './ai-chat/ScrollButtons';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -42,6 +42,7 @@ export function AIChatSection() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const handleModeChange = (mode: AIMode) => {
     setSelectedMode(mode);
@@ -179,7 +180,7 @@ export function AIChatSection() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       <div>
         <h2 className="text-3xl font-bold text-gray-800 font-space mb-2">AI Tutor</h2>
         <p className="text-gray-600">Get personalized help with different AI modes and attach your materials for context</p>
@@ -202,7 +203,10 @@ export function AIChatSection() {
         />
 
         <CardContent className="flex-1 flex flex-col p-0">
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div 
+            ref={chatContainerRef}
+            className="flex-1 overflow-y-auto p-4 space-y-4"
+          >
             {messages.map((msg) => (
               <ChatMessage
                 key={msg.id}
@@ -250,6 +254,8 @@ export function AIChatSection() {
 
         <QuickActions mode={selectedMode} onQuickAction={handleQuickAction} />
       </Card>
+
+      <ScrollButtons containerRef={chatContainerRef} />
     </div>
   );
 }
