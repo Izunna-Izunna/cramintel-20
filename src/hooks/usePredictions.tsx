@@ -34,7 +34,19 @@ export function usePredictions() {
         return;
       }
 
-      setPredictions(data || []);
+      // Transform the data to match our Prediction interface
+      const transformedData: Prediction[] = (data || []).map(item => ({
+        id: item.id,
+        course: item.course,
+        questions: Array.isArray(item.questions) ? item.questions : [],
+        confidence_score: item.confidence_score || 0,
+        generated_at: item.generated_at,
+        status: item.status,
+        prediction_type: item.prediction_type,
+        exam_date: item.exam_date
+      }));
+
+      setPredictions(transformedData);
     } catch (error) {
       console.error('Error fetching predictions:', error);
     } finally {
