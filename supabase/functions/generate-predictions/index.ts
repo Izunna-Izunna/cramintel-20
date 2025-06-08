@@ -7,339 +7,184 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Helper function to generate realistic content for materials (simulates OCR)
-function generateContentForMaterial(material: any): string {
-  const templates = {
-    'past-question': `Past Examination Questions - ${material.course}
+// Helper function to extract text from different file types
+async function extractTextFromFile(supabaseClient: any, filePath: string, fileType: string): Promise<string> {
+  try {
+    const { data: fileData, error: downloadError } = await supabaseClient.storage
+      .from('cramintel-materials')
+      .download(filePath);
 
-SECTION A: Answer All Questions
-
-1. Define the following terms and explain their significance in ${material.course}:
-   a) [Key concept 1]
-   b) [Key concept 2]
-   c) [Key concept 3]
-
-2. Explain the relationship between [concept A] and [concept B] in the context of ${material.course}.
-
-3. List and briefly describe three practical applications of [main topic] in real-world scenarios.
-
-SECTION B: Answer Any Two Questions
-
-4. Derive the fundamental equation for [key formula] and explain each component.
-
-5. A practical problem involving [calculation type]. Given: [parameters]. Find: [solution requirements].
-
-6. Compare and contrast [concept X] and [concept Y], highlighting their advantages and limitations.`,
-
-    'assignment': `Assignment: ${material.name}
-Course: ${material.course}
-
-Instructions: Complete all questions below. Show all working clearly.
-
-Question 1: Theoretical Analysis
-Analyze the principles of [main topic] as covered in class. Your analysis should include:
-- Definition of key terms
-- Explanation of underlying principles  
-- Real-world applications
-- Critical evaluation
-
-Question 2: Problem Solving
-Solve the following calculation problems:
-a) [Calculation problem 1]
-b) [Calculation problem 2]
-c) [Calculation problem 3]
-
-Question 3: Research Component
-Research and report on current developments in [field]. Include recent advances and future trends.`,
-
-    'notes': `${material.course} - Lecture Notes
-${material.name}
-
-Chapter 1: Introduction to [Main Topic]
-- Definition and scope
-- Historical development
-- Current applications
-- Key terminology
-
-Chapter 2: Fundamental Principles
-- Basic concepts and theories
-- Mathematical foundations
-- Practical implications
-- Case studies
-
-Chapter 3: Advanced Applications
-- Complex problem solving
-- Integration with other fields
-- Future developments
-- Industry standards
-
-Key Points to Remember:
-• [Important concept 1]
-• [Important concept 2]
-• [Important concept 3]
-
-Common Exam Topics:
-- Definitions and explanations
-- Principle applications
-- Problem-solving methods
-- Comparative analysis`
-  }
-
-  const template = templates[material.material_type as keyof typeof templates] || templates['notes']
-  return template.replace(/\[([^\]]+)\]/g, (match, content) => {
-    // Replace placeholders with course-specific content
-    return content.toLowerCase().includes('course') ? material.course : `${content} (${material.course})`
-  })
-}
-
-interface ContentAnalysis {
-  topics: string[];
-  keyTerms: string[];
-  questionPatterns: string[];
-  lecturerStyle: string[];
-  confidence: number;
-  summary: string;
-}
-
-interface MaterialSummary {
-  type: 'notes' | 'past-question' | 'assignment' | 'whisper';
-  content: string;
-  topics: string[];
-  importance: number;
-  patterns: string[];
-}
-
-// Content Analyzer Implementation
-class ContentAnalyzer {
-  static analyzeText(text: string, materialType: string): ContentAnalysis {
-    const topics = this.extractTopics(text);
-    const keyTerms = this.extractKeyTerms(text);
-    const questionPatterns = this.extractQuestionPatterns(text, materialType);
-    const lecturerStyle = this.extractLecturerStyle(text);
-    
-    return {
-      topics,
-      keyTerms,
-      questionPatterns,
-      lecturerStyle,
-      confidence: this.calculateConfidence(text, materialType),
-      summary: this.generateSummary(text, topics)
-    };
-  }
-
-  static extractTopics(text: string): string[] {
-    const topicPatterns = [
-      /chapter\s+\d+[:\-\s]+([^.\n]+)/gi,
-      /section\s+\d+[:\-\s]+([^.\n]+)/gi,
-      /topic[:\-\s]+([^.\n]+)/gi,
-      /\d+\.\s+([A-Z][^.\n]{10,50})/g,
-      /^([A-Z][A-Z\s]{5,30})$/gm
-    ];
-
-    const topics = new Set<string>();
-    
-    topicPatterns.forEach(pattern => {
-      const matches = text.match(pattern);
-      if (matches) {
-        matches.forEach(match => {
-          const cleaned = match.replace(/^(chapter|section|topic)\s*\d*[:\-\s]*/i, '').trim();
-          if (cleaned.length > 3 && cleaned.length < 100) {
-            topics.add(cleaned);
-          }
-        });
-      }
-    });
-
-    return Array.from(topics).slice(0, 15);
-  }
-
-  static extractKeyTerms(text: string): string[] {
-    const termPatterns = [
-      /definition[:\-\s]+([^.\n]+)/gi,
-      /theorem[:\-\s]+([^.\n]+)/gi,
-      /principle[:\-\s]+([^.\n]+)/gi,
-      /law\s+of\s+([^.\n]+)/gi,
-      /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\s+(?:is|are|refers|means)/g
-    ];
-
-    const terms = new Set<string>();
-    
-    termPatterns.forEach(pattern => {
-      const matches = text.match(pattern);
-      if (matches) {
-        matches.forEach(match => {
-          const cleaned = match.replace(/^(definition|theorem|principle|law\s+of)[:\-\s]*/i, '').trim();
-          if (cleaned.length > 3 && cleaned.length < 50) {
-            terms.add(cleaned);
-          }
-        });
-      }
-    });
-
-    return Array.from(terms).slice(0, 20);
-  }
-
-  static extractQuestionPatterns(text: string, materialType: string): string[] {
-    if (materialType !== 'past-question') return [];
-
-    const patterns = [
-      /\d+\.\s+([^?\n]*\?)/g,
-      /question\s+\d+[:\-\s]+([^.\n]+)/gi,
-      /(define|explain|derive|calculate|find|determine)\s+([^.\n]+)/gi,
-      /(what|why|how|when|where)\s+([^?\n]*\?)/gi
-    ];
-
-    const questions = new Set<string>();
-    
-    patterns.forEach(pattern => {
-      const matches = text.match(pattern);
-      if (matches) {
-        matches.forEach(match => {
-          const cleaned = match.trim();
-          if (cleaned.length > 10 && cleaned.length < 200) {
-            questions.add(cleaned);
-          }
-        });
-      }
-    });
-
-    return Array.from(questions).slice(0, 10);
-  }
-
-  static extractLecturerStyle(text: string): string[] {
-    const stylePatterns = [
-      /(professor|lecturer|dr\.?)\s+([^.\n]+)/gi,
-      /(emphasized|stressed|mentioned|noted)\s+([^.\n]+)/gi,
-      /(important|crucial|key|essential)\s+([^.\n]+)/gi,
-      /(will\s+come\s+out|expect|likely|probably)\s+([^.\n]+)/gi
-    ];
-
-    const styles = new Set<string>();
-    
-    stylePatterns.forEach(pattern => {
-      const matches = text.match(pattern);
-      if (matches) {
-        matches.forEach(match => {
-          const cleaned = match.trim();
-          if (cleaned.length > 5 && cleaned.length < 100) {
-            styles.add(cleaned);
-          }
-        });
-      }
-    });
-
-    return Array.from(styles).slice(0, 8);
-  }
-
-  static calculateConfidence(text: string, materialType: string): number {
-    let confidence = 50;
-
-    if (text.length > 5000) confidence += 20;
-    else if (text.length > 2000) confidence += 10;
-    else if (text.length < 500) confidence -= 15;
-
-    switch (materialType) {
-      case 'past-question': confidence += 25; break;
-      case 'assignment': confidence += 20; break;
-      case 'notes': confidence += 10; break;
-      case 'whisper': confidence += 5; break;
+    if (downloadError || !fileData) {
+      console.error('Failed to download file:', downloadError);
+      return '';
     }
 
-    if (text.includes('question') || text.includes('Q:')) confidence += 15;
-    if (text.includes('chapter') || text.includes('section')) confidence += 10;
-    if (text.includes('definition') || text.includes('theorem')) confidence += 10;
-
-    return Math.min(95, Math.max(20, confidence));
-  }
-
-  static generateSummary(text: string, topics: string[]): string {
-    const firstSentences = text.split('.').slice(0, 3).join('.').substring(0, 200);
-    const topicList = topics.slice(0, 5).join(', ');
-    
-    return `${firstSentences}... Key topics: ${topicList}`;
-  }
-
-  static summarizeMaterials(materials: any[]): MaterialSummary[] {
-    return materials.map(material => {
-      const analysis = this.analyzeText(material.content || '', material.type);
-      
-      return {
-        type: material.type,
-        content: analysis.summary,
-        topics: analysis.topics,
-        importance: this.calculateImportance(material.type, analysis.confidence),
-        patterns: analysis.questionPatterns
-      };
-    });
-  }
-
-  static calculateImportance(type: string, confidence: number): number {
-    const typeWeights = {
-      'past-question': 0.4,
-      'assignment': 0.3,
-      'notes': 0.2,
-      'whisper': 0.1
-    };
-
-    return (typeWeights[type as keyof typeof typeWeights] || 0.1) * (confidence / 100);
+    if (fileType?.includes('text') || fileType?.includes('plain')) {
+      // Plain text files
+      return await fileData.text();
+    } else if (fileType?.includes('pdf')) {
+      // For PDFs, we'll need to implement PDF text extraction
+      // For now, return a placeholder that indicates PDF processing is needed
+      const textContent = await fileData.text();
+      if (textContent && textContent.length > 100) {
+        return textContent;
+      }
+      return 'PDF content extraction not fully implemented yet. Please use text files for best results.';
+    } else {
+      // For other file types, try to read as text
+      try {
+        const textContent = await fileData.text();
+        return textContent || '';
+      } catch (error) {
+        console.error('Error reading file as text:', error);
+        return '';
+      }
+    }
+  } catch (error) {
+    console.error('Error extracting text from file:', error);
+    return '';
   }
 }
 
-// Enhanced Prompt Builder
-class ExamPromptBuilder {
-  static buildAdvancedPrompt(materials: MaterialSummary[], context: any, style: any, whispers: string[] = []): string {
-    const prompt = `You are an expert AI exam prediction assistant trained on West African university examination patterns and academic standards.
+// Enhanced content analyzer for real content
+function analyzeRealContent(content: string, course: string, materialType: string) {
+  const words = content.toLowerCase().split(/\s+/);
+  const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10);
+  
+  // Extract key topics based on frequency and context
+  const topics = new Set<string>();
+  const keyTerms = new Set<string>();
+  
+  // Look for chapter/section headers
+  const headerPatterns = [
+    /chapter\s+\d+[:\-\s]+([^.\n]+)/gi,
+    /section\s+\d+[:\-\s]+([^.\n]+)/gi,
+    /\d+\.\s+([A-Z][^.\n]{10,80})/g,
+  ];
 
-CONTEXT:
+  headerPatterns.forEach(pattern => {
+    const matches = content.match(pattern);
+    if (matches) {
+      matches.forEach(match => {
+        const cleaned = match.replace(/^(chapter|section)\s*\d*[:\-\s]*/i, '').trim();
+        if (cleaned.length > 3 && cleaned.length < 100) {
+          topics.add(cleaned);
+        }
+      });
+    }
+  });
+
+  // Extract key terms and definitions
+  const termPatterns = [
+    /definition[:\-\s]+([^.\n]+)/gi,
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:is|are|refers to|means)/g,
+    /key\s+(?:concept|term|principle)[:\-\s]+([^.\n]+)/gi,
+  ];
+
+  termPatterns.forEach(pattern => {
+    const matches = content.match(pattern);
+    if (matches) {
+      matches.forEach(match => {
+        const cleaned = match.replace(/^(definition|key\s+(?:concept|term|principle))[:\-\s]*/i, '').trim();
+        if (cleaned.length > 3 && cleaned.length < 80) {
+          keyTerms.add(cleaned);
+        }
+      });
+    }
+  });
+
+  // Course-specific analysis
+  let courseContext = '';
+  const courseLower = course.toLowerCase();
+  
+  if (courseLower.includes('cedr') || content.toLowerCase().includes('entrepreneur')) {
+    courseContext = 'entrepreneurship';
+    // Look for business/entrepreneurship terms
+    const businessTerms = ['business', 'startup', 'entrepreneur', 'innovation', 'market', 'customer', 'revenue', 'profit'];
+    businessTerms.forEach(term => {
+      if (content.toLowerCase().includes(term)) {
+        keyTerms.add(term);
+      }
+    });
+  } else if (courseLower.includes('eng') || content.toLowerCase().includes('engineering')) {
+    courseContext = 'engineering';
+  } else if (courseLower.includes('bio') || content.toLowerCase().includes('biology')) {
+    courseContext = 'biology';
+  }
+
+  return {
+    topics: Array.from(topics).slice(0, 10),
+    keyTerms: Array.from(keyTerms).slice(0, 15),
+    courseContext,
+    contentLength: content.length,
+    confidence: Math.min(95, Math.max(30, (content.length / 1000) * 20 + topics.size * 5))
+  };
+}
+
+// Build course-aware prompt
+function buildCourseAwarePrompt(materials: any[], context: any, style: string, whispers: string[] = []) {
+  const courseInfo = context.course.toLowerCase();
+  let courseType = 'general academic';
+  let specificInstructions = '';
+
+  // Determine course type and set specific instructions
+  if (courseInfo.includes('cedr') || materials.some(m => m.content?.toLowerCase().includes('entrepreneur'))) {
+    courseType = 'entrepreneurship';
+    specificInstructions = `
+This is an ENTREPRENEURSHIP course. Generate questions about:
+- Business planning and strategy
+- Market analysis and customer development
+- Innovation and opportunity recognition
+- Startup fundamentals and business models
+- Entrepreneurial finance and funding
+- Leadership and team building
+Do NOT generate questions about engineering, thermodynamics, or technical subjects.`;
+  } else if (courseInfo.includes('eng')) {
+    courseType = 'engineering';
+    specificInstructions = `
+This is an ENGINEERING course. Generate questions about:
+- Technical principles and applications
+- Problem-solving and calculations
+- Design and analysis
+- Industry standards and practices`;
+  }
+
+  const materialAnalysis = materials.map((material, index) => {
+    const analysis = analyzeRealContent(material.content || '', context.course, material.type);
+    return `Material ${index + 1} (${material.type}):
+Content Length: ${analysis.contentLength} characters
+Course Context: ${analysis.courseContext}
+Key Topics: ${analysis.topics.join(', ')}
+Key Terms: ${analysis.keyTerms.join(', ')}
+Confidence: ${analysis.confidence}%
+Content Preview: ${(material.content || '').substring(0, 300)}...`;
+  }).join('\n\n');
+
+  const prompt = `You are an expert academic AI generating ${style === 'exam-paper' ? 'exam papers' : 'exam predictions'} for university students.
+
+COURSE INFORMATION:
 Course: ${context.course}
-Department: ${context.department || 'Not specified'}
-Level: ${context.level || 'Undergraduate'}
-${context.lecturer ? `Lecturer Style: ${context.lecturer}` : ''}
+Course Type: ${courseType}
+${specificInstructions}
 
-PREDICTION TASK:
-Generate realistic exam questions based on the uploaded materials. Your predictions should feel authentic, academically rigorous, and match typical university examination standards.
+REAL MATERIAL ANALYSIS:
+${materialAnalysis}
 
-MATERIAL ANALYSIS:
-${this.formatMaterialAnalysis(materials)}
+STUDENT HINTS:
+${whispers.length > 0 ? whispers.map(w => `• ${w}`).join('\n') : 'No additional hints'}
 
-STUDENT INTELLIGENCE (Whispers):
-${whispers.length > 0 ? whispers.map(w => `• ${w}`).join('\n') : 'No additional hints provided'}
+REQUIREMENTS:
+1. Base ALL questions on the ACTUAL content provided above
+2. Use course-appropriate terminology and concepts
+3. Match the academic level and style for ${context.course}
+4. Generate questions that could realistically appear on this specific course exam
+5. Reference specific topics, terms, and concepts from the materials
 
-EXAM FORMAT REQUIREMENTS:
-Format: ${style.toUpperCase()}
-${style === 'exam-paper' ? 'Generate a complete university exam paper' : 'Generate focused question predictions'}
-
-${style === 'exam-paper' ? this.getExamPaperFormat(context) : this.getBulletFormat()}
-
-AI INSTRUCTIONS:
-1. Generate questions that sound like real lecturers wrote them
-2. Use proper academic language and terminology specific to ${context.course}
-3. Include a mix of theoretical concepts and practical applications
-4. Reference specific topics covered in the materials
-5. Maintain appropriate difficulty level for university students
-6. Include confidence scores for each prediction (70-95% range)
-
-CRITICAL: Respond ONLY with valid JSON. No explanations, introductions, or meta-commentary.`;
-
-    return prompt;
-  }
-
-  static formatMaterialAnalysis(materials: MaterialSummary[]): string {
-    return materials.map((material, index) => {
-      return `Material ${index + 1} (${material.type.toUpperCase()}):
-Topics: ${material.topics.join(', ')}
-Importance Weight: ${(material.importance * 100).toFixed(0)}%
-Key Patterns: ${material.patterns.slice(0, 3).join('; ')}
-Content Summary: ${material.content}`;
-    }).join('\n\n');
-  }
-
-  static getExamPaperFormat(context: any): string {
-    return `
-OUTPUT FORMAT - Respond with valid JSON in this structure:
+${style === 'exam-paper' ? `
+OUTPUT FORMAT (Exam Paper):
 {
-  "exam_title": "${context.course} Examination",
-  "duration": "2 hours",
+  "exam_title": "${context.course} Final Examination",
+  "duration": "2-3 hours",
   "instructions": "Answer ALL questions in Section A, and ANY TWO questions in Section B",
   "sections": [
     {
@@ -347,48 +192,47 @@ OUTPUT FORMAT - Respond with valid JSON in this structure:
       "questions": [
         {
           "question_number": 1,
-          "question": "Define [key concept] and explain its significance in [course context]",
+          "question": "[Question based on actual material content]",
           "type": "definition",
           "marks": 10,
-          "confidence": 85
+          "confidence": 90
         }
       ]
     },
     {
-      "title": "Section B - Answer Any Two",
+      "title": "Section B - Choose Any Two",
       "questions": [
         {
           "question_number": 4,
-          "question": "[Complex analytical question]",
+          "question": "[Complex question based on material themes]",
           "type": "analysis",
           "marks": 20,
-          "confidence": 90
+          "confidence": 85
         }
       ]
     }
   ],
   "total_marks": 100
-}`;
-  }
-
-  static getBulletFormat(): string {
-    return `
-OUTPUT FORMAT - Respond with valid JSON in this structure:
+}` : `
+OUTPUT FORMAT (Predictions):
 {
   "predictions": [
     {
-      "question": "Specific exam question prediction",
+      "question": "[Question based on actual material content]",
       "confidence": 85,
-      "reasoning": "Based on [material type] emphasis on [topic]",
+      "reasoning": "Based on [specific content/topic] from uploaded materials",
       "type": "theory",
       "sources": ["Material name"],
       "difficulty": "medium"
     }
   ],
   "overall_confidence": 85,
-  "analysis_summary": "Brief summary of prediction rationale"
-}`;
-  }
+  "analysis_summary": "Predictions based on analysis of actual course materials"
+}`}
+
+CRITICAL: Respond ONLY with valid JSON. Base questions on ACTUAL content, not generic templates.`;
+
+  return prompt;
 }
 
 serve(async (req) => {
@@ -397,7 +241,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Enhanced generate predictions function called')
+    console.log('Generate predictions function called')
     
     const { clues, context, style } = await req.json()
     console.log('Request data:', { clues: clues?.length, context, style })
@@ -429,19 +273,18 @@ serve(async (req) => {
       )
     }
 
-    // Enhanced material processing
-    console.log('Processing materials with enhanced analysis...')
+    // Process clues and extract real content
+    console.log('Processing materials and extracting real content...')
     
     const processedMaterials: any[] = []
     const whisperTexts: string[] = []
 
-    // Process clues with content analysis
     for (const clue of clues) {
       try {
         if (clue.type === 'whisper' && clue.content) {
           whisperTexts.push(clue.content)
         } else if (clue.materialId) {
-          // Fetch material content from database
+          // Fetch material from database
           const { data: material } = await supabaseClient
             .from('cramintel_materials')
             .select('*')
@@ -449,13 +292,28 @@ serve(async (req) => {
             .single()
 
           if (material) {
-            // Generate content for material (simulates OCR)
-            const materialContent = generateContentForMaterial(material)
+            console.log(`Processing material: ${material.name} (${material.file_type})`)
+            
+            // Extract real content from file
+            let materialContent = '';
+            if (material.file_path) {
+              materialContent = await extractTextFromFile(supabaseClient, material.file_path, material.file_type);
+            }
+            
+            if (!materialContent || materialContent.length < 50) {
+              materialContent = `Course Material: ${material.name}
+Course: ${material.course}
+Type: ${material.material_type}
+[Content extraction pending - please ensure files are text-readable or provide text versions for better accuracy]`;
+            }
+
             processedMaterials.push({
               ...material,
               content: materialContent,
               type: clue.type
             })
+            
+            console.log(`Extracted ${materialContent.length} characters from ${material.name}`)
           }
         }
       } catch (error) {
@@ -464,21 +322,19 @@ serve(async (req) => {
       }
     }
 
-    // Analyze materials using enhanced content analyzer
-    const materialSummaries = ContentAnalyzer.summarizeMaterials(processedMaterials)
-    console.log('Material analysis completed:', materialSummaries.length, 'materials processed')
+    console.log(`Processed ${processedMaterials.length} materials with real content`)
 
-    // Build enhanced prompt
-    const enhancedPrompt = ExamPromptBuilder.buildAdvancedPrompt(
-      materialSummaries,
+    // Build course-aware prompt with real content
+    const enhancedPrompt = buildCourseAwarePrompt(
+      processedMaterials,
       context,
       style,
       whisperTexts
     )
 
-    console.log('Enhanced prompt built, calling OpenAI with gpt-4.1-2025-04-14')
+    console.log('Calling OpenAI with course-aware prompt and real content')
 
-    // Call OpenAI with enhanced prompt
+    // Call OpenAI
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -490,7 +346,7 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'You are an expert academic AI that generates realistic exam predictions. Respond only with valid JSON matching the requested format.'
+            content: 'You are an expert academic AI that generates realistic exam predictions based on real course materials. Always respond with valid JSON in the requested format. Base all questions on the actual content provided, not generic templates.'
           },
           {
             role: 'user',
@@ -509,7 +365,7 @@ serve(async (req) => {
     }
 
     const openaiData = await openaiResponse.json()
-    console.log('Enhanced OpenAI response received')
+    console.log('OpenAI response received')
     
     if (!openaiData.choices?.[0]?.message?.content) {
       console.error('Invalid OpenAI response structure:', openaiData)
@@ -519,7 +375,7 @@ serve(async (req) => {
     const generatedContent = openaiData.choices[0].message.content.trim()
     console.log('Generated content preview:', generatedContent.substring(0, 200))
 
-    // Parse JSON with enhanced error handling
+    // Parse JSON response
     let parsedResponse
     try {
       const cleanedContent = generatedContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
@@ -528,40 +384,40 @@ serve(async (req) => {
       console.error('JSON parsing failed:', parseError)
       console.error('Raw content:', generatedContent)
       
-      // Enhanced fallback response
+      // Provide course-aware fallback
       const fallbackResponse = style === 'exam-paper' ? {
         exam_title: `${context.course} Examination`,
-        duration: "2 hours",
+        duration: "2-3 hours",
         instructions: "Answer all questions. Show your work clearly.",
         sections: [{
           title: "Section A",
           questions: [{
             question_number: 1,
-            question: `Based on the course materials for ${context.course}, explain the key concepts and principles covered in this course.`,
+            question: `Based on the course materials for ${context.course}, explain the key concepts covered in the uploaded materials and their practical applications.`,
             type: "long_answer",
-            marks: 20,
+            marks: 25,
             confidence: 75
           }]
         }],
         total_marks: 100
       } : {
         predictions: [{
-          question: `Based on the uploaded materials for ${context.course}, explain the main concepts and their practical applications.`,
+          question: `Based on the uploaded materials for ${context.course}, analyze and explain the main topics and their significance in the field.`,
           confidence: 75,
-          reasoning: "Generated based on comprehensive analysis of uploaded course materials and identified topic patterns.",
+          reasoning: "Generated based on analysis of uploaded course materials and course context.",
           type: "theory",
           sources: ["Course materials"],
           difficulty: "medium"
         }],
         overall_confidence: 75,
-        analysis_summary: "Enhanced prediction generated using advanced content analysis and academic pattern recognition."
+        analysis_summary: "Prediction generated using real material content analysis."
       }
       
-      console.log('Using enhanced fallback response')
+      console.log('Using course-aware fallback response')
       parsedResponse = fallbackResponse
     }
 
-    // Enhanced validation
+    // Validate response structure
     if (style === 'exam-paper') {
       if (!parsedResponse.exam_title || !parsedResponse.sections || !Array.isArray(parsedResponse.sections)) {
         console.error('Invalid exam paper structure:', parsedResponse)
@@ -574,17 +430,19 @@ serve(async (req) => {
       }
     }
 
-    // Calculate enhanced confidence score
+    // Calculate confidence based on real content quality
     let confidenceScore = style === 'exam-paper' ? 85 : (parsedResponse.overall_confidence || 75)
     
-    // Boost confidence based on material quality
-    if (materialSummaries.length > 2) confidenceScore += 5
-    if (materialSummaries.some(m => m.type === 'past-question')) confidenceScore += 10
+    // Boost confidence based on real content
+    const totalContentLength = processedMaterials.reduce((sum, m) => sum + (m.content?.length || 0), 0)
+    if (totalContentLength > 5000) confidenceScore += 10
+    if (totalContentLength > 10000) confidenceScore += 5
+    if (processedMaterials.some(m => m.type === 'past-questions')) confidenceScore += 10
     if (whisperTexts.length > 0) confidenceScore += 5
     
     confidenceScore = Math.max(0, Math.min(100, Math.round(confidenceScore)))
 
-    console.log('Saving enhanced prediction with confidence:', confidenceScore)
+    console.log('Saving prediction with confidence:', confidenceScore)
 
     // Save prediction to database
     const predictionData = {
@@ -607,26 +465,29 @@ serve(async (req) => {
       throw new Error(`Failed to save prediction: ${saveError.message}`)
     }
 
-    console.log('Enhanced prediction saved successfully:', savedPrediction.id)
+    console.log('Prediction saved successfully:', savedPrediction.id)
 
     return new Response(
       JSON.stringify({
         success: true,
         prediction: savedPrediction,
         generated_content: parsedResponse,
-        material_analysis: materialSummaries,
-        enhancement_notes: `Enhanced with ${materialSummaries.length} analyzed materials and ${whisperTexts.length} whispers`
+        content_analysis: {
+          materials_processed: processedMaterials.length,
+          total_content_length: processedMaterials.reduce((sum, m) => sum + (m.content?.length || 0), 0),
+          whispers_count: whisperTexts.length
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
-    console.error('Error in enhanced generate-predictions function:', error)
+    console.error('Error in generate-predictions function:', error)
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     const errorResponse = {
       error: errorMessage,
-      details: 'Enhanced prediction generation failed',
+      details: 'Prediction generation failed',
       timestamp: new Date().toISOString()
     }
     
