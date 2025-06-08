@@ -10,6 +10,7 @@ export interface Material {
   course: string;
   file_type: string;
   file_name: string;
+  file_size: number;
   processed: boolean;
   upload_date: string;
   file_path?: string;
