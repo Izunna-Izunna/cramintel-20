@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Upload, FileText, MessageSquare, BookOpen, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -78,14 +77,14 @@ export function UploadCluesStep({ clues, onCluesChange, onNext, onBack }: Upload
     }
   };
 
-  const getClueColor = (type: string): 'blue' | 'green' | 'orange' => {
+  const getClueColor = (type: string): 'blue' | 'green' | 'yellow' => {
     switch (type) {
       case 'past-questions':
         return 'blue';
       case 'assignment':
         return 'green';
       case 'whisper':
-        return 'orange';
+        return 'yellow';
       default:
         return 'blue';
     }
@@ -143,8 +142,8 @@ export function UploadCluesStep({ clues, onCluesChange, onNext, onBack }: Upload
 
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowWhisperInput(true)}>
           <CardContent className="p-6 text-center">
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-              <MessageSquare className="w-6 h-6 text-orange-600" />
+            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+              <MessageSquare className="w-6 h-6 text-yellow-600" />
             </div>
             <h4 className="font-semibold mb-1">Class Whispers</h4>
             <p className="text-sm text-gray-600 mb-3">Lecturer hints, rumors</p>

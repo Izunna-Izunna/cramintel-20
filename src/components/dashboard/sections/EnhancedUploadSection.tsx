@@ -438,7 +438,7 @@ export function EnhancedUploadSection() {
                         <TagChip
                           key={course}
                           label={course}
-                          color={selectedCourse === course ? 'blue' : 'default'}
+                          color={selectedCourse === course ? 'blue' : 'gray'}
                           onClick={() => !isProcessing && setSelectedCourse(course)}
                         />
                       ))}
@@ -452,7 +452,7 @@ export function EnhancedUploadSection() {
                         <TagChip
                           key={type.id}
                           label={`${type.icon} ${type.label}`}
-                          color={selectedType === type.id ? 'green' : 'default'}
+                          color={selectedType === type.id ? 'green' : 'gray'}
                           onClick={() => !isProcessing && setSelectedType(type.id)}
                         />
                       ))}
