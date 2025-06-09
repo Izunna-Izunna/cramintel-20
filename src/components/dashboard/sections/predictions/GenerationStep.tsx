@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Brain, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
@@ -6,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { PredictionResponse } from '@/types/predictions';
 
 interface PredictionData {
   clues: Array<{
@@ -27,9 +27,10 @@ interface GenerationStepProps {
   predictionData: PredictionData;
   onNext: () => void;
   onBack: () => void;
+  onGenerationComplete: (generatedContent: PredictionResponse) => void;
 }
 
-export function GenerationStep({ predictionData, onNext, onBack }: GenerationStepProps) {
+export function GenerationStep({ predictionData, onNext, onBack, onGenerationComplete }: GenerationStepProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTask, setCurrentTask] = useState('');
@@ -121,6 +122,11 @@ export function GenerationStep({ predictionData, onNext, onBack }: GenerationSte
 
       setProgress(100);
       setCurrentTask('Predictions generated successfully!');
+      
+      // Call the completion handler with the generated content
+      if (data.data) {
+        onGenerationComplete(data.data);
+      }
       
       toast({
         title: "Success!",
