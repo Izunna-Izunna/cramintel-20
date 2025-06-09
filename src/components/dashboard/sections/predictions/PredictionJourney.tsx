@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, X } from 'lucide-react';
@@ -25,6 +26,7 @@ interface PredictionData {
     name: string;
     type: 'past-questions' | 'assignment' | 'whisper';
     content?: string;
+    materialId?: string;
   }>;
   context: {
     course: string;
@@ -69,6 +71,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
   };
 
   const handleGenerationComplete = (generatedContent: PredictionResponse) => {
+    console.log('Generation complete, received content:', generatedContent);
     setPredictionData(prev => ({
       ...prev,
       generatedContent

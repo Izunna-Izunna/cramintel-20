@@ -1,11 +1,10 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Download, Printer, Clock, Users, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExamPaperStructure, ExamSection, GeneratedQuestion } from '@/types/predictions';
+import { ExamSection, GeneratedQuestion, PredictionResponse } from '@/types/predictions';
 import 'katex/dist/katex.min.css';
 
 interface PredictionData {
@@ -14,6 +13,7 @@ interface PredictionData {
     name: string;
     type: 'past-questions' | 'assignment' | 'whisper';
     content?: string;
+    materialId?: string;
   }>;
   context: {
     course: string;
@@ -21,7 +21,7 @@ interface PredictionData {
     lecturer?: string;
   };
   style: 'bullet' | 'theory' | 'mixed' | 'exam-paper';
-  generatedContent?: ExamPaperStructure;
+  generatedContent?: PredictionResponse;
 }
 
 interface ExamPaperViewProps {
@@ -31,6 +31,8 @@ interface ExamPaperViewProps {
 }
 
 export function ExamPaperView({ predictionData, onBack, onClose }: ExamPaperViewProps) {
+  console.log('ExamPaperView received data:', predictionData);
+  
   // Extract real exam paper data from generated content
   const examData = predictionData.generatedContent;
   
@@ -44,23 +46,24 @@ export function ExamPaperView({ predictionData, onBack, onClose }: ExamPaperView
   // Use real sections from AI or create fallback
   const examSections = examData?.sections || [
     {
-      title: "Section A - Theory Questions",
-      questions: [
+      title: "Section A - Generated Questions",
+      questions: examData?.predictions?.map((pred, index) => ({
+        question: pred.question,
+        type: pred.type || "theory",
+        marks: pred.marks || 15,
+        confidence: pred.confidence || 75
+      })) || [
         {
-          question: `Define and explain the key concepts covered in your ${predictionData.context.course} materials`,
-          type: "theory",
-          marks: 15,
-          confidence: 85
-        },
-        {
-          question: `Analyze the main principles discussed in your uploaded course documents`,
-          type: "analysis", 
-          marks: 20,
-          confidence: 78
+          question: `No exam content was generated. Please try again with different materials.`,
+          type: "error",
+          marks: 0,
+          confidence: 0
         }
       ]
     }
   ];
+
+  console.log('Exam sections:', examSections);
 
   const renderMathFormula = (formula: string) => {
     return (
