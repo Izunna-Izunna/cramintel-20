@@ -1,18 +1,20 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, TrendingUp, Clock, Brain, Plus } from 'lucide-react';
+import { Sparkles, TrendingUp, Clock, Brain, Plus, Trash2 } from 'lucide-react';
 import { PredictionJourney } from './predictions/PredictionJourney';
 import { SavedPredictionView } from './predictions/SavedPredictionView';
 import { usePredictions, Prediction } from '@/hooks/usePredictions';
 import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export function PredictionsSection() {
   const [showJourney, setShowJourney] = useState(false);
   const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
-  const { predictions, loading } = usePredictions();
+  const { predictions, loading, fetchPredictions } = usePredictions();
+  const { toast } = useToast();
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -54,6 +56,36 @@ export function PredictionsSection() {
         return 'Mixed Format';
       default:
         return 'Prediction';
+    }
+  };
+
+  const handleDeletePrediction = async (predictionId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent card click from firing
+    
+    try {
+      const { error } = await supabase
+        .from('cramintel_predictions')
+        .delete()
+        .eq('id', predictionId);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Prediction deleted",
+        description: "The prediction has been successfully removed.",
+      });
+
+      // Refresh the predictions list
+      await fetchPredictions();
+    } catch (error) {
+      console.error('Error deleting prediction:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete the prediction. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -136,9 +168,19 @@ export function PredictionsSection() {
                         {getTypeIcon(prediction.prediction_type)}
                         <CardTitle className="text-lg">{getTypeLabel(prediction.prediction_type)}</CardTitle>
                       </div>
-                      <Badge variant="secondary" className="bg-gray-100 text-gray-700">
-                        {Math.round(prediction.confidence_score)}% likely
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="bg-gray-100 text-gray-700">
+                          {Math.round(prediction.confidence_score)}% likely
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => handleDeletePrediction(prediction.id, e)}
+                          className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
