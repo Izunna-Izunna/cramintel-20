@@ -283,6 +283,50 @@ export type Database = {
         }
         Relationships: []
       }
+      cramintel_extracted_texts: {
+        Row: {
+          character_count: number | null
+          created_at: string
+          extracted_text: string
+          extraction_confidence: number | null
+          extraction_method: string
+          id: string
+          material_id: string
+          updated_at: string
+          word_count: number | null
+        }
+        Insert: {
+          character_count?: number | null
+          created_at?: string
+          extracted_text: string
+          extraction_confidence?: number | null
+          extraction_method?: string
+          id?: string
+          material_id: string
+          updated_at?: string
+          word_count?: number | null
+        }
+        Update: {
+          character_count?: number | null
+          created_at?: string
+          extracted_text?: string
+          extraction_confidence?: number | null
+          extraction_method?: string
+          id?: string
+          material_id?: string
+          updated_at?: string
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_extracted_texts_material"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "cramintel_materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cramintel_flashcards: {
         Row: {
           answer: string

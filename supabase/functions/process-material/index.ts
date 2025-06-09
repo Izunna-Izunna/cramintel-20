@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
@@ -15,6 +16,54 @@ interface FlashcardQuestion {
   topic?: string;
 }
 
+// Function to validate text quality
+function isValidExtractedText(text: string): boolean {
+  if (!text || text.trim().length < 50) return false;
+  
+  // Check for garbled content (repeated characters, excessive numbers)
+  const repeatedPattern = /(.)\1{10,}/g;
+  const excessiveNumbers = /\d{20,}/g;
+  const meaninglessPattern = /^[^a-zA-Z]*$/;
+  
+  if (repeatedPattern.test(text) || excessiveNumbers.test(text) || meaninglessPattern.test(text.slice(0, 100))) {
+    return false;
+  }
+  
+  // Check for minimum word count and character variety
+  const words = text.split(/\s+/).filter(word => word.length > 2);
+  const uniqueChars = new Set(text.toLowerCase().split(''));
+  
+  return words.length >= 10 && uniqueChars.size >= 15;
+}
+
+// Function to store extracted text
+async function storeExtractedText(supabase: any, materialId: string, text: string, method: string, confidence?: number) {
+  const wordCount = text.split(/\s+/).length;
+  const characterCount = text.length;
+  
+  const { data, error } = await supabase
+    .from('cramintel_extracted_texts')
+    .upsert({
+      material_id: materialId,
+      extracted_text: text,
+      extraction_method: method,
+      extraction_confidence: confidence,
+      word_count: wordCount,
+      character_count: characterCount,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'material_id'
+    });
+
+  if (error) {
+    console.error('Error storing extracted text:', error);
+  } else {
+    console.log('Successfully stored extracted text for material:', materialId);
+  }
+  
+  return { data, error };
+}
+
 // Chunked base64 conversion to prevent stack overflow for large files
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -30,7 +79,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 // OCR function using Google Vision API with chunked base64 conversion
-async function extractTextFromImage(imageBuffer: ArrayBuffer): Promise<string> {
+async function extractTextFromImage(imageBuffer: ArrayBuffer): Promise<{ text: string; confidence: number }> {
   const googleVisionApiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY');
   if (!googleVisionApiKey) {
     throw new Error('Google Vision API key not configured');
@@ -89,13 +138,17 @@ async function extractTextFromImage(imageBuffer: ArrayBuffer): Promise<string> {
       const textAnnotations = responseData.textAnnotations;
       if (textAnnotations && textAnnotations.length > 0) {
         const extractedText = textAnnotations[0].description || '';
-        console.log(`OCR extracted ${extractedText.length} characters from image`);
-        return extractedText;
+        
+        // Calculate confidence based on text quality
+        const confidence = isValidExtractedText(extractedText) ? 85 : 35;
+        
+        console.log(`OCR extracted ${extractedText.length} characters from image with confidence: ${confidence}%`);
+        return { text: extractedText, confidence };
       }
     }
     
     console.log('No text detected in image');
-    return '';
+    return { text: '', confidence: 0 };
   } catch (error) {
     console.error('OCR extraction failed:', error);
     throw new Error(`OCR processing failed: ${error.message}`);
@@ -181,6 +234,7 @@ serve(async (req) => {
       .eq('id', materialId);
 
     let extractedText = '';
+    let extractionConfidence = 0;
 
     try {
       if (requiresOCR) {
@@ -206,13 +260,14 @@ serve(async (req) => {
           })
           .eq('id', materialId);
 
-        extractedText = await extractTextFromImage(arrayBuffer);
-        console.log('OCR extraction completed, text length:', extractedText.length);
+        const { text, confidence } = await extractTextFromImage(arrayBuffer);
+        extractedText = text;
+        extractionConfidence = confidence;
         
-        if (extractedText && extractedText.trim().length > 50) {
-          console.log('Using OCR extracted text for processing');
-        } else {
-          throw new Error('Insufficient text content extracted from image via OCR');
+        console.log('OCR extraction completed, text length:', extractedText.length, 'confidence:', confidence);
+        
+        if (!isValidExtractedText(extractedText)) {
+          throw new Error('OCR extracted text is of poor quality or corrupted');
         }
         
       } else if (material.file_type?.includes('pdf')) {
@@ -238,6 +293,7 @@ serve(async (req) => {
         
         if (text && text.trim().length > 200) {
           extractedText = text;
+          extractionConfidence = 90;
           console.log('Using extracted PDF text for processing');
         } else {
           throw new Error('Insufficient text content extracted from PDF');
@@ -253,6 +309,7 @@ serve(async (req) => {
         }
 
         extractedText = await fileData.text();
+        extractionConfidence = 95;
       } else {
         // Better fallback for non-text files
         extractedText = `Course Material Analysis: ${material.name}
@@ -291,11 +348,21 @@ Core Learning Areas for ${material.course}:
 
 Study Focus Areas:
 Students should concentrate on understanding how these concepts interconnect and apply to practical scenarios within ${material.course}.`;
+        extractionConfidence = 60;
       }
     } catch (extractionError) {
       console.error('Text extraction failed:', extractionError);
       throw new Error(`Content extraction failed: ${extractionError.message}`);
     }
+
+    // Store the extracted text in the database
+    await storeExtractedText(
+      supabase, 
+      materialId, 
+      extractedText, 
+      requiresOCR ? 'ocr' : (material.file_type?.includes('pdf') ? 'pdf' : 'text'),
+      extractionConfidence
+    );
 
     // Update processing status
     await supabase
@@ -532,6 +599,7 @@ Title: ${material.name}`
       flashcards_generated: flashcards.length,
       deck_id: deck.id,
       ocr_processed: requiresOCR,
+      extraction_confidence: extractionConfidence,
       message: resultMessage
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
