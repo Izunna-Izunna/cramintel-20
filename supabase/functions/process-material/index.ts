@@ -86,70 +86,35 @@ serve(async (req) => {
     let extractionConfidence = 0;
 
     try {
-      if (material.file_type?.includes('pdf') || material.file_type?.includes('image')) {
-        console.log('Attempting Textract extraction for:', material.file_path);
+      if (material.file_type?.includes('pdf')) {
+        console.log('Processing PDF with unpdf extraction');
         
-        // Try Textract first
-        try {
-          const { data: textractResult, error: textractError } = await supabase.functions.invoke('textract-service', {
-            body: { 
-              filePath: material.file_path, 
-              materialId: materialId,
-              fileType: material.file_type 
-            },
-            headers: {
-              Authorization: `Bearer ${token}`,
-            }
-          });
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('cramintel-materials')
+          .download(material.file_path);
 
-          if (textractError) {
-            console.error('Textract service error:', textractError);
-            throw new Error(`Textract failed: ${textractError.message}`);
-          }
+        if (downloadError || !fileData) {
+          throw new Error(`Failed to download PDF: ${downloadError?.message}`);
+        }
 
-          if (textractResult.success && textractResult.extractedText) {
-            extractedText = textractResult.extractedText;
-            extractionMethod = textractResult.method || 'textract';
-            extractionConfidence = textractResult.confidence || 0;
-            console.log(`Textract extraction successful, confidence: ${extractionConfidence}%`);
-          } else {
-            throw new Error('Textract returned no text');
-          }
-        } catch (textractError) {
-          console.error('Textract extraction failed:', textractError);
-          
-          // Fallback to unpdf for PDFs
-          if (material.file_type?.includes('pdf')) {
-            console.log('Falling back to unpdf extraction');
-            
-            const { data: fileData, error: downloadError } = await supabase.storage
-              .from('cramintel-materials')
-              .download(material.file_path);
-
-            if (downloadError || !fileData) {
-              throw new Error(`Failed to download PDF: ${downloadError?.message}`);
-            }
-
-            const arrayBuffer = await fileData.arrayBuffer();
-            const uint8Array = new Uint8Array(arrayBuffer);
-            
-            const pdf = await getDocumentProxy(uint8Array);
-            const { text } = await extractText(pdf, { mergePages: true });
-            
-            if (text && text.trim().length > 200) {
-              extractedText = text;
-              extractionMethod = 'unpdf-fallback';
-              extractionConfidence = 75; // Assume reasonable confidence for fallback
-              console.log('unpdf fallback successful');
-            } else {
-              throw new Error('Insufficient text content from unpdf');
-            }
-          } else {
-            throw new Error('Textract failed and no fallback available for this file type');
-          }
+        const arrayBuffer = await fileData.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        const pdf = await getDocumentProxy(uint8Array);
+        const { text } = await extractText(pdf, { mergePages: true });
+        
+        if (text && text.trim().length > 100) {
+          extractedText = text;
+          extractionMethod = 'unpdf';
+          extractionConfidence = 75;
+          console.log('PDF extraction successful');
+        } else {
+          throw new Error('Insufficient text content from PDF');
         }
         
       } else if (material.file_type?.includes('text')) {
+        console.log('Processing text file');
+        
         const { data: fileData, error: downloadError } = await supabase.storage
           .from('cramintel-materials')
           .download(material.file_path);
@@ -162,7 +127,7 @@ serve(async (req) => {
         extractionMethod = 'direct-text';
         extractionConfidence = 100;
       } else {
-        // Generic fallback content
+        // Generic fallback content for unsupported file types
         extractionMethod = 'generic-template';
         extractionConfidence = 50;
         extractedText = `Course Material Analysis: ${material.name}
@@ -203,7 +168,7 @@ Study Focus Areas:
 Students should concentrate on understanding how these concepts interconnect and apply to practical scenarios within ${material.course}.`;
       }
     } catch (extractionError) {
-      console.error('All text extraction methods failed:', extractionError);
+      console.error('Text extraction failed:', extractionError);
       throw new Error(`Content extraction failed: ${extractionError.message}`);
     }
 

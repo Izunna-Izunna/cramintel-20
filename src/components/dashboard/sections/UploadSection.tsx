@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Image, BookOpen, Zap, Cloud, Database, CheckCircle } from 'lucide-react';
+import { Upload, FileText, Image, BookOpen, Zap, CheckCircle } from 'lucide-react';
 
 export function UploadSection() {
   return (
@@ -28,7 +28,7 @@ export function UploadSection() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-green-500" />
-              Enhanced AWS Textract Processing
+              Smart Document Processing
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -39,11 +39,11 @@ export function UploadSection() {
                   <span className="font-medium text-green-800">PDF Documents</span>
                 </div>
                 <p className="text-sm text-green-700">
-                  ✅ Node.js Lambda microservice with full AWS SDK support
+                  ✅ Advanced text extraction with high accuracy
                 </p>
                 <div className="flex items-center gap-2 mt-2 text-xs text-green-600">
-                  <Database className="w-3 h-3" />
-                  <span>S3-based async processing • Auto cleanup</span>
+                  <Zap className="w-3 h-3" />
+                  <span>Intelligent content parsing • Auto formatting</span>
                 </div>
               </div>
               
@@ -53,11 +53,11 @@ export function UploadSection() {
                   <span className="font-medium text-green-800">Images (JPG, PNG)</span>
                 </div>
                 <p className="text-sm text-green-700">
-                  ✅ High-speed sync processing with confidence scoring
+                  ✅ Ready for enhanced image text recognition
                 </p>
                 <div className="flex items-center gap-2 mt-2 text-xs text-green-600">
                   <Zap className="w-3 h-3" />
-                  <span>Instant processing • Production ready</span>
+                  <span>Preparation for advanced OCR • Coming soon</span>
                 </div>
               </div>
               
@@ -72,20 +72,20 @@ export function UploadSection() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Enhanced Processing Architecture</CardTitle>
+          <CardTitle>Processing Architecture</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 bg-green-50 rounded">
               <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-500" />
-                Node.js Lambda Processing
+                Smart Content Processing
               </h4>
               <ul className="text-sm text-gray-600 space-y-1">
-                <li>• Full AWS SDK v3 compatibility</li>
-                <li>• Reliable S3-based PDF processing</li>
-                <li>• Auto-polling for async jobs</li>
-                <li>• Production-grade error handling</li>
+                <li>• Advanced PDF text extraction</li>
+                <li>• Intelligent content parsing</li>
+                <li>• Multi-format support</li>
+                <li>• Production-grade reliability</li>
               </ul>
             </div>
             <div className="p-4 bg-blue-50 rounded">
@@ -94,10 +94,10 @@ export function UploadSection() {
                 Optimized Performance
               </h4>
               <ul className="text-sm text-gray-600 space-y-1">
-                <li>• Fast sync processing for images</li>
-                <li>• Async processing for large PDFs</li>
-                <li>• Automatic resource cleanup</li>
-                <li>• High confidence text extraction</li>
+                <li>• Fast processing pipeline</li>
+                <li>• Automatic content cleanup</li>
+                <li>• High-quality text extraction</li>
+                <li>• Seamless flashcard generation</li>
               </ul>
             </div>
           </div>

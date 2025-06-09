@@ -14,6 +14,8 @@ interface Upload {
   upload_date: string;
   processed: boolean;
   file_type: string;
+  extraction_method?: string;
+  extraction_confidence?: number;
 }
 
 export function RecentUploads() {
@@ -31,7 +33,7 @@ export function RecentUploads() {
     try {
       const { data, error } = await supabase
         .from('cramintel_materials')
-        .select('id, name, material_type, course, upload_date, processed, file_type')
+        .select('id, name, material_type, course, upload_date, processed, file_type, extraction_method, extraction_confidence')
         .eq('user_id', user?.id)
         .order('upload_date', { ascending: false })
         .limit(3);
@@ -62,6 +64,37 @@ export function RecentUploads() {
       default:
         return '📄';
     }
+  };
+
+  const getProcessingBadge = (upload: Upload) => {
+    if (!upload.processed) {
+      return (
+        <span className="text-[10px] sm:text-xs text-gray-600 px-2 md:px-3 py-1 md:py-2 bg-gray-100 rounded-lg">
+          Processing...
+        </span>
+      );
+    }
+
+    if (upload.extraction_method) {
+      const method = upload.extraction_method;
+      const confidence = upload.extraction_confidence || 0;
+      
+      let badgeColor = 'bg-green-100 text-green-700';
+      if (confidence < 70) badgeColor = 'bg-yellow-100 text-yellow-700';
+      if (confidence < 50) badgeColor = 'bg-red-100 text-red-700';
+
+      return (
+        <span className={`text-[10px] sm:text-xs px-2 md:px-3 py-1 md:py-2 rounded-lg ${badgeColor}`}>
+          {method} ({confidence}%)
+        </span>
+      );
+    }
+
+    return (
+      <span className="text-[10px] sm:text-xs text-green-600 px-2 md:px-3 py-1 md:py-2 bg-green-100 rounded-lg">
+        Processed
+      </span>
+    );
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -126,7 +159,7 @@ export function RecentUploads() {
                   </div>
                 </div>
                 
-                <div className="flex gap-2 w-full sm:w-auto">
+                <div className="flex gap-2 w-full sm:w-auto items-center">
                   {upload.processed ? (
                     <>
                       <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-xs flex-1 sm:flex-none">
@@ -136,11 +169,8 @@ export function RecentUploads() {
                         View Flashcards
                       </Button>
                     </>
-                  ) : (
-                    <span className="text-[10px] sm:text-xs text-gray-600 px-2 md:px-3 py-1 md:py-2 bg-gray-100 rounded-lg">
-                      Processing...
-                    </span>
-                  )}
+                  ) : null}
+                  {getProcessingBadge(upload)}
                 </div>
               </div>
             ))
