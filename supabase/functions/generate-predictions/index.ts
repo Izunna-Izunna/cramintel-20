@@ -335,7 +335,9 @@ serve(async (req) => {
     if (whisperTexts.length > 0) confidenceScore += 5
     // Bonus confidence for using stored extracted text (higher quality)
     confidenceScore += 10
-    confidenceScore = Math.min(100, Math.max(50, confidenceScore))
+    
+    // IMPORTANT FIX: Ensure confidence score is an integer
+    confidenceScore = Math.round(Math.min(100, Math.max(50, confidenceScore)))
 
     console.log('Saving prediction with enhanced confidence:', confidenceScore)
 
@@ -344,7 +346,7 @@ serve(async (req) => {
       user_id: user.id,
       course: context.course,
       questions: style === 'exam-paper' ? [parsedResponse] : parsedResponse.predictions,
-      confidence_score: confidenceScore,
+      confidence_score: confidenceScore, // Now guaranteed to be an integer
       prediction_type: style,
       status: 'active'
     }
