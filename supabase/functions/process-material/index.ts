@@ -86,34 +86,67 @@ serve(async (req) => {
     let extractionConfidence = 0;
 
     try {
-      if (material.file_type?.includes('pdf')) {
-        console.log('Processing PDF with unpdf extraction');
+      // Try Google Cloud Vision first for supported file types
+      if (material.file_type?.includes('image') || material.file_type?.includes('pdf')) {
+        console.log('Attempting Google Cloud Vision extraction');
         
-        const { data: fileData, error: downloadError } = await supabase.storage
-          .from('cramintel-materials')
-          .download(material.file_path);
+        try {
+          const visionResponse = await supabase.functions.invoke('google-vision-service', {
+            body: {
+              filePath: material.file_path,
+              fileType: material.file_type
+            }
+          });
 
-        if (downloadError || !fileData) {
-          throw new Error(`Failed to download PDF: ${downloadError?.message}`);
-        }
+          if (visionResponse.error) {
+            console.error('Google Vision service error:', visionResponse.error);
+            throw new Error(`Vision service failed: ${visionResponse.error.message}`);
+          }
 
-        const arrayBuffer = await fileData.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        
-        const pdf = await getDocumentProxy(uint8Array);
-        const { text } = await extractText(pdf, { mergePages: true });
-        
-        if (text && text.trim().length > 100) {
-          extractedText = text;
-          extractionMethod = 'unpdf';
-          extractionConfidence = 75;
-          console.log('PDF extraction successful');
-        } else {
-          throw new Error('Insufficient text content from PDF');
+          const visionData = visionResponse.data;
+          if (visionData.success && visionData.text && visionData.text.trim().length > 50) {
+            extractedText = visionData.text;
+            extractionMethod = visionData.method;
+            extractionConfidence = visionData.confidence;
+            console.log('Google Vision extraction successful:', extractionMethod, extractionConfidence + '%');
+          } else {
+            throw new Error('Insufficient text content from Google Vision');
+          }
+        } catch (visionError) {
+          console.warn('Google Vision failed, falling back to alternative methods:', visionError.message);
+          
+          // Fallback to unpdf for PDFs
+          if (material.file_type?.includes('pdf')) {
+            console.log('Falling back to unpdf for PDF processing');
+            
+            const { data: fileData, error: downloadError } = await supabase.storage
+              .from('cramintel-materials')
+              .download(material.file_path);
+
+            if (downloadError || !fileData) {
+              throw new Error(`Failed to download PDF: ${downloadError?.message}`);
+            }
+
+            const arrayBuffer = await fileData.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            
+            const pdf = await getDocumentProxy(uint8Array);
+            const { text } = await extractText(pdf, { mergePages: true });
+            
+            if (text && text.trim().length > 100) {
+              extractedText = text;
+              extractionMethod = 'unpdf-fallback';
+              extractionConfidence = 70;
+              console.log('PDF fallback extraction successful');
+            } else {
+              throw new Error('Insufficient text content from PDF fallback');
+            }
+          } else {
+            throw new Error('Google Vision failed and no fallback available for this file type');
+          }
         }
-        
       } else if (material.file_type?.includes('text')) {
-        console.log('Processing text file');
+        console.log('Processing text file directly');
         
         const { data: fileData, error: downloadError } = await supabase.storage
           .from('cramintel-materials')

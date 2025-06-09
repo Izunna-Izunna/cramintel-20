@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -80,12 +79,29 @@ export function RecentUploads() {
       const confidence = upload.extraction_confidence || 0;
       
       let badgeColor = 'bg-green-100 text-green-700';
+      let badgeText = method;
+      
+      // Special handling for Google Vision methods
+      if (method.includes('google-vision')) {
+        badgeColor = 'bg-blue-100 text-blue-700';
+        if (method === 'google-vision-sync') {
+          badgeText = 'Vision OCR';
+        } else if (method === 'google-vision-pdf-sync') {
+          badgeText = 'Vision PDF';
+        }
+      } else if (method === 'unpdf-fallback') {
+        badgeText = 'PDF Fallback';
+        badgeColor = 'bg-yellow-100 text-yellow-700';
+      } else if (method === 'unpdf') {
+        badgeText = 'PDF Extract';
+      }
+      
       if (confidence < 70) badgeColor = 'bg-yellow-100 text-yellow-700';
       if (confidence < 50) badgeColor = 'bg-red-100 text-red-700';
 
       return (
         <span className={`text-[10px] sm:text-xs px-2 md:px-3 py-1 md:py-2 rounded-lg ${badgeColor}`}>
-          {method} ({confidence}%)
+          {badgeText} ({confidence}%)
         </span>
       );
     }
