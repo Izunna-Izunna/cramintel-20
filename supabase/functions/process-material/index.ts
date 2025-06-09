@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
@@ -85,9 +84,9 @@ serve(async (req) => {
     let extractionConfidence = 0;
 
     try {
-      // Try Google Cloud Vision ONLY - no fallbacks as requested
+      // Use Google Cloud Vision for images and PDFs - NO FALLBACKS
       if (material.file_type?.includes('image') || material.file_type?.includes('pdf')) {
-        console.log('Attempting Google Cloud Vision extraction');
+        console.log('Using Google Cloud Vision for file type:', material.file_type);
         
         const visionResponse = await supabase.functions.invoke('google-vision-service', {
           body: {
@@ -96,20 +95,37 @@ serve(async (req) => {
           }
         });
 
+        console.log('Google Vision service response:', {
+          error: visionResponse.error,
+          data: visionResponse.data ? 'received' : 'null'
+        });
+
         if (visionResponse.error) {
-          console.error('Google Vision service error:', visionResponse.error);
-          throw new Error(`Vision service failed: ${visionResponse.error.message}`);
+          console.error('Google Vision service error details:', visionResponse.error);
+          throw new Error(`Google Vision service failed: ${visionResponse.error.message || 'Unknown error'}`);
         }
 
         const visionData = visionResponse.data;
-        if (visionData.success && visionData.text) {
-          extractedText = visionData.text;
-          extractionMethod = visionData.method;
-          extractionConfidence = visionData.confidence;
-          console.log('Google Vision extraction successful:', extractionMethod, extractionConfidence + '%');
-        } else {
-          throw new Error('No text extracted from Google Vision service');
+        if (!visionData || !visionData.success) {
+          console.error('Google Vision service returned unsuccessful response:', visionData);
+          throw new Error('Google Vision service returned unsuccessful response');
         }
+
+        if (!visionData.text || visionData.text.length === 0) {
+          console.error('Google Vision extracted no text from the file');
+          throw new Error('Google Vision could not extract any text from this file');
+        }
+
+        extractedText = visionData.text;
+        extractionMethod = visionData.method;
+        extractionConfidence = visionData.confidence;
+        
+        console.log('Google Vision extraction successful:', {
+          method: extractionMethod,
+          confidence: extractionConfidence,
+          textLength: extractedText.length
+        });
+
       } else if (material.file_type?.includes('text')) {
         console.log('Processing text file directly');
         
@@ -125,10 +141,22 @@ serve(async (req) => {
         extractionMethod = 'direct-text';
         extractionConfidence = 100;
       } else {
-        throw new Error(`Unsupported file type: ${material.file_type}`);
+        throw new Error(`Unsupported file type: ${material.file_type}. Only images, PDFs, and text files are supported.`);
       }
     } catch (extractionError) {
       console.error('Text extraction failed:', extractionError);
+      
+      // Update material with error status
+      await supabase
+        .from('cramintel_materials')
+        .update({ 
+          processing_status: 'error',
+          processing_progress: 0,
+          extraction_method: 'failed',
+          extraction_confidence: 0
+        })
+        .eq('id', materialId);
+
       throw new Error(`Content extraction failed: ${extractionError.message}`);
     }
 
@@ -153,7 +181,7 @@ serve(async (req) => {
     console.log('Extraction method:', extractionMethod, 'Confidence:', extractionConfidence);
 
     if (cleanText.length < 100) {
-      throw new Error('Insufficient content for flashcard generation');
+      throw new Error('Insufficient content for flashcard generation (less than 100 characters extracted)');
     }
 
     // Update processing status
@@ -364,7 +392,9 @@ Extraction Quality: ${extractionConfidence}%`
           .from('cramintel_materials')
           .update({ 
             processing_status: 'error',
-            processing_progress: 0 
+            processing_progress: 0,
+            extraction_method: 'failed',
+            extraction_confidence: 0
           })
           .eq('id', materialId);
       }
@@ -374,7 +404,7 @@ Extraction Quality: ${extractionConfidence}%`
 
     return new Response(JSON.stringify({ 
       error: error.message,
-      details: 'Material processing failed'
+      details: 'Material processing failed - Google Vision extraction required'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

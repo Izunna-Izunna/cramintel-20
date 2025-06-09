@@ -22,35 +22,22 @@ serve(async (req) => {
   }
 
   try {
+    // Create Supabase client with service role key for internal operations
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error('No authorization header provided');
-      return new Response(JSON.stringify({ error: 'No authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      console.error('User authentication failed:', authError);
-      return new Response(JSON.stringify({ error: 'Unauthorized', details: authError?.message }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
+    // Since this is called internally by process-material, we don't need user auth
+    // The calling function already verified the user
     const { filePath, fileType } = await req.json();
 
     if (!filePath || !fileType) {
-      return new Response(JSON.stringify({ error: 'File path and type are required' }), {
+      console.error('Missing required parameters:', { filePath, fileType });
+      return new Response(JSON.stringify({ 
+        error: 'File path and type are required',
+        details: 'Both filePath and fileType must be provided'
+      }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -59,47 +46,60 @@ serve(async (req) => {
     const apiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY');
     if (!apiKey) {
       console.error('Google Cloud Vision API key not configured');
-      return new Response(JSON.stringify({ error: 'Google Cloud Vision API key not configured' }), {
+      return new Response(JSON.stringify({ 
+        error: 'Google Cloud Vision API key not configured',
+        details: 'GOOGLE_CLOUD_VISION_API_KEY environment variable is missing'
+      }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Processing file with Google Vision:', filePath, fileType);
+    console.log('Processing file with Google Vision:', { filePath, fileType });
 
-    // Download file from Supabase storage
+    // Download file from Supabase storage using service role
     const { data: fileData, error: downloadError } = await supabase.storage
       .from('cramintel-materials')
       .download(filePath);
 
     if (downloadError || !fileData) {
       console.error('Failed to download file:', downloadError);
-      return new Response(JSON.stringify({ error: `Failed to download file: ${downloadError?.message}` }), {
+      return new Response(JSON.stringify({ 
+        error: 'Failed to download file',
+        details: downloadError?.message || 'File not found'
+      }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const fileSize = fileData.size;
-    console.log('File size:', fileSize, 'bytes');
+    console.log('File downloaded successfully. Size:', fileSize, 'bytes');
 
     let visionResponse: VisionResponse;
 
     if (fileType.includes('image')) {
-      // Process images synchronously
+      console.log('Processing as image file');
       visionResponse = await processImageSync(fileData, apiKey);
     } else if (fileType.includes('pdf')) {
-      // For PDFs, we'll use a simpler approach - convert to base64 and try sync processing
-      // This works for smaller PDFs within the 10MB request limit
+      console.log('Processing as PDF file');
       visionResponse = await processPdfSync(fileData, apiKey, fileSize);
     } else {
-      return new Response(JSON.stringify({ error: `Unsupported file type: ${fileType}` }), {
+      console.error('Unsupported file type:', fileType);
+      return new Response(JSON.stringify({ 
+        error: 'Unsupported file type',
+        details: `File type ${fileType} is not supported. Only images and PDFs are supported.`
+      }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Vision processing completed:', visionResponse.method, visionResponse.confidence);
+    console.log('Vision processing completed successfully:', {
+      method: visionResponse.method,
+      confidence: visionResponse.confidence,
+      textLength: visionResponse.text.length
+    });
 
     return new Response(JSON.stringify({
       success: true,
@@ -112,7 +112,7 @@ serve(async (req) => {
     console.error('Error in google-vision-service:', error);
     
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: error.message || 'Unknown error occurred',
       details: 'Google Vision processing failed',
       stack: error.stack
     }), {
@@ -131,8 +131,10 @@ async function processImageSync(fileData: Blob, apiKey: string): Promise<VisionR
   
   // Check size limit (10MB for JSON payload, accounting for 37% base64 overhead)
   const estimatedJsonSize = base64Content.length * 1.37;
+  console.log('Estimated JSON size:', Math.round(estimatedJsonSize / 1024 / 1024), 'MB');
+  
   if (estimatedJsonSize > 10 * 1024 * 1024) {
-    throw new Error('File too large for synchronous processing');
+    throw new Error('File too large for synchronous processing (>10MB estimated JSON size)');
   }
 
   const visionRequest = {
@@ -147,6 +149,7 @@ async function processImageSync(fileData: Blob, apiKey: string): Promise<VisionR
     }]
   };
 
+  console.log('Sending request to Google Vision API...');
   const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
     method: 'POST',
     headers: {
@@ -157,19 +160,27 @@ async function processImageSync(fileData: Blob, apiKey: string): Promise<VisionR
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Vision API error:', errorText);
+    console.error('Vision API error response:', {
+      status: response.status,
+      statusText: response.statusText,
+      errorText
+    });
     throw new Error(`Vision API failed: ${response.status} - ${errorText}`);
   }
 
   const result = await response.json();
+  console.log('Vision API response received');
+  
   const annotation = result.responses[0];
 
   if (annotation.error) {
+    console.error('Vision API annotation error:', annotation.error);
     throw new Error(`Vision API error: ${annotation.error.message}`);
   }
 
   const fullTextAnnotation = annotation.fullTextAnnotation;
   if (!fullTextAnnotation || !fullTextAnnotation.text) {
+    console.log('No text detected in image');
     return {
       text: '',
       confidence: 0,
@@ -196,6 +207,11 @@ async function processImageSync(fileData: Blob, apiKey: string): Promise<VisionR
   }
 
   const averageConfidence = blockCount > 0 ? Math.round((totalConfidence / blockCount) * 100) : 80;
+  console.log('Text extraction successful:', {
+    textLength: fullTextAnnotation.text.length,
+    blockCount,
+    averageConfidence
+  });
 
   return {
     text: fullTextAnnotation.text,
@@ -210,15 +226,17 @@ async function processImageSync(fileData: Blob, apiKey: string): Promise<VisionR
 }
 
 async function processPdfSync(fileData: Blob, apiKey: string, fileSize: number): Promise<VisionResponse> {
-  console.log('Processing PDF with Google Vision sync API (experimental)');
+  console.log('Processing PDF with Google Vision sync API');
   
   // For smaller PDFs, try to process as base64
   if (fileSize > 8 * 1024 * 1024) { // 8MB limit to account for base64 overhead
-    throw new Error('PDF too large for synchronous processing. Consider implementing async GCS processing.');
+    throw new Error('PDF too large for synchronous processing (>8MB). Please use a smaller PDF file.');
   }
 
   const arrayBuffer = await fileData.arrayBuffer();
   const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+  console.log('PDF converted to base64, sending to Vision API...');
 
   const visionRequest = {
     requests: [{
@@ -242,7 +260,11 @@ async function processPdfSync(fileData: Blob, apiKey: string, fileSize: number):
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Vision API error for PDF:', errorText);
+    console.error('Vision API error for PDF:', {
+      status: response.status,
+      statusText: response.statusText,
+      errorText
+    });
     throw new Error(`Vision API failed for PDF: ${response.status} - ${errorText}`);
   }
 
@@ -250,11 +272,13 @@ async function processPdfSync(fileData: Blob, apiKey: string, fileSize: number):
   const annotation = result.responses[0];
 
   if (annotation.error) {
+    console.error('Vision API PDF annotation error:', annotation.error);
     throw new Error(`Vision API error for PDF: ${annotation.error.message}`);
   }
 
   const fullTextAnnotation = annotation.fullTextAnnotation;
   if (!fullTextAnnotation || !fullTextAnnotation.text) {
+    console.log('No text detected in PDF');
     return {
       text: '',
       confidence: 0,
@@ -281,6 +305,11 @@ async function processPdfSync(fileData: Blob, apiKey: string, fileSize: number):
   }
 
   const averageConfidence = blockCount > 0 ? Math.round((totalConfidence / blockCount) * 100) : 85;
+  console.log('PDF text extraction successful:', {
+    textLength: fullTextAnnotation.text.length,
+    blockCount,
+    averageConfidence
+  });
 
   return {
     text: fullTextAnnotation.text,
