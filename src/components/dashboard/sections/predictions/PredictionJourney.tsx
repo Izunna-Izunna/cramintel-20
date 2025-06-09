@@ -22,6 +22,13 @@ export type PredictionStep = 1 | 2 | 3 | 4 | 5 | 'results';
 
 interface PredictionData {
   selectedMaterials: string[];
+  clues: Array<{
+    id: string;
+    name: string;
+    type: 'past-questions' | 'assignment' | 'whisper';
+    content?: string;
+    materialId?: string;
+  }>;
   context: {
     course: string;
     topics: string[];
@@ -35,6 +42,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
   const [currentStep, setCurrentStep] = useState<PredictionStep>(1);
   const [predictionData, setPredictionData] = useState<PredictionData>({
     selectedMaterials: [],
+    clues: [],
     context: {
       course: '',
       topics: [],
@@ -73,6 +81,21 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
     setCurrentStep('results');
   };
 
+  // Transform selectedMaterials to clues format when needed
+  const getTransformedData = (): PredictionData => {
+    const clues = predictionData.selectedMaterials.map((materialId, index) => ({
+      id: `material-${index}`,
+      name: `Material ${index + 1}`,
+      type: 'past-questions' as const,
+      materialId: materialId,
+    }));
+
+    return {
+      ...predictionData,
+      clues: predictionData.clues.length > 0 ? predictionData.clues : clues
+    };
+  };
+
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 1:
@@ -107,7 +130,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
       case 5:
         return (
           <GenerationStep
-            predictionData={predictionData}
+            predictionData={getTransformedData()}
             onNext={handleNext}
             onBack={handleBack}
             onGenerationComplete={handleGenerationComplete}
@@ -116,13 +139,13 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
       case 'results':
         return predictionData.style === 'exam-paper' ? (
           <ExamPaperView
-            predictionData={predictionData}
+            predictionData={getTransformedData()}
             onBack={handleBack}
             onClose={onClose}
           />
         ) : (
           <PredictionResults
-            predictionData={predictionData}
+            predictionData={getTransformedData()}
             onBack={handleBack}
             onClose={onClose}
           />
