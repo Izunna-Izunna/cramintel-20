@@ -20,8 +20,13 @@ export function useQuizQuestions() {
   const fetchQuestions = async () => {
     try {
       setError(null);
-      // Use a raw query since the table might not be in the generated types yet
-      const { data, error } = await supabase.rpc('get_quiz_questions');
+      
+      // Query the quiz_questions table directly
+      const { data, error } = await supabase
+        .from('quiz_questions')
+        .select('*')
+        .eq('active', true)
+        .limit(5);
 
       if (error) {
         console.error('Error fetching quiz questions:', error);
@@ -59,7 +64,18 @@ export function useQuizQuestions() {
         return;
       }
 
-      setQuestions(data || []);
+      // Transform the data to match our interface
+      const transformedQuestions = data?.map(q => ({
+        id: q.id,
+        question: q.question,
+        options: Array.isArray(q.options) ? q.options : JSON.parse(q.options),
+        correct_answer: q.correct_answer,
+        difficulty: q.difficulty,
+        category: q.category,
+        course: q.course
+      })) || [];
+
+      setQuestions(transformedQuestions);
     } catch (err) {
       console.error('Error fetching quiz questions:', err);
       setError('Failed to load quiz questions');

@@ -24,10 +24,14 @@ export function useStudySuggestions() {
   const fetchSuggestions = async () => {
     try {
       setError(null);
-      // Use a raw query since the table might not be in the generated types yet
-      const { data, error } = await supabase.rpc('get_study_suggestions', { 
-        user_id: user?.id 
-      });
+      
+      // Query the study_suggestions table directly
+      const { data, error } = await supabase
+        .from('study_suggestions')
+        .select('*')
+        .or(`user_id.eq.${user?.id},user_id.is.null`)
+        .order('priority', { ascending: true })
+        .limit(5);
 
       if (error) {
         console.error('Error fetching study suggestions:', error);
@@ -65,7 +69,20 @@ export function useStudySuggestions() {
         return;
       }
 
-      setSuggestions(data || []);
+      // Transform the data to match our interface
+      const transformedSuggestions = data?.map(s => ({
+        id: s.id,
+        type: s.type,
+        title: s.title,
+        description: s.description,
+        action_text: s.action_text,
+        action_url: s.action_url,
+        icon: s.icon,
+        priority: s.priority,
+        course: s.course
+      })) || [];
+
+      setSuggestions(transformedSuggestions);
     } catch (err) {
       console.error('Error fetching study suggestions:', err);
       setError('Failed to load study suggestions');
