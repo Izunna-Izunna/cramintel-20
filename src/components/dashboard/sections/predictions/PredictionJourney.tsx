@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card';
+import { ArrowLeft, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { X, ArrowLeft, ArrowRight, Sparkles, Target, FileText, Zap } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { ProgressSteps } from '@/components/dashboard/ProgressSteps';
 import { StartPredictionStep } from './StartPredictionStep';
 import { UploadCluesStep } from './UploadCluesStep';
@@ -11,9 +11,12 @@ import { TagContextStep } from './TagContextStep';
 import { StyleSelectionStep } from './StyleSelectionStep';
 import { GenerationStep } from './GenerationStep';
 import { PredictionResults } from './PredictionResults';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { ExamPaperView } from './ExamPaperView';
+import { PredictionResponse } from '@/types/predictions';
+
+interface PredictionJourneyProps {
+  onClose: () => void;
+}
 
 export type PredictionStep = 1 | 2 | 3 | 4 | 5 | 'results';
 
@@ -22,14 +25,10 @@ interface PredictionData {
   context: {
     course: string;
     topics: string[];
-    examType: string;
-    difficulty: string;
+    lecturer?: string;
   };
-  style: string;
-}
-
-interface PredictionJourneyProps {
-  onClose: () => void;
+  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper';
+  generatedContent?: PredictionResponse;
 }
 
 export function PredictionJourney({ onClose }: PredictionJourneyProps) {
@@ -39,89 +38,45 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
     context: {
       course: '',
       topics: [],
-      examType: '',
-      difficulty: '',
     },
-    style: ''
+    style: 'bullet'
   });
-  const [generatedPrediction, setGeneratedPrediction] = useState<any>(null);
-  const { toast } = useToast();
-  const { user } = useAuth();
+
+  const getCurrentStepNumber = (step: PredictionStep): number => {
+    return step === 'results' ? 6 : step;
+  };
+
+  const stepTitles = ['Start', 'Upload', 'Tag', 'Style', 'Generate'];
 
   const handleNext = () => {
     if (currentStep === 5) {
-      handleGenerate();
-    } else {
-      setCurrentStep((prev) => {
-        if (prev === 1) return 2;
-        if (prev === 2) return 3;
-        if (prev === 3) return 4;
-        if (prev === 4) return 5;
-        return prev;
-      });
+      setCurrentStep('results');
+    } else if (typeof currentStep === 'number' && currentStep < 5) {
+      setCurrentStep((prev) => (prev as number + 1) as PredictionStep);
     }
   };
 
   const handleBack = () => {
-    setCurrentStep((prev) => {
-      if (prev === 2) return 1;
-      if (prev === 3) return 2;
-      if (prev === 4) return 3;
-      if (prev === 5) return 4;
-      return prev;
-    });
+    if (currentStep === 'results') {
+      setCurrentStep(5);
+    } else if (typeof currentStep === 'number' && currentStep > 1) {
+      setCurrentStep((prev) => (prev as number - 1) as PredictionStep);
+    }
   };
 
-  const handleGenerate = async () => {
-    if (!user || predictionData.selectedMaterials.length === 0) {
-      toast({
-        title: "Missing Information",
-        description: "Please select materials and ensure you're logged in.",
-        variant: "destructive"
-      });
-      return;
-    }
-
+  const handleGenerationComplete = (generatedContent: PredictionResponse) => {
+    console.log('Generation complete, received content:', generatedContent);
+    setPredictionData(prev => ({
+      ...prev,
+      generatedContent
+    }));
     setCurrentStep('results');
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-predictions', {
-        body: {
-          materialIds: predictionData.selectedMaterials,
-          context: predictionData.context,
-          style: predictionData.style
-        }
-      });
-
-      if (error) throw error;
-      
-      setGeneratedPrediction(data);
-      
-      toast({
-        title: "Prediction Generated! 🎯",
-        description: "Your exam predictions are ready for review.",
-      });
-    } catch (error) {
-      console.error('Generation error:', error);
-      toast({
-        title: "Generation Failed",
-        description: "There was an error generating your predictions. Please try again.",
-        variant: "destructive"
-      });
-    }
   };
 
-  const renderStep = () => {
+  const renderCurrentStep = () => {
     switch (currentStep) {
       case 1:
-        return (
-          <StartPredictionStep
-            context={predictionData.context}
-            onContextChange={(context) => setPredictionData(prev => ({ ...prev, context }))}
-            onNext={handleNext}
-            onBack={onClose}
-          />
-        );
+        return <StartPredictionStep onNext={handleNext} />;
       case 2:
         return (
           <UploadCluesStep
@@ -134,7 +89,6 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
       case 3:
         return (
           <TagContextStep
-            selectedMaterials={predictionData.selectedMaterials}
             context={predictionData.context}
             onContextChange={(context) => setPredictionData(prev => ({ ...prev, context }))}
             onNext={handleNext}
@@ -144,7 +98,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
       case 4:
         return (
           <StyleSelectionStep
-            style={predictionData.style}
+            selectedStyle={predictionData.style}
             onStyleChange={(style) => setPredictionData(prev => ({ ...prev, style }))}
             onNext={handleNext}
             onBack={handleBack}
@@ -156,14 +110,21 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
             predictionData={predictionData}
             onNext={handleNext}
             onBack={handleBack}
+            onGenerationComplete={handleGenerationComplete}
           />
         );
       case 'results':
-        return (
-          <PredictionResults
-            prediction={generatedPrediction}
+        return predictionData.style === 'exam-paper' ? (
+          <ExamPaperView
+            predictionData={predictionData}
+            onBack={handleBack}
             onClose={onClose}
-            onBack={() => setCurrentStep(5)}
+          />
+        ) : (
+          <PredictionResults
+            predictionData={predictionData}
+            onBack={handleBack}
+            onClose={onClose}
           />
         );
       default:
@@ -172,39 +133,30 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-    >
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-auto"
       >
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <Target className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-800">Generate Predictions</h2>
-              <p className="text-gray-600">AI-powered exam predictions based on your materials</p>
-            </div>
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {currentStep !== 1 && currentStep !== 'results' && (
+              <Button variant="ghost" size="sm" onClick={handleBack} className="hover:bg-gray-100">
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            )}
+            <h2 className="text-xl font-bold text-gray-800">AI Predictions Journey</h2>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="w-5 h-5" />
+          <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-gray-100">
+            <X className="w-4 h-4" />
           </Button>
         </div>
 
         {currentStep !== 'results' && (
-          <div className="px-6 py-4 border-b">
-            <ProgressSteps 
-              currentStep={typeof currentStep === 'number' ? currentStep : 5} 
-              totalSteps={5}
-            />
+          <div className="p-6 border-b border-gray-100">
+            <ProgressSteps steps={stepTitles} currentStep={getCurrentStepNumber(currentStep)} />
           </div>
         )}
 
@@ -217,11 +169,11 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
             >
-              {renderStep()}
+              {renderCurrentStep()}
             </motion.div>
           </AnimatePresence>
         </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }

@@ -333,55 +333,30 @@ export function EnhancedUploadSection() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
-          {/* Horizontal Upload Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Past Question Upload Card */}
-            <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 hover:shadow-lg transition-all duration-300">
-              <CardContent className="p-6">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <FileImage className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="text-lg font-bold text-blue-900 mb-2">Upload Past Question Images</h3>
-                  <p className="text-blue-700 text-sm mb-4">
-                    Upload multiple images of past questions (up to 10). We'll use OCR to extract text and generate flashcards automatically.
-                  </p>
-                  <Button 
-                    onClick={() => setShowPastQuestionUpload(true)}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0"
-                  >
-                    <FileImage className="w-4 h-4 mr-2" />
-                    Upload Past Questions
-                  </Button>
+        <div className="space-y-4">
+          {/* Past Question Upload Card */}
+          <Card className="max-w-2xl mx-auto border-2 border-blue-200 bg-blue-50">
+            <CardContent className="p-6">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileImage className="w-8 h-8 text-blue-600" />
                 </div>
-              </CardContent>
-            </Card>
+                <h3 className="text-lg font-bold text-blue-800 mb-2">Upload Past Question Images</h3>
+                <p className="text-blue-700 mb-4">
+                  Upload multiple images of past questions (up to 10). We'll use OCR to extract text and generate flashcards automatically.
+                </p>
+                <Button 
+                  onClick={() => setShowPastQuestionUpload(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <FileImage className="w-4 h-4 mr-2" />
+                  Upload Past Questions
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Regular Upload Card */}
-            <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 hover:shadow-lg transition-all duration-300">
-              <CardContent className="p-6">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Upload className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="text-lg font-bold text-purple-900 mb-2">Upload Study Materials</h3>
-                  <p className="text-purple-700 text-sm mb-4">
-                    PDF, JPG, PNG, DOCX, TXT supported. AI will generate 20 quality flashcards from your materials.
-                  </p>
-                  <Button 
-                    onClick={() => document.getElementById('file-upload')?.click()}
-                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0"
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Choose Files
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Main Upload Interface */}
+          {/* Regular Upload Card */}
           <Card className="max-w-2xl mx-auto">
             <CardContent className="p-8 relative">
               <AnimatePresence mode="wait">
@@ -394,18 +369,16 @@ export function EnhancedUploadSection() {
                     className="space-y-6"
                   >
                     <div
-                      className="border-2 border-dashed border-gray-200 hover:border-purple-300 transition-colors rounded-lg p-8 text-center cursor-pointer bg-gradient-to-br from-gray-50 to-purple-50"
+                      className="border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors rounded-lg p-8 text-center cursor-pointer"
                       onDrop={handleDrop}
                       onDragOver={(e) => e.preventDefault()}
                       onClick={() => document.getElementById('file-upload')?.click()}
                     >
-                      <div className="w-16 h-16 bg-gradient-to-br from-gray-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Upload className="w-8 h-8 text-white" />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2 text-gray-800">Drop your study materials here</h3>
+                      <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Drop your study materials here</h3>
                       <p className="text-gray-600 mb-4">PDF, JPG, PNG, DOCX, TXT supported • AI will generate 20 flashcards</p>
                       <div className="flex gap-3 justify-center">
-                        <Button className="bg-gradient-to-r from-gray-700 to-purple-700 hover:from-gray-800 hover:to-purple-800 text-white">
+                        <Button className="bg-gray-800 hover:bg-gray-700">
                           Browse Files
                         </Button>
                       </div>
@@ -467,7 +440,7 @@ export function EnhancedUploadSection() {
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
-                            className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300" 
+                            className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
                             style={{ width: `${uploadProgress}%` }}
                           ></div>
                         </div>
@@ -520,7 +493,7 @@ export function EnhancedUploadSection() {
                       <Button 
                         onClick={handleSubmit}
                         disabled={!selectedCourse || !selectedType || isProcessing || !user}
-                        className="bg-gradient-to-r from-gray-700 to-purple-700 hover:from-gray-800 hover:to-purple-800 flex-1"
+                        className="bg-gray-800 hover:bg-gray-700 flex-1"
                       >
                         {isProcessing ? (
                           <>
