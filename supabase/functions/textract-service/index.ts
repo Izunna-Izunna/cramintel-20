@@ -112,6 +112,16 @@ class AWSSignatureV4 {
   }
 }
 
+// Helper function to convert Uint8Array to base64 string
+function uint8ArrayToBase64(uint8Array: Uint8Array): string {
+  let binary = '';
+  const len = uint8Array.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(uint8Array[i]);
+  }
+  return btoa(binary);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -213,10 +223,14 @@ async function processTextractSync(
   try {
     console.log('Calling Textract using manual AWS API implementation with Deno native fetch and crypto');
     
+    // Convert bytes to base64 string for AWS API
+    const base64Bytes = uint8ArrayToBase64(uint8Array);
+    console.log('Converted file to base64, length:', base64Bytes.length);
+    
     // Create AWS API request payload
     const payload = {
       Document: {
-        Bytes: Array.from(uint8Array)
+        Bytes: base64Bytes
       }
     };
 
