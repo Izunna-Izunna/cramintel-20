@@ -29,6 +29,7 @@ serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('No authorization header provided');
       return new Response(JSON.stringify({ error: 'No authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -39,7 +40,8 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      console.error('User authentication failed:', authError);
+      return new Response(JSON.stringify({ error: 'Unauthorized', details: authError?.message }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -56,6 +58,7 @@ serve(async (req) => {
 
     const apiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY');
     if (!apiKey) {
+      console.error('Google Cloud Vision API key not configured');
       return new Response(JSON.stringify({ error: 'Google Cloud Vision API key not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -70,7 +73,11 @@ serve(async (req) => {
       .download(filePath);
 
     if (downloadError || !fileData) {
-      throw new Error(`Failed to download file: ${downloadError?.message}`);
+      console.error('Failed to download file:', downloadError);
+      return new Response(JSON.stringify({ error: `Failed to download file: ${downloadError?.message}` }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const fileSize = fileData.size;
@@ -86,7 +93,10 @@ serve(async (req) => {
       // This works for smaller PDFs within the 10MB request limit
       visionResponse = await processPdfSync(fileData, apiKey, fileSize);
     } else {
-      throw new Error(`Unsupported file type: ${fileType}`);
+      return new Response(JSON.stringify({ error: `Unsupported file type: ${fileType}` }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log('Vision processing completed:', visionResponse.method, visionResponse.confidence);
@@ -103,7 +113,8 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({ 
       error: error.message,
-      details: 'Google Vision processing failed'
+      details: 'Google Vision processing failed',
+      stack: error.stack
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

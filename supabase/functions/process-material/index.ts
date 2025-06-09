@@ -2,7 +2,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
-import { extractText, getDocumentProxy } from "npm:unpdf@1.0.5";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -86,64 +85,30 @@ serve(async (req) => {
     let extractionConfidence = 0;
 
     try {
-      // Try Google Cloud Vision first for supported file types
+      // Try Google Cloud Vision ONLY - no fallbacks as requested
       if (material.file_type?.includes('image') || material.file_type?.includes('pdf')) {
         console.log('Attempting Google Cloud Vision extraction');
         
-        try {
-          const visionResponse = await supabase.functions.invoke('google-vision-service', {
-            body: {
-              filePath: material.file_path,
-              fileType: material.file_type
-            }
-          });
-
-          if (visionResponse.error) {
-            console.error('Google Vision service error:', visionResponse.error);
-            throw new Error(`Vision service failed: ${visionResponse.error.message}`);
+        const visionResponse = await supabase.functions.invoke('google-vision-service', {
+          body: {
+            filePath: material.file_path,
+            fileType: material.file_type
           }
+        });
 
-          const visionData = visionResponse.data;
-          if (visionData.success && visionData.text && visionData.text.trim().length > 50) {
-            extractedText = visionData.text;
-            extractionMethod = visionData.method;
-            extractionConfidence = visionData.confidence;
-            console.log('Google Vision extraction successful:', extractionMethod, extractionConfidence + '%');
-          } else {
-            throw new Error('Insufficient text content from Google Vision');
-          }
-        } catch (visionError) {
-          console.warn('Google Vision failed, falling back to alternative methods:', visionError.message);
-          
-          // Fallback to unpdf for PDFs
-          if (material.file_type?.includes('pdf')) {
-            console.log('Falling back to unpdf for PDF processing');
-            
-            const { data: fileData, error: downloadError } = await supabase.storage
-              .from('cramintel-materials')
-              .download(material.file_path);
+        if (visionResponse.error) {
+          console.error('Google Vision service error:', visionResponse.error);
+          throw new Error(`Vision service failed: ${visionResponse.error.message}`);
+        }
 
-            if (downloadError || !fileData) {
-              throw new Error(`Failed to download PDF: ${downloadError?.message}`);
-            }
-
-            const arrayBuffer = await fileData.arrayBuffer();
-            const uint8Array = new Uint8Array(arrayBuffer);
-            
-            const pdf = await getDocumentProxy(uint8Array);
-            const { text } = await extractText(pdf, { mergePages: true });
-            
-            if (text && text.trim().length > 100) {
-              extractedText = text;
-              extractionMethod = 'unpdf-fallback';
-              extractionConfidence = 70;
-              console.log('PDF fallback extraction successful');
-            } else {
-              throw new Error('Insufficient text content from PDF fallback');
-            }
-          } else {
-            throw new Error('Google Vision failed and no fallback available for this file type');
-          }
+        const visionData = visionResponse.data;
+        if (visionData.success && visionData.text) {
+          extractedText = visionData.text;
+          extractionMethod = visionData.method;
+          extractionConfidence = visionData.confidence;
+          console.log('Google Vision extraction successful:', extractionMethod, extractionConfidence + '%');
+        } else {
+          throw new Error('No text extracted from Google Vision service');
         }
       } else if (material.file_type?.includes('text')) {
         console.log('Processing text file directly');
@@ -160,45 +125,7 @@ serve(async (req) => {
         extractionMethod = 'direct-text';
         extractionConfidence = 100;
       } else {
-        // Generic fallback content for unsupported file types
-        extractionMethod = 'generic-template';
-        extractionConfidence = 50;
-        extractedText = `Course Material Analysis: ${material.name}
-Subject: ${material.course}
-Material Type: ${material.material_type}
-
-Academic Content Overview:
-This ${material.material_type} is designed for ${material.course} students and covers essential curriculum topics.
-
-Core Learning Areas for ${material.course}:
-
-1. Fundamental Concepts and Theories
-- Key principles that form the foundation of ${material.course}
-- Historical development and evolution of ideas
-- Current theoretical frameworks and models
-
-2. Terminology and Definitions
-- Essential vocabulary specific to ${material.course}
-- Technical terms and their applications
-- Industry-standard nomenclature
-
-3. Practical Applications
-- Real-world examples and case studies
-- Problem-solving methodologies
-- Hands-on techniques and procedures
-
-4. Critical Analysis Skills
-- Evaluation methods and criteria
-- Comparative analysis techniques
-- Research and investigation approaches
-
-5. Current Developments
-- Recent advances in the field
-- Emerging trends and technologies
-- Future directions and implications
-
-Study Focus Areas:
-Students should concentrate on understanding how these concepts interconnect and apply to practical scenarios within ${material.course}.`;
+        throw new Error(`Unsupported file type: ${material.file_type}`);
       }
     } catch (extractionError) {
       console.error('Text extraction failed:', extractionError);
