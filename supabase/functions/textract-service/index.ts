@@ -1,6 +1,8 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
+import { TextractClient, DetectDocumentTextCommand } from 'https://esm.sh/@aws-sdk/client-textract@3.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -112,67 +114,57 @@ async function processTextractSync(
 ): Promise<TextractResponse> {
   const uint8Array = new Uint8Array(fileBuffer);
   
-  // Convert to base64 for AWS Textract
-  const base64String = btoa(String.fromCharCode(...uint8Array));
-  
-  // Create AWS signature
-  const endpoint = `https://textract.${region}.amazonaws.com/`;
-  const service = 'textract';
-  const method = 'POST';
-  
-  const body = JSON.stringify({
-    Document: {
-      Bytes: base64String
+  // Create Textract client with AWS SDK
+  const textractClient = new TextractClient({
+    region: region,
+    credentials: {
+      accessKeyId: accessKeyId,
+      secretAccessKey: secretAccessKey
     }
   });
 
-  const headers = {
-    'Content-Type': 'application/x-amz-json-1.1',
-    'X-Amz-Target': 'Textract.DetectDocumentText',
-    'Host': `textract.${region}.amazonaws.com`
-  };
+  try {
+    // Use AWS SDK to call Textract - no manual base64 conversion needed!
+    const command = new DetectDocumentTextCommand({
+      Document: {
+        Bytes: uint8Array // SDK handles encoding internally
+      }
+    });
 
-  const signedRequest = await createAWSSignedRequest(
-    method, endpoint, headers, body, accessKeyId, secretAccessKey, region, service
-  );
+    const response = await textractClient.send(command);
+    
+    // Extract text and calculate average confidence
+    let extractedText = '';
+    let totalConfidence = 0;
+    let blockCount = 0;
 
-  const response = await fetch(endpoint, signedRequest);
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Textract API error: ${response.status} - ${errorText}`);
-  }
-
-  const data = await response.json();
-  
-  // Extract text and calculate average confidence
-  let extractedText = '';
-  let totalConfidence = 0;
-  let blockCount = 0;
-
-  if (data.Blocks) {
-    for (const block of data.Blocks) {
-      if (block.BlockType === 'LINE' && block.Text) {
-        extractedText += block.Text + '\n';
-        if (block.Confidence) {
-          totalConfidence += block.Confidence;
-          blockCount++;
+    if (response.Blocks) {
+      for (const block of response.Blocks) {
+        if (block.BlockType === 'LINE' && block.Text) {
+          extractedText += block.Text + '\n';
+          if (block.Confidence) {
+            totalConfidence += block.Confidence;
+            blockCount++;
+          }
         }
       }
     }
+
+    const averageConfidence = blockCount > 0 ? totalConfidence / blockCount : 0;
+
+    return {
+      text: extractedText.trim(),
+      confidence: averageConfidence,
+      method: 'textract-sync',
+      metadata: {
+        totalBlocks: response.Blocks?.length || 0,
+        textBlocks: blockCount
+      }
+    };
+  } catch (error) {
+    console.error('Textract SDK error:', error);
+    throw new Error(`Textract processing failed: ${error.message}`);
   }
-
-  const averageConfidence = blockCount > 0 ? totalConfidence / blockCount : 0;
-
-  return {
-    text: extractedText.trim(),
-    confidence: averageConfidence,
-    method: 'textract-sync',
-    metadata: {
-      totalBlocks: data.Blocks?.length || 0,
-      textBlocks: blockCount
-    }
-  };
 }
 
 async function processTextractAsync(
@@ -185,109 +177,4 @@ async function processTextractAsync(
   // In a full implementation, this would use StartDocumentTextDetection and polling
   console.log('Async processing requested, falling back to sync for now');
   return await processTextractSync(fileBuffer, accessKeyId, secretAccessKey, region);
-}
-
-async function createAWSSignedRequest(
-  method: string,
-  url: string,
-  headers: Record<string, string>,
-  body: string,
-  accessKeyId: string,
-  secretAccessKey: string,
-  region: string,
-  service: string
-) {
-  const now = new Date();
-  const dateStamp = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const timeStamp = now.toISOString().slice(0, 19).replace(/[-:]/g, '') + 'Z';
-  
-  // Add required AWS headers
-  const amzHeaders = {
-    ...headers,
-    'X-Amz-Date': timeStamp
-  };
-  
-  // Create canonical headers (must include Host)
-  const canonicalHeaders = Object.entries(amzHeaders)
-    .map(([key, value]) => `${key.toLowerCase()}:${value}`)
-    .sort()
-    .join('\n') + '\n';
-    
-  const signedHeaders = Object.keys(amzHeaders)
-    .map(key => key.toLowerCase())
-    .sort()
-    .join(';');
-
-  const hashedPayload = await sha256(body);
-  
-  const canonicalRequest = [
-    method,
-    '/',
-    '',
-    canonicalHeaders,
-    signedHeaders,
-    hashedPayload
-  ].join('\n');
-
-  // Create string to sign
-  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-  const stringToSign = [
-    'AWS4-HMAC-SHA256',
-    timeStamp,
-    credentialScope,
-    await sha256(canonicalRequest)
-  ].join('\n');
-
-  // Calculate signature
-  const signature = await calculateSignature(secretAccessKey, dateStamp, region, service, stringToSign);
-  
-  const authorizationHeader = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-
-  return {
-    method,
-    headers: {
-      ...amzHeaders,
-      'Authorization': authorizationHeader
-    },
-    body
-  };
-}
-
-async function sha256(message: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function calculateSignature(
-  secretAccessKey: string,
-  dateStamp: string,
-  region: string,
-  service: string,
-  stringToSign: string
-): Promise<string> {
-  const encoder = new TextEncoder();
-  
-  let key = encoder.encode('AWS4' + secretAccessKey);
-  key = await hmacSha256(key, dateStamp);
-  key = await hmacSha256(key, region);
-  key = await hmacSha256(key, service);
-  key = await hmacSha256(key, 'aws4_request');
-  
-  const signature = await hmacSha256(key, stringToSign);
-  return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function hmacSha256(key: Uint8Array | ArrayBuffer, message: string): Promise<ArrayBuffer> {
-  const encoder = new TextEncoder();
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    key,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  return await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(message));
 }
