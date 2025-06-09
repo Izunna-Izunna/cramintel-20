@@ -3,6 +3,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 import { TextractClient, DetectDocumentTextCommand } from 'https://esm.sh/@aws-sdk/client-textract@3.0.0';
+import { Sha256 } from 'https://esm.sh/@aws-crypto/sha256-js@3.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -114,20 +115,23 @@ async function processTextractSync(
 ): Promise<TextractResponse> {
   const uint8Array = new Uint8Array(fileBuffer);
   
-  // Create Textract client with AWS SDK
+  // Create Textract client with SHA256 polyfill for Deno compatibility
   const textractClient = new TextractClient({
     region: region,
     credentials: {
       accessKeyId: accessKeyId,
       secretAccessKey: secretAccessKey
-    }
+    },
+    // Override the default Node-only hash implementation with pure JS
+    sha256: Sha256
   });
 
   try {
-    // Use AWS SDK to call Textract - no manual base64 conversion needed!
+    console.log('Calling Textract with polyfilled SHA256 implementation');
+    
     const command = new DetectDocumentTextCommand({
       Document: {
-        Bytes: uint8Array // SDK handles encoding internally
+        Bytes: uint8Array
       }
     });
 
@@ -152,17 +156,20 @@ async function processTextractSync(
 
     const averageConfidence = blockCount > 0 ? totalConfidence / blockCount : 0;
 
+    console.log(`Textract extraction successful: ${extractedText.length} characters extracted with ${averageConfidence.toFixed(1)}% confidence`);
+
     return {
       text: extractedText.trim(),
       confidence: averageConfidence,
       method: 'textract-sync',
       metadata: {
         totalBlocks: response.Blocks?.length || 0,
-        textBlocks: blockCount
+        textBlocks: blockCount,
+        sdkVersion: 'aws-sdk-v3-with-sha256-polyfill'
       }
     };
   } catch (error) {
-    console.error('Textract SDK error:', error);
+    console.error('Textract processing error:', error);
     throw new Error(`Textract processing failed: ${error.message}`);
   }
 }
