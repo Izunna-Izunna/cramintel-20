@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,21 +21,26 @@ export default function TestPredictions() {
     try {
       console.log(`Starting text extraction for: ${material.name} (${material.file_type})`);
       
-      // Use process-material function for extraction
-      const { data, error } = await supabase.functions.invoke('process-material', {
-        body: { materialId: material.id }
+      // Call Google Vision service directly to get the actual extracted text
+      const { data: visionData, error: visionError } = await supabase.functions.invoke('google-vision-service', {
+        body: {
+          filePath: material.file_path,
+          fileType: material.file_type
+        }
       });
 
-      if (error) {
-        console.error('Processing error:', error);
-        throw new Error(`Processing failed: ${error.message}`);
+      if (visionError) {
+        console.error('Google Vision service error:', visionError);
+        throw new Error(`Google Vision service failed: ${visionError.message}`);
       }
 
-      if (data && data.success) {
-        console.log(`Processing successful: ${data.extraction_method}, confidence: ${data.extraction_confidence}%`);
-        
-        // Since process-material doesn't return the extracted text directly,
-        // we'll create a mock response showing the processing was successful
+      if (!visionData || !visionData.success) {
+        console.error('Google Vision service returned unsuccessful response:', visionData);
+        throw new Error('Google Vision service returned unsuccessful response');
+      }
+
+      if (!visionData.text || visionData.text.length === 0) {
+        console.log('Google Vision extracted no text from the file');
         return {
           materialName: material.name,
           materialId: material.id,
@@ -45,26 +51,47 @@ export default function TestPredictions() {
           fileSize: material.file_size,
           uploadDate: material.upload_date,
           processed: true,
-          content: `Material "${material.name}" has been successfully processed using ${data.extraction_method}.
-
-Extraction Method: ${data.extraction_method}
-Confidence: ${data.extraction_confidence}%
-Flashcards Generated: ${data.flashcards_generated}
-
-This material is now ready for AI-powered exam predictions and study assistance.`,
-          contentLength: 500,
-          wordCount: 85,
-          characterCount: 500,
-          extractionMethod: data.extraction_method,
-          extractionConfidence: data.extraction_confidence,
-          error: null,
+          content: '',
+          contentLength: 0,
+          wordCount: 0,
+          characterCount: 0,
+          extractionMethod: visionData.method,
+          extractionConfidence: visionData.confidence,
+          error: 'No text could be extracted from this file',
           extractionTimestamp: new Date().toISOString(),
-          isContentValid: true,
+          isContentValid: false,
           processingUsed: true
         };
-      } else {
-        throw new Error('Processing returned no valid results');
       }
+
+      // Calculate additional metrics
+      const wordCount = visionData.text.split(/\s+/).filter(word => word.length > 0).length;
+      
+      console.log(`Extraction successful: ${visionData.method}, confidence: ${visionData.confidence}%`);
+      
+      return {
+        materialName: material.name,
+        materialId: material.id,
+        course: material.course,
+        materialType: material.material_type,
+        fileName: material.file_name,
+        fileType: material.file_type,
+        fileSize: material.file_size,
+        uploadDate: material.upload_date,
+        processed: true,
+        content: visionData.text,
+        contentLength: visionData.text.length,
+        wordCount: wordCount,
+        characterCount: visionData.text.length,
+        extractionMethod: visionData.method,
+        extractionConfidence: visionData.confidence,
+        error: null,
+        extractionTimestamp: new Date().toISOString(),
+        isContentValid: visionData.text.length >= 50, // Consider valid if at least 50 characters
+        processingUsed: true,
+        boundingBoxes: visionData.boundingBoxes,
+        metadata: visionData.metadata
+      };
 
     } catch (error) {
       console.error('Text extraction failed:', error);
@@ -74,11 +101,14 @@ This material is now ready for AI-powered exam predictions and study assistance.
         error: error.message,
         content: '',
         contentLength: 0,
+        wordCount: 0,
+        characterCount: 0,
         fileSize: material.file_size,
         fileType: material.file_type,
         extractionMethod: 'failed',
         extractionConfidence: 0,
-        processingUsed: false
+        processingUsed: false,
+        isContentValid: false
       };
     }
   };
@@ -89,7 +119,8 @@ This material is now ready for AI-powered exam predictions and study assistance.
         materialName: material.name,
         error: 'No file path available',
         content: '',
-        contentLength: 0
+        contentLength: 0,
+        isContentValid: false
       });
       return;
     }
@@ -108,7 +139,8 @@ This material is now ready for AI-powered exam predictions and study assistance.
         materialName: material.name,
         error: error.message,
         content: '',
-        contentLength: 0
+        contentLength: 0,
+        isContentValid: false
       });
     } finally {
       setLoading(false);
@@ -192,7 +224,7 @@ This material is now ready for AI-powered exam predictions and study assistance.
           <p className="text-gray-600">Test material processing and generate intelligent exam predictions</p>
           <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded">
             <p className="text-green-800 text-sm">
-              <strong>✨ Enhanced:</strong> Now using advanced text extraction for superior processing with confidence scoring!
+              <strong>✨ Enhanced:</strong> Now using advanced text extraction with full content display and confidence scoring!
             </p>
           </div>
         </div>
@@ -247,7 +279,7 @@ This material is now ready for AI-powered exam predictions and study assistance.
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Search className="w-5 h-5" />
-                  Processing Testing Controls
+                  Live Text Extraction Testing
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -275,7 +307,7 @@ This material is now ready for AI-powered exam predictions and study assistance.
                         disabled={loading}
                         className="flex-1"
                       >
-                        {loading ? 'Processing...' : 'Test Content Extraction'}
+                        {loading ? 'Extracting Text...' : 'Extract Full Text Content'}
                       </Button>
                       
                       {extractedContent && !extractedContent.error && extractedContent.isContentValid && (
@@ -294,7 +326,7 @@ This material is now ready for AI-powered exam predictions and study assistance.
                 ) : (
                   <div className="text-center py-8">
                     <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">Select a material from the list to test content extraction</p>
+                    <p className="text-gray-500">Select a material from the list to test live text extraction</p>
                   </div>
                 )}
               </CardContent>
@@ -307,7 +339,7 @@ This material is now ready for AI-powered exam predictions and study assistance.
                   <CardTitle className="flex items-center justify-between">
                     <span className="flex items-center gap-2">
                       <Brain className="w-5 h-5" />
-                      Content Extraction Results
+                      Live Text Extraction Results
                     </span>
                     {extractedContent.content && (
                       <Button
@@ -332,12 +364,12 @@ This material is now ready for AI-powered exam predictions and study assistance.
                           {extractedContent.processingUsed ? (
                             <>
                               <CheckCircle className="w-5 h-5 text-green-600" />
-                              Smart Processing
+                              {extractedContent.extractionMethod}
                             </>
                           ) : (
                             <>
                               <XCircle className="w-5 h-5 text-orange-600" />
-                              {extractedContent.extractionMethod || 'Fallback'}
+                              {extractedContent.extractionMethod || 'Failed'}
                             </>
                           )}
                         </div>
@@ -371,7 +403,7 @@ This material is now ready for AI-powered exam predictions and study assistance.
                       <div className="bg-red-50 border border-red-200 p-4 rounded">
                         <p className="text-red-700">❌ Extraction Error: {extractedContent.error}</p>
                         <p className="text-red-600 text-sm mt-2">
-                          This could indicate an issue with the processing service or file format compatibility.
+                          This could indicate an issue with the Google Vision service or file format compatibility.
                         </p>
                       </div>
                     ) : (
@@ -382,28 +414,20 @@ This material is now ready for AI-powered exam predictions and study assistance.
                           </div>
                         ) : (
                           <div className="space-y-4">
-                            <div className={`border p-4 rounded ${
-                              extractedContent.processingUsed ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'
-                            }`}>
-                              <p className={`mb-2 ${
-                                extractedContent.processingUsed ? 'text-green-700' : 'text-blue-700'
-                              }`}>
-                                {extractedContent.processingUsed ? 
-                                  '✅ Smart content processing successful!' : 
-                                  '📄 Basic content extraction completed'
-                                }
+                            <div className="bg-green-50 border border-green-200 p-4 rounded">
+                              <p className="text-green-700 mb-2">
+                                ✅ Live text extraction successful!
                               </p>
-                              <div className={`text-sm ${
-                                extractedContent.processingUsed ? 'text-green-600' : 'text-blue-600'
-                              }`}>
-                                Processed: {extractedContent.contentLength.toLocaleString()} characters | 
+                              <div className="text-sm text-green-600">
+                                Extracted: {extractedContent.contentLength.toLocaleString()} characters | 
+                                {extractedContent.wordCount.toLocaleString()} words | 
                                 Confidence: {extractedContent.extractionConfidence}%
                               </div>
                             </div>
 
                             {/* Content Display Controls */}
                             <div className="flex items-center justify-between">
-                              <h3 className="font-semibold text-lg">Extracted Content:</h3>
+                              <h3 className="font-semibold text-lg">Extracted Text Content:</h3>
                               <Button
                                 onClick={() => setShowFullContent(!showFullContent)}
                                 variant="outline"
@@ -427,12 +451,12 @@ This material is now ready for AI-powered exam predictions and study assistance.
                             {/* Content Preview */}
                             <div className="bg-white border rounded p-4">
                               <div className="font-medium mb-2 text-gray-700">
-                                {showFullContent ? 'Complete Content:' : 'Preview (first 1000 characters):'}
+                                {showFullContent ? 'Complete Extracted Text:' : 'Preview (first 2000 characters):'}
                               </div>
-                              <div className="text-sm text-gray-800 font-mono bg-gray-50 p-4 rounded max-h-96 overflow-auto whitespace-pre-wrap border">
+                              <div className="text-sm text-gray-800 font-mono bg-gray-50 p-4 rounded max-h-96 overflow-auto whitespace-pre-wrap border leading-relaxed">
                                 {showFullContent 
                                   ? extractedContent.content 
-                                  : extractedContent.content.substring(0, 1000) + (extractedContent.content.length > 1000 ? '\n\n... (content truncated)' : '')
+                                  : extractedContent.content.substring(0, 2000) + (extractedContent.content.length > 2000 ? '\n\n... (content truncated - click "Show Full Content" to see all)' : '')
                                 }
                               </div>
                             </div>
