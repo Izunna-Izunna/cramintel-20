@@ -9,28 +9,20 @@ import { GenerationStep } from './GenerationStep';
 import { PredictionResults } from './PredictionResults';
 
 type Step = 'start' | 'upload-clues' | 'tag-context' | 'style-selection' | 'generating' | 'results';
-type PredictionStyle = 'bullet' | 'theory' | 'mixed' | 'exam-paper';
-
-interface ExamContext {
-  examType: string;
-  timeframe: string;
-  difficulty: string;
-  course: string;
-  examDate: string;
-}
+type StyleType = 'bullet' | 'theory' | 'mixed' | 'exam-paper';
 
 export function PredictionJourney() {
   const [currentStep, setCurrentStep] = useState<Step>('start');
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [examContext, setExamContext] = useState<ExamContext>({
+  const [examContext, setExamContext] = useState({
     examType: '',
     timeframe: '',
     difficulty: 'medium',
     course: '',
     examDate: ''
   });
-  const [selectedStyle, setSelectedStyle] = useState<PredictionStyle>('bullet');
+  const [selectedStyle, setSelectedStyle] = useState<StyleType>('bullet');
   const [generatedPrediction, setGeneratedPrediction] = useState(null);
 
   const handleNext = () => {
@@ -89,7 +81,7 @@ export function PredictionJourney() {
       case 'tag-context':
         return (
           <TagContextStep
-            selectedTags={selectedTags}
+            tags={selectedTags}
             onTagsChange={setSelectedTags}
             examContext={examContext}
             onExamContextChange={setExamContext}
@@ -109,8 +101,8 @@ export function PredictionJourney() {
       case 'generating':
         return (
           <GenerationStep
-            selectedMaterials={selectedMaterials}
-            selectedTags={selectedTags}
+            materials={selectedMaterials}
+            tags={selectedTags}
             examContext={examContext}
             selectedStyle={selectedStyle}
             onComplete={(prediction) => {

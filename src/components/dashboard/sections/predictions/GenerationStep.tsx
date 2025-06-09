@@ -1,10 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card';
+import React, { useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Sparkles, Brain, FileText, CheckCircle } from 'lucide-react';
 
 interface ExamContext {
   examType: string;
@@ -15,181 +13,116 @@ interface ExamContext {
 }
 
 interface GenerationStepProps {
-  selectedMaterials: string[];
-  selectedTags: string[];
+  materials: string[];
+  tags: string[];
   examContext: ExamContext;
   selectedStyle: string;
   onComplete: (prediction: any) => void;
   onBack: () => void;
 }
 
-export function GenerationStep({
-  selectedMaterials,
-  selectedTags,
-  examContext,
-  selectedStyle,
-  onComplete,
-  onBack
+export function GenerationStep({ 
+  materials, 
+  tags, 
+  examContext, 
+  selectedStyle, 
+  onComplete, 
+  onBack 
 }: GenerationStepProps) {
-  const [progress, setProgress] = useState(0);
-  const [currentStep, setCurrentStep] = useState('analyzing');
-  const [isComplete, setIsComplete] = useState(false);
-
-  const steps = [
-    { id: 'analyzing', label: 'Analyzing your materials', icon: FileText },
-    { id: 'processing', label: 'Processing context & tags', icon: Brain },
-    { id: 'generating', label: 'Generating predictions', icon: Sparkles },
-    { id: 'complete', label: 'Ready!', icon: CheckCircle }
-  ];
+  const [progress, setProgress] = React.useState(0);
+  const [currentStep, setCurrentStep] = React.useState('Analyzing materials...');
 
   useEffect(() => {
-    const generatePredictions = async () => {
-      // Simulate the generation process
-      for (let i = 0; i < steps.length; i++) {
-        setCurrentStep(steps[i].id);
+    const steps = [
+      'Analyzing materials...',
+      'Processing content...',
+      'Identifying patterns...',
+      'Generating predictions...',
+      'Finalizing results...'
+    ];
+
+    let currentStepIndex = 0;
+    let currentProgress = 0;
+
+    const interval = setInterval(() => {
+      currentProgress += Math.random() * 15 + 5;
+      
+      if (currentProgress >= 100) {
+        currentProgress = 100;
+        setProgress(100);
+        setCurrentStep('Complete!');
         
-        // Animate progress for each step
-        const stepProgress = (i / (steps.length - 1)) * 100;
-        setProgress(stepProgress);
+        setTimeout(() => {
+          const mockPrediction = {
+            id: Date.now().toString(),
+            course: examContext.course,
+            examType: examContext.examType,
+            difficulty: examContext.difficulty,
+            predictions: [
+              'Question about data structures and algorithms',
+              'Theory questions on time complexity',
+              'Practical implementation problems',
+              'Questions on specific programming concepts'
+            ],
+            confidence: Math.floor(Math.random() * 20) + 80
+          };
+          onComplete(mockPrediction);
+        }, 1000);
         
-        // Wait for each step
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        clearInterval(interval);
+        return;
       }
 
-      // Mock prediction result
-      const mockPrediction = {
-        id: 'pred-123',
-        style: selectedStyle,
-        course: examContext.course,
-        exam_date: examContext.examDate,
-        confidence_score: 87,
-        questions: [
-          {
-            id: 1,
-            text: "Explain the first law of thermodynamics and provide a practical example.",
-            confidence: 95,
-            type: "theory",
-            tags: selectedTags.slice(0, 2)
-          },
-          {
-            id: 2,
-            text: "Calculate the efficiency of a Carnot engine operating between 400K and 300K.",
-            confidence: 89,
-            type: "calculation",
-            tags: selectedTags.slice(1, 3)
-          },
-          {
-            id: 3,
-            text: "Describe the relationship between entropy and the second law of thermodynamics.",
-            confidence: 82,
-            type: "theory",
-            tags: selectedTags.slice(0, 1)
-          }
-        ],
-        generated_at: new Date().toISOString(),
-        materials_used: selectedMaterials,
-        tags_used: selectedTags,
-        exam_context: examContext
-      };
+      if (currentProgress > (currentStepIndex + 1) * 20) {
+        currentStepIndex = Math.min(currentStepIndex + 1, steps.length - 1);
+        setCurrentStep(steps[currentStepIndex]);
+      }
 
-      setIsComplete(true);
-      setTimeout(() => {
-        onComplete(mockPrediction);
-      }, 1000);
-    };
+      setProgress(Math.min(currentProgress, 100));
+    }, 500);
 
-    generatePredictions();
-  }, [selectedMaterials, selectedTags, examContext, selectedStyle, onComplete]);
-
-  const getCurrentStepIndex = () => {
-    return steps.findIndex(step => step.id === currentStep);
-  };
+    return () => clearInterval(interval);
+  }, [examContext, onComplete]);
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="text-center mb-8">
-        <h3 className="text-xl font-bold text-gray-800 mb-2">Generating Your Predictions</h3>
-        <p className="text-gray-600">This will take a few moments...</p>
-      </div>
+    <Card className="max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle>Generating Your Exam Prediction</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🔮</div>
+          <h3 className="text-xl font-semibold mb-2">Creating Your Prediction</h3>
+          <p className="text-gray-600">{currentStep}</p>
+        </div>
 
-      <Card>
-        <CardContent className="p-8">
-          <div className="space-y-6">
-            {/* Progress Bar */}
-            <div>
-              <Progress value={progress} className="h-2" />
-              <p className="text-sm text-gray-600 mt-2 text-center">{Math.round(progress)}% complete</p>
-            </div>
-
-            {/* Steps */}
-            <div className="space-y-4">
-              {steps.map((step, index) => {
-                const currentIndex = getCurrentStepIndex();
-                const isActive = index === currentIndex;
-                const isCompleted = index < currentIndex || isComplete;
-                const Icon = step.icon;
-
-                return (
-                  <motion.div
-                    key={step.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                      isActive ? 'bg-blue-50 border border-blue-200' :
-                      isCompleted ? 'bg-green-50 border border-green-200' :
-                      'bg-gray-50 border border-gray-200'
-                    }`}
-                  >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      isActive ? 'bg-blue-500 text-white' :
-                      isCompleted ? 'bg-green-500 text-white' :
-                      'bg-gray-300 text-gray-600'
-                    }`}>
-                      {isActive ? (
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        >
-                          <Icon className="w-4 h-4" />
-                        </motion.div>
-                      ) : (
-                        <Icon className="w-4 h-4" />
-                      )}
-                    </div>
-                    <span className={`font-medium ${
-                      isActive ? 'text-blue-700' :
-                      isCompleted ? 'text-green-700' :
-                      'text-gray-600'
-                    }`}>
-                      {step.label}
-                    </span>
-                    {isCompleted && (
-                      <CheckCircle className="w-4 h-4 text-green-500 ml-auto" />
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
-
-            {/* Summary */}
-            <div className="bg-gray-50 rounded-lg p-4 text-center">
-              <p className="text-sm text-gray-600">
-                Processing {selectedMaterials.length} materials with {selectedTags.length} tags
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Style: {selectedStyle} • Course: {examContext.course}
-              </p>
-            </div>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>Progress</span>
+            <span>{Math.round(progress)}%</span>
           </div>
-        </CardContent>
-      </Card>
+          <Progress value={progress} className="w-full" />
+        </div>
 
-      <div className="flex justify-center mt-6">
-        <Button variant="outline" onClick={onBack} disabled={!isComplete}>
-          Back
-        </Button>
-      </div>
-    </div>
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h4 className="font-semibold mb-2">Processing:</h4>
+          <div className="text-sm text-gray-600 space-y-1">
+            <div>Materials: {materials.length} files</div>
+            <div>Tags: {tags.join(', ')}</div>
+            <div>Course: {examContext.course}</div>
+            <div>Style: {selectedStyle}</div>
+          </div>
+        </div>
+
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={onBack} disabled={progress > 0}>
+            Back
+          </Button>
+          <div className="text-sm text-gray-500">
+            This may take a few moments...
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

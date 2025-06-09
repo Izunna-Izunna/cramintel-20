@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface QuizQuestion {
   id: string;
@@ -19,29 +20,62 @@ export function useQuizQuestions() {
   const fetchQuestions = async () => {
     try {
       setError(null);
-      // Mock data since quiz_questions table doesn't exist yet
-      const mockQuestions: QuizQuestion[] = [
-        {
-          id: '1',
-          question: 'What is the capital of France?',
-          options: ['London', 'Berlin', 'Paris', 'Madrid'],
-          correct_answer: 2,
-          difficulty: 'easy',
-          category: 'Geography',
-          course: 'General Knowledge'
-        },
-        {
-          id: '2',
-          question: 'Which programming language is React based on?',
-          options: ['Python', 'JavaScript', 'Java', 'C++'],
-          correct_answer: 1,
-          difficulty: 'medium',
-          category: 'Technology',
-          course: 'Computer Science'
-        }
-      ];
       
-      setQuestions(mockQuestions);
+      // Query the quiz_questions table directly
+      const { data, error } = await supabase
+        .from('quiz_questions')
+        .select('*')
+        .eq('active', true)
+        .limit(5);
+
+      if (error) {
+        console.error('Error fetching quiz questions:', error);
+        // Fallback to hardcoded questions for now
+        const fallbackQuestions: QuizQuestion[] = [
+          {
+            id: '1',
+            question: 'What is the time complexity of binary search?',
+            options: ['O(n)', 'O(log n)', 'O(n²)', 'O(1)'],
+            correct_answer: 1,
+            difficulty: 'medium',
+            category: 'algorithms',
+            course: 'Computer Science'
+          },
+          {
+            id: '2',
+            question: 'Which data structure uses LIFO principle?',
+            options: ['Queue', 'Stack', 'Array', 'Linked List'],
+            correct_answer: 1,
+            difficulty: 'easy',
+            category: 'data-structures',
+            course: 'Computer Science'
+          },
+          {
+            id: '3',
+            question: 'What does CPU stand for?',
+            options: ['Computer Processing Unit', 'Central Processing Unit', 'Central Program Unit', 'Computer Program Unit'],
+            correct_answer: 1,
+            difficulty: 'easy',
+            category: 'hardware',
+            course: 'Computer Science'
+          }
+        ];
+        setQuestions(fallbackQuestions);
+        return;
+      }
+
+      // Transform the data to match our interface
+      const transformedQuestions = data?.map(q => ({
+        id: q.id,
+        question: q.question,
+        options: Array.isArray(q.options) ? q.options : JSON.parse(q.options),
+        correct_answer: q.correct_answer,
+        difficulty: q.difficulty,
+        category: q.category,
+        course: q.course
+      })) || [];
+
+      setQuestions(transformedQuestions);
     } catch (err) {
       console.error('Error fetching quiz questions:', err);
       setError('Failed to load quiz questions');
