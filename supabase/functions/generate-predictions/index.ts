@@ -1,48 +1,83 @@
 
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { extractText, getDocumentProxy } from "npm:unpdf@1.0.5";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Helper function to extract text from different file types
+// Updated helper function to extract text from different file types using the SAME method as flashcard generation
 async function extractTextFromFile(supabaseClient: any, filePath: string, fileType: string): Promise<string> {
   try {
+    console.log(`Extracting text from file: ${filePath} (${fileType})`);
+    
     const { data: fileData, error: downloadError } = await supabaseClient.storage
       .from('cramintel-materials')
       .download(filePath);
 
     if (downloadError || !fileData) {
       console.error('Failed to download file:', downloadError);
-      return '';
+      throw new Error(`Failed to download file: ${downloadError?.message}`);
     }
 
-    if (fileType?.includes('text') || fileType?.includes('plain')) {
-      // Plain text files
-      return await fileData.text();
-    } else if (fileType?.includes('pdf')) {
-      // For PDFs, we'll need to implement PDF text extraction
-      // For now, return a placeholder that indicates PDF processing is needed
-      const textContent = await fileData.text();
-      if (textContent && textContent.length > 100) {
-        return textContent;
+    let extractedText = '';
+
+    if (fileType?.includes('pdf')) {
+      console.log('Processing PDF file for text extraction');
+      
+      const arrayBuffer = await fileData.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      console.log('PDF file size:', uint8Array.length, 'bytes');
+      
+      const pdf = await getDocumentProxy(uint8Array);
+      const { text } = await extractText(pdf, { mergePages: true });
+      
+      console.log('PDF text extraction completed, length:', text.length);
+      
+      if (text && text.trim().length > 200) {
+        extractedText = text;
+        console.log('Using extracted PDF text for processing');
+      } else {
+        throw new Error('Insufficient text content extracted from PDF');
       }
-      return 'PDF content extraction not fully implemented yet. Please use text files for best results.';
+      
+    } else if (fileType?.includes('text')) {
+      extractedText = await fileData.text();
     } else {
-      // For other file types, try to read as text
+      // Try to read as text for other file types
       try {
         const textContent = await fileData.text();
-        return textContent || '';
+        if (textContent && textContent.trim().length > 100) {
+          extractedText = textContent;
+        } else {
+          throw new Error('Unable to extract meaningful text from file');
+        }
       } catch (error) {
-        console.error('Error reading file as text:', error);
-        return '';
+        throw new Error(`Unsupported file type for text extraction: ${fileType}`);
       }
     }
+
+    // Clean and validate extracted text
+    const cleanText = extractedText
+      .replace(/\s+/g, ' ')
+      .replace(/[^\w\s.,!?;:()\-\[\]]/g, '')
+      .trim();
+
+    console.log('Cleaned text length:', cleanText.length);
+
+    if (cleanText.length < 100) {
+      throw new Error('Insufficient content for prediction generation');
+    }
+
+    return cleanText;
+    
   } catch (error) {
     console.error('Error extracting text from file:', error);
-    return '';
+    throw error;
   }
 }
 
@@ -121,7 +156,7 @@ function analyzeRealContent(content: string, course: string, materialType: strin
   };
 }
 
-// Build course-aware prompt
+// Build course-aware prompt with REAL content only
 function buildCourseAwarePrompt(materials: any[], context: any, style: string, whispers: string[] = []) {
   const courseInfo = context.course.toLowerCase();
   let courseType = 'general academic';
@@ -149,15 +184,24 @@ This is an ENGINEERING course. Generate questions about:
 - Industry standards and practices`;
   }
 
-  const materialAnalysis = materials.map((material, index) => {
-    const analysis = analyzeRealContent(material.content || '', context.course, material.type);
+  // Only use materials with substantial real content
+  const validMaterials = materials.filter(material => 
+    material.content && material.content.length > 200
+  );
+
+  if (validMaterials.length === 0) {
+    throw new Error('No valid content available for prediction generation. Please ensure uploaded materials contain readable text.');
+  }
+
+  const materialAnalysis = validMaterials.map((material, index) => {
+    const analysis = analyzeRealContent(material.content, context.course, material.type);
     return `Material ${index + 1} (${material.type}):
 Content Length: ${analysis.contentLength} characters
 Course Context: ${analysis.courseContext}
 Key Topics: ${analysis.topics.join(', ')}
 Key Terms: ${analysis.keyTerms.join(', ')}
 Confidence: ${analysis.confidence}%
-Content Preview: ${(material.content || '').substring(0, 300)}...`;
+Content Sample: ${material.content.substring(0, 500)}...`;
   }).join('\n\n');
 
   const prompt = `You are an expert academic AI generating ${style === 'exam-paper' ? 'exam papers' : 'exam predictions'} for university students.
@@ -171,14 +215,15 @@ REAL MATERIAL ANALYSIS:
 ${materialAnalysis}
 
 STUDENT HINTS:
-${whispers.length > 0 ? whispers.map(w => `• ${w}`).join('\n') : 'No additional hints'}
+${whispers.length > 0 ? whispers.map(w => `• ${w}`).join('\n') : 'No additional hints provided'}
 
-REQUIREMENTS:
-1. Base ALL questions on the ACTUAL content provided above
-2. Use course-appropriate terminology and concepts
-3. Match the academic level and style for ${context.course}
-4. Generate questions that could realistically appear on this specific course exam
-5. Reference specific topics, terms, and concepts from the materials
+CRITICAL REQUIREMENTS:
+1. Base ALL questions EXCLUSIVELY on the ACTUAL content provided above
+2. DO NOT create generic or template questions
+3. Use specific terms, concepts, and information from the uploaded materials
+4. Reference exact topics and details found in the content
+5. Generate questions that could only be answered by someone who studied these specific materials
+6. Match the academic level and terminology used in the source materials
 
 ${style === 'exam-paper' ? `
 OUTPUT FORMAT (Exam Paper):
@@ -192,7 +237,7 @@ OUTPUT FORMAT (Exam Paper):
       "questions": [
         {
           "question_number": 1,
-          "question": "[Question based on actual material content]",
+          "question": "[Question based on specific content from materials]",
           "type": "definition",
           "marks": 10,
           "confidence": 90
@@ -204,7 +249,7 @@ OUTPUT FORMAT (Exam Paper):
       "questions": [
         {
           "question_number": 4,
-          "question": "[Complex question based on material themes]",
+          "question": "[Complex question based on specific material themes]",
           "type": "analysis",
           "marks": 20,
           "confidence": 85
@@ -218,7 +263,7 @@ OUTPUT FORMAT (Predictions):
 {
   "predictions": [
     {
-      "question": "[Question based on actual material content]",
+      "question": "[Question based on specific content from materials]",
       "confidence": 85,
       "reasoning": "Based on [specific content/topic] from uploaded materials",
       "type": "theory",
@@ -227,10 +272,10 @@ OUTPUT FORMAT (Predictions):
     }
   ],
   "overall_confidence": 85,
-  "analysis_summary": "Predictions based on analysis of actual course materials"
+  "analysis_summary": "Predictions based on analysis of real course materials"
 }`}
 
-CRITICAL: Respond ONLY with valid JSON. Base questions on ACTUAL content, not generic templates.`;
+RESPOND ONLY with valid JSON. NO generic content. ALL questions must reference specific material content.`;
 
   return prompt;
 }
@@ -273,8 +318,8 @@ serve(async (req) => {
       )
     }
 
-    // Process clues and extract real content
-    console.log('Processing materials and extracting real content...')
+    // Process clues and extract real content using SAME method as flashcard generation
+    console.log('Processing materials and extracting real content using PDF extraction...')
     
     const processedMaterials: any[] = []
     const whisperTexts: string[] = []
@@ -294,17 +339,14 @@ serve(async (req) => {
           if (material) {
             console.log(`Processing material: ${material.name} (${material.file_type})`)
             
-            // Extract real content from file
+            // Extract real content using the SAME method as flashcard generation
             let materialContent = '';
             if (material.file_path) {
               materialContent = await extractTextFromFile(supabaseClient, material.file_path, material.file_type);
             }
             
-            if (!materialContent || materialContent.length < 50) {
-              materialContent = `Course Material: ${material.name}
-Course: ${material.course}
-Type: ${material.material_type}
-[Content extraction pending - please ensure files are text-readable or provide text versions for better accuracy]`;
+            if (!materialContent || materialContent.length < 100) {
+              throw new Error(`Unable to extract sufficient content from ${material.name}. Please ensure the file contains readable text.`);
             }
 
             processedMaterials.push({
@@ -313,18 +355,22 @@ Type: ${material.material_type}
               type: clue.type
             })
             
-            console.log(`Extracted ${materialContent.length} characters from ${material.name}`)
+            console.log(`Successfully extracted ${materialContent.length} characters from ${material.name}`)
           }
         }
       } catch (error) {
         console.error('Error processing clue:', clue.id, error)
-        // Continue processing other clues
+        throw new Error(`Failed to process material: ${error.message}`);
       }
     }
 
     console.log(`Processed ${processedMaterials.length} materials with real content`)
 
-    // Build course-aware prompt with real content
+    if (processedMaterials.length === 0) {
+      throw new Error('No valid materials with extractable content found. Please upload materials with readable text content.');
+    }
+
+    // Build course-aware prompt with real content only
     const enhancedPrompt = buildCourseAwarePrompt(
       processedMaterials,
       context,
@@ -346,7 +392,7 @@ Type: ${material.material_type}
         messages: [
           {
             role: 'system',
-            content: 'You are an expert academic AI that generates realistic exam predictions based on real course materials. Always respond with valid JSON in the requested format. Base all questions on the actual content provided, not generic templates.'
+            content: 'You are an expert academic AI that generates realistic exam predictions based EXCLUSIVELY on real course materials. You MUST base all questions on the actual content provided. NEVER generate generic or template questions. Always respond with valid JSON in the requested format.'
           },
           {
             role: 'user',
@@ -383,38 +429,7 @@ Type: ${material.material_type}
     } catch (parseError) {
       console.error('JSON parsing failed:', parseError)
       console.error('Raw content:', generatedContent)
-      
-      // Provide course-aware fallback
-      const fallbackResponse = style === 'exam-paper' ? {
-        exam_title: `${context.course} Examination`,
-        duration: "2-3 hours",
-        instructions: "Answer all questions. Show your work clearly.",
-        sections: [{
-          title: "Section A",
-          questions: [{
-            question_number: 1,
-            question: `Based on the course materials for ${context.course}, explain the key concepts covered in the uploaded materials and their practical applications.`,
-            type: "long_answer",
-            marks: 25,
-            confidence: 75
-          }]
-        }],
-        total_marks: 100
-      } : {
-        predictions: [{
-          question: `Based on the uploaded materials for ${context.course}, analyze and explain the main topics and their significance in the field.`,
-          confidence: 75,
-          reasoning: "Generated based on analysis of uploaded course materials and course context.",
-          type: "theory",
-          sources: ["Course materials"],
-          difficulty: "medium"
-        }],
-        overall_confidence: 75,
-        analysis_summary: "Prediction generated using real material content analysis."
-      }
-      
-      console.log('Using course-aware fallback response')
-      parsedResponse = fallbackResponse
+      throw new Error('Failed to parse AI response. Please try again.');
     }
 
     // Validate response structure
