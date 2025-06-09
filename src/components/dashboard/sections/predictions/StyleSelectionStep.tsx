@@ -4,9 +4,11 @@ import { Zap, FileText, Target, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
+type PredictionStyle = 'bullet' | 'theory' | 'mixed' | 'exam-paper';
+
 interface StyleSelectionStepProps {
-  selectedStyle: 'bullet' | 'theory' | 'mixed' | 'exam-paper';
-  onStyleChange: (style: 'bullet' | 'theory' | 'mixed' | 'exam-paper') => void;
+  selectedStyle: PredictionStyle;
+  onStyleChange: (style: PredictionStyle) => void;
   onNext: () => void;
   onBack: () => void;
 }

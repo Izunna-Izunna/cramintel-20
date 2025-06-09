@@ -9,19 +9,28 @@ import { GenerationStep } from './GenerationStep';
 import { PredictionResults } from './PredictionResults';
 
 type Step = 'start' | 'upload-clues' | 'tag-context' | 'style-selection' | 'generating' | 'results';
+type PredictionStyle = 'bullet' | 'theory' | 'mixed' | 'exam-paper';
+
+interface ExamContext {
+  examType: string;
+  timeframe: string;
+  difficulty: string;
+  course: string;
+  examDate: string;
+}
 
 export function PredictionJourney() {
   const [currentStep, setCurrentStep] = useState<Step>('start');
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [examContext, setExamContext] = useState({
+  const [examContext, setExamContext] = useState<ExamContext>({
     examType: '',
     timeframe: '',
     difficulty: 'medium',
     course: '',
     examDate: ''
   });
-  const [selectedStyle, setSelectedStyle] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState<PredictionStyle>('bullet');
   const [generatedPrediction, setGeneratedPrediction] = useState(null);
 
   const handleNext = () => {
@@ -127,7 +136,7 @@ export function PredictionJourney() {
                 course: '',
                 examDate: ''
               });
-              setSelectedStyle('');
+              setSelectedStyle('bullet');
               setGeneratedPrediction(null);
             }}
           />

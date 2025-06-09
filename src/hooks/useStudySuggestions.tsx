@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 export interface StudySuggestion {
@@ -24,20 +23,31 @@ export function useStudySuggestions() {
   const fetchSuggestions = async () => {
     try {
       setError(null);
-      const { data, error } = await supabase
-        .from('study_suggestions')
-        .select('*')
-        .or(`user_id.is.null,user_id.eq.${user?.id}`)
-        .order('priority', { ascending: true })
-        .limit(5);
+      // Mock data since study_suggestions table doesn't exist yet
+      const mockSuggestions: StudySuggestion[] = [
+        {
+          id: '1',
+          type: 'review',
+          title: 'Review Thermodynamics',
+          description: 'You haven\'t studied thermodynamics in 3 days',
+          action_text: 'Start Review',
+          icon: '🔥',
+          priority: 1,
+          course: 'Physics'
+        },
+        {
+          id: '2',
+          type: 'practice',
+          title: 'Practice Calculus',
+          description: 'Complete 5 more problems to master derivatives',
+          action_text: 'Practice Now',
+          icon: '📊',
+          priority: 2,
+          course: 'Mathematics'
+        }
+      ];
 
-      if (error) {
-        console.error('Error fetching study suggestions:', error);
-        setError('Failed to load study suggestions');
-        return;
-      }
-
-      setSuggestions(data || []);
+      setSuggestions(mockSuggestions);
     } catch (err) {
       console.error('Error fetching study suggestions:', err);
       setError('Failed to load study suggestions');

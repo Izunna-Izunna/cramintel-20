@@ -1,217 +1,206 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, TrendingUp, MessageSquare, BookOpen, CheckCircle, Share, Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { GeneratedQuestion, PredictionResponse } from '@/types/predictions';
+import { Progress } from '@/components/ui/progress';
+import { Sparkles, Download, Share2, BookOpen, Target, Calendar } from 'lucide-react';
 
-interface PredictionData {
-  clues: Array<{
-    id: string;
-    name: string;
-    type: 'past-questions' | 'assignment' | 'whisper';
-    content?: string;
-    materialId?: string;
-  }>;
-  context: {
-    course: string;
-    topics: string[];
-    lecturer?: string;
-  };
-  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper';
-  generatedContent?: PredictionResponse;
+interface Question {
+  id: number;
+  text: string;
+  confidence: number;
+  type: string;
+  tags: string[];
+}
+
+interface Prediction {
+  id: string;
+  style: string;
+  course: string;
+  exam_date: string;
+  confidence_score: number;
+  questions: Question[];
+  generated_at: string;
+  materials_used: string[];
+  tags_used: string[];
+  exam_context: any;
 }
 
 interface PredictionResultsProps {
-  predictionData: PredictionData;
+  prediction: Prediction;
   onBack: () => void;
-  onClose: () => void;
+  onStartNew: () => void;
 }
 
-export function PredictionResults({ predictionData, onBack, onClose }: PredictionResultsProps) {
-  console.log('PredictionResults received data:', predictionData);
-  
-  // Extract real predictions from the generated content
-  const predictions = predictionData.generatedContent?.predictions || [];
-  const overallConfidence = predictionData.generatedContent?.overall_confidence || 75;
+export function PredictionResults({ prediction, onBack, onStartNew }: PredictionResultsProps) {
+  if (!prediction) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-600">No prediction data available.</p>
+        <Button onClick={onBack} className="mt-4">Go Back</Button>
+      </div>
+    );
+  }
 
-  console.log('Extracted predictions:', predictions);
-  console.log('Overall confidence:', overallConfidence);
-
-  // Only use fallback if no real predictions are available
-  const displayPredictions = predictions.length > 0 ? predictions : [
-    {
-      question: `No real predictions were generated. Please try again with different materials.`,
-      confidence: 0,
-      type: 'error',
-      reasoning: 'Generation failed or returned empty results',
-      sources: [],
-    }
-  ];
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'theory':
-        return <BookOpen className="w-4 h-4" />;
-      case 'application':
-      case 'applied':
-        return <TrendingUp className="w-4 h-4" />;
-      case 'calculation':
-        return <Sparkles className="w-4 h-4" />;
-      case 'error':
-        return <MessageSquare className="w-4 h-4" />;
-      default:
-        return <Sparkles className="w-4 h-4" />;
-    }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
   };
 
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'theory':
-        return 'Theory Question';
-      case 'application':
-      case 'applied':
-        return 'Applied Problem';
-      case 'calculation':
-        return 'Calculation';
-      case 'error':
-        return 'Error';
-      default:
-        return 'Prediction';
-    }
-  };
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'theory':
-        return 'bg-blue-100 text-blue-700';
-      case 'application':
-      case 'applied':
-        return 'bg-green-100 text-green-700';
-      case 'calculation':
-        return 'bg-purple-100 text-purple-700';
-      case 'error':
-        return 'bg-red-100 text-red-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 90) return 'text-green-600 bg-green-100';
+    if (confidence >= 75) return 'text-blue-600 bg-blue-100';
+    if (confidence >= 60) return 'text-yellow-600 bg-yellow-100';
+    return 'text-red-600 bg-red-100';
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-8"
-      >
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <CheckCircle className="w-8 h-8 text-green-600" />
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6"
+    >
+      {/* Header */}
+      <div className="text-center">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Sparkles className="w-6 h-6 text-purple-600" />
+          <h3 className="text-2xl font-bold text-gray-800">Predictions Ready!</h3>
         </div>
-        <h3 className="text-2xl font-bold text-gray-800 mb-2">
-          {predictions.length > 0 ? 'Predictions Ready!' : 'Generation Issue'}
-        </h3>
         <p className="text-gray-600">
-          {predictions.length > 0 
-            ? `Based on your ${predictionData.clues.length} uploaded materials for ${predictionData.context.course}`
-            : 'There was an issue generating predictions from your materials'
-          }
+          Generated {prediction.questions.length} high-confidence predictions for {prediction.course}
         </p>
-      </motion.div>
+      </div>
 
-      <div className="space-y-4 mb-8">
-        {displayPredictions.map((prediction, index) => (
-          <motion.div
-            key={index}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-          >
-            <Card className="hover:shadow-md transition-shadow border border-gray-200">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    {getTypeIcon(prediction.type || 'prediction')}
-                    <CardTitle className="text-lg">{getTypeLabel(prediction.type || 'prediction')}</CardTitle>
-                  </div>
-                  <Badge className={getTypeColor(prediction.type || 'prediction')}>
-                    {prediction.confidence || 0}% likely
-                  </Badge>
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-purple-600">{prediction.confidence_score}%</div>
+            <p className="text-sm text-gray-600">Overall Confidence</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-blue-600">{prediction.questions.length}</div>
+            <p className="text-sm text-gray-600">Questions Generated</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-green-600">{prediction.materials_used.length}</div>
+            <p className="text-sm text-gray-600">Materials Analyzed</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Questions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="w-5 h-5" />
+            Predicted Questions
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {prediction.questions.map((question, index) => (
+            <motion.div
+              key={question.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="border rounded-lg p-4 space-y-3"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h4 className="font-medium text-gray-800 mb-2">
+                    Question {index + 1}
+                  </h4>
+                  <p className="text-gray-700">{question.text}</p>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-700 mb-4 text-base leading-relaxed">
-                  "{prediction.question}"
-                </p>
-                
-                {(prediction.sources || prediction.reasoning) && (
-                  <div className="space-y-2 text-sm text-gray-600">
-                    {prediction.sources && prediction.sources.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">Sources:</span>
-                        <span>{prediction.sources.join(', ')}</span>
-                      </div>
-                    )}
-                    {prediction.reasoning && (
-                      <div className="flex items-start gap-2">
-                        <span className="font-medium">Rationale:</span>
-                        <span>{prediction.reasoning}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
+                <Badge className={`ml-3 ${getConfidenceColor(question.confidence)}`}>
+                  {question.confidence}% confident
+                </Badge>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{question.type}</Badge>
+                {question.tags.map(tag => (
+                  <Badge key={tag} variant="secondary" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+              
+              <Progress value={question.confidence} className="h-1" />
+            </motion.div>
+          ))}
+        </CardContent>
+      </Card>
 
-      {predictions.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8"
-        >
-          <h4 className="font-semibold text-gray-800 mb-4">🧠 Actionable Follow-Ups:</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Button variant="outline" size="sm" className="justify-start border-gray-300 text-gray-700 hover:bg-gray-50">
-              <BookOpen className="w-4 h-4 mr-2" />
-              Generate Flashcards
-            </Button>
-            <Button variant="outline" size="sm" className="justify-start border-gray-300 text-gray-700 hover:bg-gray-50">
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Save to Dashboard
-            </Button>
-            <Button variant="outline" size="sm" className="justify-start border-gray-300 text-gray-700 hover:bg-gray-50">
-              <Share className="w-4 h-4 mr-2" />
-              Share with Circle
-            </Button>
-            <Button variant="outline" size="sm" className="justify-start border-gray-300 text-gray-700 hover:bg-gray-50">
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Ask AI to Explain
-            </Button>
+      {/* Metadata */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5" />
+            Prediction Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-gray-600">Course:</span>
+              <span className="ml-2 font-medium">{prediction.course}</span>
+            </div>
+            <div>
+              <span className="text-gray-600">Style:</span>
+              <span className="ml-2 font-medium capitalize">{prediction.style}</span>
+            </div>
+            {prediction.exam_date && (
+              <div>
+                <span className="text-gray-600">Exam Date:</span>
+                <span className="ml-2 font-medium">{formatDate(prediction.exam_date)}</span>
+              </div>
+            )}
+            <div>
+              <span className="text-gray-600">Generated:</span>
+              <span className="ml-2 font-medium">{formatDate(prediction.generated_at)}</span>
+            </div>
           </div>
-        </motion.div>
-      )}
+          
+          <div>
+            <p className="text-gray-600 text-sm mb-2">Tags Used:</p>
+            <div className="flex flex-wrap gap-1">
+              {prediction.tags_used.map(tag => (
+                <Badge key={tag} variant="outline" className="text-xs">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack} className="border-gray-300 text-gray-700 hover:bg-gray-50">
-          Generate Again
+      {/* Actions */}
+      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <Button variant="outline" className="flex items-center gap-2">
+          <Download className="w-4 h-4" />
+          Download PDF
         </Button>
-        <div className="flex gap-3">
-          {predictions.length > 0 && (
-            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
-              <Download className="w-4 h-4 mr-2" />
-              Export PDF
-            </Button>
-          )}
-          <Button onClick={onClose} className="bg-gray-800 hover:bg-gray-900 text-white">
-            Done
-          </Button>
-        </div>
+        <Button variant="outline" className="flex items-center gap-2">
+          <Share2 className="w-4 h-4" />
+          Share
+        </Button>
+        <Button onClick={onStartNew} className="bg-purple-600 hover:bg-purple-700">
+          Generate New Prediction
+        </Button>
       </div>
-    </div>
+
+      <div className="flex justify-center pt-4">
+        <Button variant="outline" onClick={onBack}>
+          Back to Generation
+        </Button>
+      </div>
+    </motion.div>
   );
 }

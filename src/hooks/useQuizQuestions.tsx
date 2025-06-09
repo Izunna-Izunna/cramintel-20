@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 
 export interface QuizQuestion {
   id: string;
@@ -20,24 +19,29 @@ export function useQuizQuestions() {
   const fetchQuestions = async () => {
     try {
       setError(null);
-      const { data, error } = await supabase
-        .from('quiz_questions')
-        .select('*')
-        .eq('active', true)
-        .limit(10);
-
-      if (error) {
-        console.error('Error fetching quiz questions:', error);
-        setError('Failed to load quiz questions');
-        return;
-      }
-
-      const formattedQuestions = data?.map(q => ({
-        ...q,
-        options: Array.isArray(q.options) ? q.options : JSON.parse(q.options || '[]')
-      })) || [];
-
-      setQuestions(formattedQuestions);
+      // Mock data since quiz_questions table doesn't exist yet
+      const mockQuestions: QuizQuestion[] = [
+        {
+          id: '1',
+          question: 'What is the capital of France?',
+          options: ['London', 'Berlin', 'Paris', 'Madrid'],
+          correct_answer: 2,
+          difficulty: 'easy',
+          category: 'Geography',
+          course: 'General Knowledge'
+        },
+        {
+          id: '2',
+          question: 'Which programming language is React based on?',
+          options: ['Python', 'JavaScript', 'Java', 'C++'],
+          correct_answer: 1,
+          difficulty: 'medium',
+          category: 'Technology',
+          course: 'Computer Science'
+        }
+      ];
+      
+      setQuestions(mockQuestions);
     } catch (err) {
       console.error('Error fetching quiz questions:', err);
       setError('Failed to load quiz questions');

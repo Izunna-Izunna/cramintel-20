@@ -1,283 +1,223 @@
 
-import React, { useState, useMemo } from 'react';
-import { Search, Tag, User } from 'lucide-react';
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TagChip } from '@/components/dashboard/TagChip';
-import { useUserProfile } from '@/hooks/useUserProfile';
+import { Badge } from '@/components/ui/badge';
+import { Calendar, Clock, Target, BookOpen, ChevronRight, X } from 'lucide-react';
 
-interface Context {
+interface ExamContext {
+  examType: string;
+  timeframe: string;
+  difficulty: string;
   course: string;
-  topics: string[];
-  lecturer?: string;
+  examDate: string;
 }
 
 interface TagContextStepProps {
-  context: Context;
-  onContextChange: (context: Context) => void;
+  selectedTags: string[];
+  onTagsChange: (tags: string[]) => void;
+  examContext: ExamContext;
+  onExamContextChange: (context: ExamContext) => void;
   onNext: () => void;
   onBack: () => void;
 }
 
-// Course-specific topic suggestions
-const getTopicSuggestions = (courseName: string): string[] => {
-  const courseNameLower = courseName.toLowerCase();
-  
-  // Computer Science related topics
-  if (courseNameLower.includes('computer') || courseNameLower.includes('csc') || 
-      courseNameLower.includes('programming') || courseNameLower.includes('software')) {
-    return ['Data Structures', 'Algorithms', 'Object-Oriented Programming', 'Database Design', 'Software Engineering', 'Computer Networks', 'Operating Systems'];
-  }
-  
-  // Mathematics related topics
-  if (courseNameLower.includes('math') || courseNameLower.includes('mth') || 
-      courseNameLower.includes('calculus') || courseNameLower.includes('algebra')) {
-    return ['Calculus', 'Linear Algebra', 'Statistics', 'Probability', 'Differential Equations', 'Discrete Mathematics', 'Mathematical Analysis'];
-  }
-  
-  // Engineering related topics
-  if (courseNameLower.includes('eng') || courseNameLower.includes('engineering') || 
-      courseNameLower.includes('thermodynamics') || courseNameLower.includes('mechanics')) {
-    return ['Thermodynamics', 'Heat Transfer', 'Fluid Mechanics', 'Materials Science', 'Circuit Analysis', 'Structural Analysis', 'Control Systems'];
-  }
-  
-  // Physics related topics
-  if (courseNameLower.includes('phy') || courseNameLower.includes('physics')) {
-    return ['Classical Mechanics', 'Quantum Physics', 'Electromagnetism', 'Thermodynamics', 'Optics', 'Nuclear Physics', 'Relativity'];
-  }
-  
-  // Chemistry related topics
-  if (courseNameLower.includes('chem') || courseNameLower.includes('chemistry')) {
-    return ['Organic Chemistry', 'Inorganic Chemistry', 'Physical Chemistry', 'Analytical Chemistry', 'Biochemistry', 'Chemical Kinetics', 'Thermochemistry'];
-  }
-  
-  // Biology related topics
-  if (courseNameLower.includes('bio') || courseNameLower.includes('biology')) {
-    return ['Cell Biology', 'Genetics', 'Evolution', 'Ecology', 'Molecular Biology', 'Physiology', 'Biochemistry'];
-  }
-  
-  // Business related topics
-  if (courseNameLower.includes('business') || courseNameLower.includes('management') || 
-      courseNameLower.includes('economics') || courseNameLower.includes('finance')) {
-    return ['Financial Management', 'Marketing Strategy', 'Operations Management', 'Human Resources', 'Business Ethics', 'Entrepreneurship', 'Market Analysis'];
-  }
-  
-  // Default general academic topics
-  return ['Problem Solving', 'Critical Analysis', 'Research Methods', 'Case Studies', 'Theory Application', 'Practical Examples'];
-};
+export function TagContextStep({ 
+  selectedTags, 
+  onTagsChange, 
+  examContext, 
+  onExamContextChange, 
+  onNext, 
+  onBack 
+}: TagContextStepProps) {
+  const availableTags = [
+    'Thermodynamics', 'Quantum Physics', 'Calculus', 'Linear Algebra',
+    'Organic Chemistry', 'Data Structures', 'Machine Learning', 'Statistics',
+    'Biology', 'Economics', 'History', 'Literature'
+  ];
 
-export function TagContextStep({ context, onContextChange, onNext, onBack }: TagContextStepProps) {
-  const [newTopic, setNewTopic] = useState('');
-  const { profile } = useUserProfile();
+  const examTypes = [
+    'Midterm Exam',
+    'Final Exam',
+    'Quiz',
+    'Assignment',
+    'Project Defense'
+  ];
 
-  // Get user's courses or provide fallback
-  const userCourses = useMemo(() => {
-    if (profile?.courses && profile.courses.length > 0) {
-      return profile.courses;
-    }
-    // Fallback courses if user hasn't added any
-    return [
-      'Add your courses in profile settings',
-      'CSC 201 - Data Structures',
-      'MTH 101 - Calculus I',
-      'PHY 101 - General Physics'
-    ];
-  }, [profile?.courses]);
+  const timeframes = [
+    '1 week',
+    '2 weeks',
+    '1 month',
+    '2 months',
+    '3 months'
+  ];
 
-  // Get user's lecturers or provide fallback
-  const userLecturers = useMemo(() => {
-    if (profile?.lecturers && profile.lecturers.length > 0) {
-      return profile.lecturers.map(lecturer => lecturer.name);
-    }
-    // Fallback if user hasn't added lecturers
-    return ['Add lecturers in profile settings'];
-  }, [profile?.lecturers]);
+  const difficulties = [
+    { value: 'easy', label: 'Easy' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'hard', label: 'Hard' }
+  ];
 
-  // Get course-specific topic suggestions
-  const suggestedTopics = useMemo(() => {
-    if (context.course && context.course !== 'Add your courses in profile settings') {
-      return getTopicSuggestions(context.course);
-    }
-    return ['Add a course first to see relevant topic suggestions'];
-  }, [context.course]);
-
-  const addTopic = (topic: string) => {
-    if (topic && !context.topics.includes(topic) && topic !== 'Add a course first to see relevant topic suggestions') {
-      onContextChange({
-        ...context,
-        topics: [...context.topics, topic]
-      });
-    }
-    setNewTopic('');
+  const handleTagToggle = (tag: string) => {
+    const newTags = selectedTags.includes(tag)
+      ? selectedTags.filter(t => t !== tag)
+      : [...selectedTags, tag];
+    onTagsChange(newTags);
   };
 
-  const removeTopic = (topicToRemove: string) => {
-    onContextChange({
-      ...context,
-      topics: context.topics.filter(topic => topic !== topicToRemove)
+  const handleContextChange = (field: keyof ExamContext, value: string) => {
+    onExamContextChange({
+      ...examContext,
+      [field]: value
     });
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && newTopic.trim()) {
-      addTopic(newTopic.trim());
-    }
-  };
-
-  const isProfileIncomplete = !profile?.courses?.length || !profile?.lecturers?.length;
-
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="text-center mb-8">
-        <h3 className="text-xl font-bold text-gray-800 mb-2">Tag & Confirm Context</h3>
-        <p className="text-gray-600">Help our AI understand the scope and style of your exam</p>
-        {isProfileIncomplete && (
-          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-700">
-              💡 Complete your profile to see your courses and lecturers here
-            </p>
-          </div>
-        )}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6"
+    >
+      <div>
+        <h3 className="text-xl font-semibold mb-2">Tag Context & Exam Details</h3>
+        <p className="text-gray-600">Help us understand what you're studying for.</p>
       </div>
 
-      <div className="space-y-6">
-        {/* Course Selection */}
-        <div>
-          <Label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-            <Search className="w-4 h-4" />
-            Course *
-          </Label>
-          <Select value={context.course} onValueChange={(value) => onContextChange({ ...context, course: value })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select your course" />
-            </SelectTrigger>
-            <SelectContent>
-              {userCourses.map((course, index) => (
-                <SelectItem 
-                  key={`${course}-${index}`} 
-                  value={course}
-                  disabled={course.includes('Add your courses')}
-                >
-                  {course}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {!profile?.courses?.length && (
-            <p className="text-xs text-gray-500 mt-1">
-              Add your courses in your profile to see them here
-            </p>
-          )}
-        </div>
-
-        {/* Topics */}
-        <div>
-          <Label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-            <Tag className="w-4 h-4" />
-            Topics
-          </Label>
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Add a topic (e.g., Algorithms, Calculus)"
-                value={newTopic}
-                onChange={(e) => setNewTopic(e.target.value)}
-                onKeyPress={handleKeyPress}
-              />
-              <Button 
-                onClick={() => addTopic(newTopic.trim())} 
-                disabled={!newTopic.trim()}
-                variant="outline"
-              >
-                Add
-              </Button>
-            </div>
-            
-            {/* Suggested Topics */}
-            <div>
-              <p className="text-xs text-gray-500 mb-2">
-                {context.course && !context.course.includes('Add your courses') 
-                  ? `Suggested topics for ${context.course.split(' - ')[0]}:` 
-                  : 'Suggested topics:'}
-              </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Tags Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5" />
+              Study Topics
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">Select relevant topics:</p>
               <div className="flex flex-wrap gap-2">
-                {suggestedTopics.map((topic) => (
-                  <TagChip
-                    key={topic}
-                    label={topic}
-                    color="purple"
-                    onClick={() => addTopic(topic)}
-                    disabled={topic.includes('Add a course first')}
-                  />
+                {availableTags.map(tag => (
+                  <Badge
+                    key={tag}
+                    variant={selectedTags.includes(tag) ? "default" : "outline"}
+                    className={`cursor-pointer transition-colors ${
+                      selectedTags.includes(tag) 
+                        ? 'bg-blue-500 hover:bg-blue-600' 
+                        : 'hover:bg-gray-100'
+                    }`}
+                    onClick={() => handleTagToggle(tag)}
+                  >
+                    {tag}
+                    {selectedTags.includes(tag) && (
+                      <X className="w-3 h-3 ml-1" />
+                    )}
+                  </Badge>
                 ))}
               </div>
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Selected Topics */}
-            {context.topics.length > 0 && (
-              <div>
-                <p className="text-xs text-gray-500 mb-2">Selected topics:</p>
-                <div className="flex flex-wrap gap-2">
-                  {context.topics.map((topic) => (
-                    <TagChip
-                      key={topic}
-                      label={topic}
-                      color="blue"
-                      removable
-                      onRemove={() => removeTopic(topic)}
-                    />
+        {/* Exam Context */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Exam Context
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="examType">Exam Type</Label>
+              <Select 
+                value={examContext.examType} 
+                onValueChange={(value) => handleContextChange('examType', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select exam type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {examTypes.map(type => (
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
                   ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+                </SelectContent>
+              </Select>
+            </div>
 
-        {/* Lecturer (Optional) */}
-        <div>
-          <Label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-            <User className="w-4 h-4" />
-            Lecturer (Optional)
-          </Label>
-          <Select value={context.lecturer || ''} onValueChange={(value) => onContextChange({ ...context, lecturer: value || undefined })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select lecturer for behavioral modeling" />
-            </SelectTrigger>
-            <SelectContent>
-              {userLecturers.map((lecturer, index) => (
-                <SelectItem 
-                  key={`${lecturer}-${index}`} 
-                  value={lecturer}
-                  disabled={lecturer.includes('Add lecturers')}
-                >
-                  {lecturer}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-gray-500 mt-1">
-            This helps us match the tone and style of questions your lecturer typically asks
-          </p>
-          {!profile?.lecturers?.length && (
-            <p className="text-xs text-gray-500 mt-1">
-              Add your lecturers in your profile to see them here
-            </p>
-          )}
-        </div>
+            <div>
+              <Label htmlFor="timeframe">Time Until Exam</Label>
+              <Select 
+                value={examContext.timeframe} 
+                onValueChange={(value) => handleContextChange('timeframe', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select timeframe" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeframes.map(time => (
+                    <SelectItem key={time} value={time}>{time}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="difficulty">Expected Difficulty</Label>
+              <Select 
+                value={examContext.difficulty} 
+                onValueChange={(value) => handleContextChange('difficulty', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select difficulty" />
+                </SelectTrigger>
+                <SelectContent>
+                  {difficulties.map(diff => (
+                    <SelectItem key={diff.value} value={diff.value}>{diff.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="course">Course</Label>
+              <Input
+                id="course"
+                value={examContext.course}
+                onChange={(e) => handleContextChange('course', e.target.value)}
+                placeholder="e.g., Physics 101"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="examDate">Exam Date (optional)</Label>
+              <Input
+                id="examDate"
+                type="date"
+                value={examContext.examDate}
+                onChange={(e) => handleContextChange('examDate', e.target.value)}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="flex justify-between mt-8">
-        <Button variant="outline" onClick={onBack}>Back</Button>
+      <div className="flex justify-between pt-6">
+        <Button variant="outline" onClick={onBack}>
+          Back
+        </Button>
         <Button 
-          onClick={onNext} 
-          disabled={!context.course || context.course.includes('Add your courses')}
-          className="bg-purple-600 hover:bg-purple-700"
+          onClick={onNext}
+          disabled={selectedTags.length === 0 || !examContext.examType || !examContext.timeframe}
+          className="flex items-center gap-2"
         >
-          Continue to Style
+          Continue
+          <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
-    </div>
+    </motion.div>
   );
 }

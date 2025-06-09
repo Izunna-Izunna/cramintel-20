@@ -1,291 +1,255 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, TrendingUp, Clock, Brain, Plus, Trash2 } from 'lucide-react';
+import { Sparkles, Plus, Calendar, Target, TrendingUp, BookOpen, Eye } from 'lucide-react';
 import { PredictionJourney } from './predictions/PredictionJourney';
-import { SavedPredictionView } from './predictions/SavedPredictionView';
-import { usePredictions, Prediction } from '@/hooks/usePredictions';
-import { Skeleton } from '@/components/ui/skeleton';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+
+interface Prediction {
+  id: string;
+  course: string;
+  exam_date: string;
+  confidence_score: number;
+  questions_count: number;
+  style: string;
+  generated_at: string;
+  status: 'active' | 'used' | 'expired';
+}
 
 export function PredictionsSection() {
   const [showJourney, setShowJourney] = useState(false);
   const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
-  const { predictions, loading, fetchPredictions } = usePredictions();
-  const { toast } = useToast();
 
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-    if (diffInHours < 1) {
-      return 'Just now';
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)} hour${Math.floor(diffInHours) > 1 ? 's' : ''} ago`;
-    } else {
-      const diffInDays = Math.floor(diffInHours / 24);
-      return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+  // Mock data - replace with actual data fetching
+  const predictions: Prediction[] = [
+    {
+      id: '1',
+      course: 'Physics 101',
+      exam_date: '2024-02-15',
+      confidence_score: 87,
+      questions_count: 12,
+      style: 'bullet',
+      generated_at: '2024-01-28',
+      status: 'active'
+    },
+    {
+      id: '2',
+      course: 'Mathematics 201',
+      exam_date: '2024-02-20',
+      confidence_score: 92,
+      questions_count: 8,
+      style: 'theory',
+      generated_at: '2024-01-25',
+      status: 'active'
+    },
+    {
+      id: '3',
+      course: 'Chemistry 150',
+      exam_date: '2024-01-30',
+      confidence_score: 78,
+      questions_count: 15,
+      style: 'mixed',
+      generated_at: '2024-01-20',
+      status: 'used'
     }
-  };
+  ];
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'exam-paper':
-        return <Brain className="w-4 h-4" />;
-      case 'bullet':
-      case 'theory':
-      case 'mixed':
-        return <Sparkles className="w-4 h-4" />;
-      default:
-        return <Sparkles className="w-4 h-4" />;
-    }
-  };
-
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'exam-paper':
-        return 'Exam Paper';
-      case 'bullet':
-        return 'Quick Predictions';
-      case 'theory':
-        return 'Theory Questions';
-      case 'mixed':
-        return 'Mixed Format';
-      default:
-        return 'Prediction';
-    }
-  };
-
-  const handleDeletePrediction = async (predictionId: string, event: React.MouseEvent) => {
-    event.stopPropagation(); // Prevent card click from firing
-    
-    try {
-      const { error } = await supabase
-        .from('cramintel_predictions')
-        .delete()
-        .eq('id', predictionId);
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: "Prediction deleted",
-        description: "The prediction has been successfully removed.",
-      });
-
-      // Refresh the predictions list
-      await fetchPredictions();
-    } catch (error) {
-      console.error('Error deleting prediction:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete the prediction. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800 font-space mb-2">AI Predictions</h2>
-            <p className="text-gray-600">Likely exam questions based on your uploaded materials</p>
-          </div>
-          <Skeleton className="h-12 w-48" />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-32 w-full" />
-            ))}
-          </div>
-          <div className="space-y-6">
-            <Skeleton className="h-48 w-full" />
-            <Skeleton className="h-32 w-full" />
-          </div>
-        </div>
-      </div>
-    );
+  if (showJourney) {
+    return <PredictionJourney />;
   }
 
-  return (
-    <>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800 font-space mb-2">AI Predictions</h2>
-            <p className="text-gray-600">Likely exam questions based on your uploaded materials</p>
-          </div>
-          <Button 
-            onClick={() => setShowJourney(true)}
-            className="bg-gray-800 hover:bg-gray-900 text-white"
-            size="lg"
-          >
-            <Brain className="w-5 h-5 mr-2" />
-            Start Prediction Journey
-          </Button>
-        </div>
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'used': return 'bg-blue-100 text-blue-800';
+      case 'expired': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
 
-        {predictions.length === 0 ? (
-          // Empty state
-          <Card className="border-dashed border-2 border-gray-300">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <Brain className="w-8 h-8 text-gray-600" />
+  const getConfidenceColor = (score: number) => {
+    if (score >= 90) return 'text-green-600';
+    if (score >= 80) return 'text-blue-600';
+    if (score >= 70) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-800 font-space mb-2">Exam Predictions</h2>
+          <p className="text-gray-600">
+            AI-powered predictions based on your study materials and past patterns.
+          </p>
+        </div>
+        <Button 
+          onClick={() => setShowJourney(true)}
+          className="bg-purple-600 hover:bg-purple-700 text-white"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Generate New Prediction
+        </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-purple-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">No Predictions Yet</h3>
-              <p className="text-gray-600 text-center mb-6 max-w-md">
-                Upload your exam materials and let our AI predict what's likely to appear on your exam
+              <div>
+                <p className="text-sm text-gray-600">Total Predictions</p>
+                <p className="text-xl font-bold">{predictions.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <Target className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Avg. Confidence</p>
+                <p className="text-xl font-bold">
+                  {Math.round(predictions.reduce((acc, p) => acc + p.confidence_score, 0) / predictions.length)}%
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Active</p>
+                <p className="text-xl font-bold">
+                  {predictions.filter(p => p.status === 'active').length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Questions</p>
+                <p className="text-xl font-bold">
+                  {predictions.reduce((acc, p) => acc + p.questions_count, 0)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Predictions List */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-800">Recent Predictions</h3>
+        {predictions.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Sparkles className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">No predictions yet</h3>
+              <p className="text-gray-600 mb-6">
+                Generate your first AI-powered exam prediction based on your study materials.
               </p>
               <Button 
                 onClick={() => setShowJourney(true)}
-                className="bg-gray-800 hover:bg-gray-900 text-white"
+                className="bg-purple-600 hover:bg-purple-700"
               >
-                <Sparkles className="w-4 h-4 mr-2" />
+                <Plus className="w-4 h-4 mr-2" />
                 Create Your First Prediction
               </Button>
             </CardContent>
           </Card>
         ) : (
-          // Existing predictions
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-4">
-              {predictions.map((prediction) => (
-                <Card 
-                  key={prediction.id} 
-                  className="hover:shadow-md transition-shadow cursor-pointer border border-gray-200 hover:border-gray-300"
-                  onClick={() => setSelectedPrediction(prediction)}
-                >
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        {getTypeIcon(prediction.prediction_type)}
-                        <CardTitle className="text-lg">{getTypeLabel(prediction.prediction_type)}</CardTitle>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="bg-gray-100 text-gray-700">
-                          {Math.round(prediction.confidence_score)}% likely
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => handleDeletePrediction(prediction.id, e)}
-                          className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {predictions.map((prediction) => (
+              <motion.div
+                key={prediction.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileHover={{ y: -2 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{prediction.course}</CardTitle>
+                      <Badge className={getStatusColor(prediction.status)}>
+                        {prediction.status}
+                      </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-700 mb-3">
-                      <strong>{prediction.course}</strong> - {Array.isArray(prediction.questions) ? prediction.questions.length : 0} predictions generated
-                    </p>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <TrendingUp className="w-4 h-4" />
-                        {prediction.prediction_type === 'exam-paper' ? 'Full exam paper' : 'Question predictions'}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        Generated {formatTimeAgo(prediction.generated_at)}
-                      </span>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600">Exam Date</p>
+                        <p className="font-medium">{new Date(prediction.exam_date).toLocaleDateString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Questions</p>
+                        <p className="font-medium">{prediction.questions_count}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-gray-600 text-sm">Confidence Score</p>
+                        <p className={`text-lg font-bold ${getConfidenceColor(prediction.confidence_score)}`}>
+                          {prediction.confidence_score}%
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="outline" className="text-xs">
+                          {prediction.style}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2 pt-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => setSelectedPrediction(prediction)}
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        View
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                      >
+                        <BookOpen className="w-3 h-3 mr-1" />
+                        Study
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-              
-              <Card className="border-dashed border-2 border-gray-200 hover:border-gray-300 transition-colors cursor-pointer">
-                <CardContent 
-                  className="flex items-center justify-center py-8"
-                  onClick={() => setShowJourney(true)}
-                >
-                  <div className="text-center">
-                    <Plus className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                    <p className="text-gray-600 font-medium">Generate More Predictions</p>
-                    <p className="text-sm text-gray-500 mt-1">Add new materials for better accuracy</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Prediction Stats</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Average Confidence</span>
-                        <span>{predictions.length > 0 ? Math.round(predictions.reduce((acc, p) => acc + p.confidence_score, 0) / predictions.length) : 0}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-gray-800 h-2 rounded-full" 
-                          style={{ 
-                            width: `${predictions.length > 0 ? predictions.reduce((acc, p) => acc + p.confidence_score, 0) / predictions.length : 0}%` 
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Total Predictions</span>
-                        <span>{predictions.length}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>High Confidence</span>
-                        <span>{predictions.filter(p => p.confidence_score > 85).length}</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <button 
-                    onClick={() => setShowJourney(true)}
-                    className="w-full text-left p-2 rounded hover:bg-gray-50 transition-colors"
-                  >
-                    📤 Upload more materials
-                  </button>
-                  <button className="w-full text-left p-2 rounded hover:bg-gray-50 transition-colors">
-                    🧠 Generate flashcards
-                  </button>
-                  <button className="w-full text-left p-2 rounded hover:bg-gray-50 transition-colors">
-                    📊 View detailed analysis
-                  </button>
-                </CardContent>
-              </Card>
-            </div>
+              </motion.div>
+            ))}
           </div>
         )}
       </div>
-
-      {showJourney && (
-        <PredictionJourney onClose={() => setShowJourney(false)} />
-      )}
-
-      {selectedPrediction && (
-        <SavedPredictionView 
-          prediction={selectedPrediction} 
-          onClose={() => setSelectedPrediction(null)} 
-        />
-      )}
-    </>
+    </div>
   );
 }
