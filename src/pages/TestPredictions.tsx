@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,33 +33,40 @@ export default function TestPredictions() {
         console.error('Google Vision service error:', visionError);
         setDetailedError({
           type: 'SUPABASE_ERROR',
-          message: visionError.message,
+          message: visionError.message || 'Unknown Supabase error',
           context: visionError.context || 'Supabase function invocation failed'
         });
-        throw new Error(`Google Vision service failed: ${visionError.message}`);
+        throw new Error(`Google Vision service failed: ${visionError.message || 'Unknown error'}`);
+      }
+
+      // Ensure visionData is properly parsed and not a Response object
+      let parsedVisionData = visionData;
+      if (visionData instanceof Response) {
+        console.error('Received Response object instead of parsed data');
+        parsedVisionData = await visionData.json();
       }
 
       // Check if the response contains detailed error information
-      if (visionData && visionData.errorCode && !visionData.success) {
-        console.error('Detailed Vision service error:', visionData);
+      if (parsedVisionData && parsedVisionData.errorCode && !parsedVisionData.success) {
+        console.error('Detailed Vision service error:', parsedVisionData);
         setDetailedError({
           type: 'VISION_API_ERROR',
-          ...visionData
+          ...parsedVisionData
         });
-        throw new Error(`${visionData.error}: ${visionData.details}`);
+        throw new Error(`${parsedVisionData.error || 'Vision API error'}: ${parsedVisionData.details || 'No details available'}`);
       }
 
-      if (!visionData || !visionData.success) {
-        console.error('Google Vision service returned unsuccessful response:', visionData);
+      if (!parsedVisionData || !parsedVisionData.success) {
+        console.error('Google Vision service returned unsuccessful response:', parsedVisionData);
         setDetailedError({
           type: 'VISION_RESPONSE_ERROR',
           message: 'Google Vision service returned unsuccessful response',
-          data: visionData
+          data: parsedVisionData
         });
         throw new Error('Google Vision service returned unsuccessful response');
       }
 
-      if (!visionData.text || visionData.text.length === 0) {
+      if (!parsedVisionData.text || parsedVisionData.text.length === 0) {
         console.log('Google Vision extracted no text from the file');
         return {
           materialName: material.name,
@@ -76,20 +82,20 @@ export default function TestPredictions() {
           contentLength: 0,
           wordCount: 0,
           characterCount: 0,
-          extractionMethod: visionData.method,
-          extractionConfidence: visionData.confidence || 0,
+          extractionMethod: parsedVisionData.method || 'unknown',
+          extractionConfidence: parsedVisionData.confidence || 0,
           error: 'No text could be extracted from this file',
           extractionTimestamp: new Date().toISOString(),
           isContentValid: false,
           processingUsed: true,
-          processingTime: visionData.processingTime,
-          debugInfo: visionData.debugInfo
+          processingTime: parsedVisionData.processingTime || 0,
+          debugInfo: parsedVisionData.debugInfo || {}
         };
       }
 
-      const wordCount = visionData.text.split(/\s+/).filter(word => word.length > 0).length;
+      const wordCount = parsedVisionData.text.split(/\s+/).filter(word => word.length > 0).length;
       
-      console.log(`Extraction successful: ${visionData.method}, confidence: ${visionData.confidence}%`);
+      console.log(`Extraction successful: ${parsedVisionData.method}, confidence: ${parsedVisionData.confidence}%`);
       
       return {
         materialName: material.name,
@@ -101,20 +107,20 @@ export default function TestPredictions() {
         fileSize: material.file_size,
         uploadDate: material.upload_date,
         processed: true,
-        content: visionData.text,
-        contentLength: visionData.text.length,
+        content: parsedVisionData.text,
+        contentLength: parsedVisionData.text.length,
         wordCount: wordCount,
-        characterCount: visionData.text.length,
-        extractionMethod: visionData.method,
-        extractionConfidence: visionData.confidence,
+        characterCount: parsedVisionData.text.length,
+        extractionMethod: parsedVisionData.method || 'unknown',
+        extractionConfidence: parsedVisionData.confidence || 0,
         error: null,
         extractionTimestamp: new Date().toISOString(),
-        isContentValid: visionData.text.length >= 50,
+        isContentValid: parsedVisionData.text.length >= 50,
         processingUsed: true,
-        boundingBoxes: visionData.boundingBoxes,
-        metadata: visionData.metadata,
-        processingTime: visionData.processingTime,
-        debugInfo: visionData.debugInfo
+        boundingBoxes: parsedVisionData.boundingBoxes || [],
+        metadata: parsedVisionData.metadata || {},
+        processingTime: parsedVisionData.processingTime || 0,
+        debugInfo: parsedVisionData.debugInfo || {}
       };
 
     } catch (error) {
@@ -122,7 +128,7 @@ export default function TestPredictions() {
       return {
         materialName: material.name,
         materialId: material.id,
-        error: error.message,
+        error: error.message || 'Unknown extraction error',
         content: '',
         contentLength: 0,
         wordCount: 0,
@@ -133,7 +139,8 @@ export default function TestPredictions() {
         extractionConfidence: 0,
         processingUsed: false,
         isContentValid: false,
-        extractionTimestamp: new Date().toISOString()
+        extractionTimestamp: new Date().toISOString(),
+        debugInfo: {}
       };
     }
   };
@@ -253,6 +260,23 @@ export default function TestPredictions() {
     }
   };
 
+  // Safe render helper for complex objects
+  const safeRenderObject = (obj: any, fallback: string = 'N/A') => {
+    if (!obj || typeof obj !== 'object') return fallback;
+    try {
+      return JSON.stringify(obj, null, 2);
+    } catch (error) {
+      return fallback;
+    }
+  };
+
+  // Safe render helper for simple values
+  const safeRenderValue = (value: any, fallback: string = 'N/A') => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === 'object') return safeRenderObject(value, fallback);
+    return String(value);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -299,7 +323,7 @@ export default function TestPredictions() {
                       </div>
                       {material.extraction_method && (
                         <div className="text-xs text-blue-600 mt-1">
-                          ✓ {material.extraction_method} ({material.extraction_confidence}%)
+                          ✓ {material.extraction_method} ({material.extraction_confidence || 0}%)
                         </div>
                       )}
                     </div>
@@ -325,14 +349,14 @@ export default function TestPredictions() {
                     <div className="p-4 bg-blue-50 rounded border">
                       <h3 className="font-semibold text-blue-800 mb-2">Selected Material:</h3>
                       <div className="text-sm text-blue-700">
-                        <div><strong>Name:</strong> {selectedMaterial.name}</div>
-                        <div><strong>Course:</strong> {selectedMaterial.course}</div>
-                        <div><strong>Type:</strong> {selectedMaterial.material_type}</div>
-                        <div><strong>File:</strong> {selectedMaterial.file_type}</div>
+                        <div><strong>Name:</strong> {safeRenderValue(selectedMaterial.name)}</div>
+                        <div><strong>Course:</strong> {safeRenderValue(selectedMaterial.course)}</div>
+                        <div><strong>Type:</strong> {safeRenderValue(selectedMaterial.material_type)}</div>
+                        <div><strong>File:</strong> {safeRenderValue(selectedMaterial.file_type)}</div>
                         {selectedMaterial.extraction_method && (
                           <div className="mt-2 p-2 bg-green-100 rounded">
-                            <div><strong>Previous Extraction:</strong> {selectedMaterial.extraction_method}</div>
-                            <div><strong>Confidence:</strong> {selectedMaterial.extraction_confidence}%</div>
+                            <div><strong>Previous Extraction:</strong> {safeRenderValue(selectedMaterial.extraction_method)}</div>
+                            <div><strong>Confidence:</strong> {safeRenderValue(selectedMaterial.extraction_confidence, '0')}%</div>
                           </div>
                         )}
                       </div>
@@ -383,33 +407,33 @@ export default function TestPredictions() {
                     <div className="grid grid-cols-2 gap-4 p-4 bg-red-50 rounded">
                       <div>
                         <div className="text-sm font-medium text-red-600">Error Type</div>
-                        <div className="text-red-800">{detailedError.type}</div>
+                        <div className="text-red-800">{safeRenderValue(detailedError.type)}</div>
                       </div>
                       <div>
                         <div className="text-sm font-medium text-red-600">Error Code</div>
-                        <div className="text-red-800">{detailedError.errorCode || 'N/A'}</div>
+                        <div className="text-red-800">{safeRenderValue(detailedError.errorCode)}</div>
                       </div>
                       <div>
                         <div className="text-sm font-medium text-red-600">Timestamp</div>
-                        <div className="text-red-800">{detailedError.timestamp || new Date().toISOString()}</div>
+                        <div className="text-red-800">{safeRenderValue(detailedError.timestamp, new Date().toISOString())}</div>
                       </div>
                       <div>
                         <div className="text-sm font-medium text-red-600">Context</div>
-                        <div className="text-red-800">{detailedError.context || 'General error'}</div>
+                        <div className="text-red-800">{safeRenderValue(detailedError.context, 'General error')}</div>
                       </div>
                     </div>
                     
                     <div>
                       <div className="text-sm font-medium text-red-600 mb-2">Error Message:</div>
                       <div className="p-3 bg-red-100 rounded text-red-800 text-sm">
-                        {detailedError.message || detailedError.error}
+                        {safeRenderValue(detailedError.message || detailedError.error)}
                       </div>
                     </div>
                     
                     <div>
                       <div className="text-sm font-medium text-red-600 mb-2">Details:</div>
                       <div className="p-3 bg-red-100 rounded text-red-800 text-sm">
-                        {detailedError.details || 'No additional details available'}
+                        {safeRenderValue(detailedError.details, 'No additional details available')}
                       </div>
                     </div>
 
@@ -417,7 +441,7 @@ export default function TestPredictions() {
                       <div>
                         <div className="text-sm font-medium text-red-600 mb-2">Debug Information:</div>
                         <div className="p-3 bg-gray-100 rounded text-gray-800 text-xs font-mono">
-                          <pre>{JSON.stringify(detailedError.debugInfo, null, 2)}</pre>
+                          <pre>{safeRenderObject(detailedError.debugInfo, 'No debug info available')}</pre>
                         </div>
                       </div>
                     )}
@@ -458,12 +482,12 @@ export default function TestPredictions() {
                           {extractedContent.processingUsed ? (
                             <>
                               <CheckCircle className="w-5 h-5 text-green-600" />
-                              {extractedContent.extractionMethod}
+                              {safeRenderValue(extractedContent.extractionMethod)}
                             </>
                           ) : (
                             <>
                               <XCircle className="w-5 h-5 text-orange-600" />
-                              {extractedContent.extractionMethod || 'Failed'}
+                              {safeRenderValue(extractedContent.extractionMethod, 'Failed')}
                             </>
                           )}
                         </div>
@@ -471,17 +495,17 @@ export default function TestPredictions() {
                       <div>
                         <div className="text-sm font-medium text-gray-600">Confidence</div>
                         <div className={`text-lg font-semibold ${
-                          extractedContent.extractionConfidence >= 90 ? 'text-green-600' :
-                          extractedContent.extractionConfidence >= 70 ? 'text-yellow-600' :
+                          (extractedContent.extractionConfidence || 0) >= 90 ? 'text-green-600' :
+                          (extractedContent.extractionConfidence || 0) >= 70 ? 'text-yellow-600' :
                           'text-red-600'
                         }`}>
-                          {extractedContent.extractionConfidence || 0}%
+                          {safeRenderValue(extractedContent.extractionConfidence, '0')}%
                         </div>
                       </div>
                       <div>
                         <div className="text-sm font-medium text-gray-600">Word Count</div>
                         <div className="text-lg font-semibold">
-                          {extractedContent.wordCount?.toLocaleString() || 'N/A'}
+                          {extractedContent.wordCount ? extractedContent.wordCount.toLocaleString() : 'N/A'}
                         </div>
                       </div>
                       <div>
@@ -496,19 +520,25 @@ export default function TestPredictions() {
                     </div>
 
                     {/* Debug Information */}
-                    {extractedContent.debugInfo && (
+                    {extractedContent.debugInfo && Object.keys(extractedContent.debugInfo).length > 0 && (
                       <div className="p-4 bg-blue-50 border border-blue-200 rounded">
                         <h3 className="font-semibold text-blue-800 mb-2">Debug Information:</h3>
                         <div className="text-sm text-blue-700 space-y-1">
                           {extractedContent.debugInfo.apiTime && (
-                            <div><strong>API Response Time:</strong> {extractedContent.debugInfo.apiTime}ms</div>
+                            <div><strong>API Response Time:</strong> {safeRenderValue(extractedContent.debugInfo.apiTime)}ms</div>
                           )}
                           {extractedContent.debugInfo.method && (
-                            <div><strong>Detection Method:</strong> {extractedContent.debugInfo.method}</div>
+                            <div><strong>Detection Method:</strong> {safeRenderValue(extractedContent.debugInfo.method)}</div>
                           )}
                           {extractedContent.debugInfo.blockCount && (
-                            <div><strong>Text Blocks Detected:</strong> {extractedContent.debugInfo.blockCount}</div>
+                            <div><strong>Text Blocks Detected:</strong> {safeRenderValue(extractedContent.debugInfo.blockCount)}</div>
                           )}
+                          <div className="mt-2">
+                            <strong>Full Debug Data:</strong>
+                            <pre className="text-xs mt-1 p-2 bg-white rounded overflow-x-auto">
+                              {safeRenderObject(extractedContent.debugInfo)}
+                            </pre>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -516,14 +546,14 @@ export default function TestPredictions() {
                     {/* Error Display */}
                     {extractedContent.error ? (
                       <div className="bg-red-50 border border-red-200 p-4 rounded">
-                        <p className="text-red-700">❌ Extraction Error: {extractedContent.error}</p>
+                        <p className="text-red-700">❌ Extraction Error: {safeRenderValue(extractedContent.error)}</p>
                         <p className="text-red-600 text-sm mt-2">
                           This indicates an issue with the text extraction process. Check the detailed error information above for more specific debugging details.
                         </p>
                       </div>
                     ) : (
                       <div>
-                        {extractedContent.contentLength === 0 ? (
+                        {(extractedContent.contentLength || 0) === 0 ? (
                           <div className="bg-amber-50 border border-amber-200 p-4 rounded">
                             <p className="text-amber-700">⚠️ No content extracted</p>
                             <p className="text-amber-600 text-sm mt-2">
@@ -537,9 +567,9 @@ export default function TestPredictions() {
                                 ✅ Enhanced text extraction successful!
                               </p>
                               <div className="text-sm text-green-600">
-                                Extracted: {extractedContent.contentLength.toLocaleString()} characters | 
-                                {extractedContent.wordCount.toLocaleString()} words | 
-                                Confidence: {extractedContent.extractionConfidence}%
+                                Extracted: {(extractedContent.contentLength || 0).toLocaleString()} characters | 
+                                {(extractedContent.wordCount || 0).toLocaleString()} words | 
+                                Confidence: {safeRenderValue(extractedContent.extractionConfidence, '0')}%
                                 {extractedContent.processingTime && ` | Processing: ${extractedContent.processingTime}ms`}
                               </div>
                             </div>
@@ -573,10 +603,11 @@ export default function TestPredictions() {
                                 {showFullContent ? 'Complete Extracted Text:' : 'Preview (first 2000 characters):'}
                               </div>
                               <div className="text-sm text-gray-800 font-mono bg-gray-50 p-4 rounded max-h-96 overflow-auto whitespace-pre-wrap border leading-relaxed">
-                                {showFullContent 
-                                  ? extractedContent.content 
-                                  : extractedContent.content.substring(0, 2000) + (extractedContent.content.length > 2000 ? '\n\n... (content truncated - click "Show Full Content" to see all)' : '')
-                                }
+                                {extractedContent.content ? (
+                                  showFullContent 
+                                    ? extractedContent.content 
+                                    : extractedContent.content.substring(0, 2000) + (extractedContent.content.length > 2000 ? '\n\n... (content truncated - click "Show Full Content" to see all)' : '')
+                                ) : 'No content available'}
                               </div>
                             </div>
                           </div>
@@ -601,7 +632,7 @@ export default function TestPredictions() {
                   <div className="space-y-6">
                     {predictions.error ? (
                       <div className="bg-red-50 border border-red-200 p-4 rounded">
-                        <p className="text-red-700">❌ Prediction Error: {predictions.error}</p>
+                        <p className="text-red-700">❌ Prediction Error: {safeRenderValue(predictions.error)}</p>
                       </div>
                     ) : (
                       <div>
@@ -610,10 +641,10 @@ export default function TestPredictions() {
                           <div className="bg-blue-50 border border-blue-200 p-4 rounded mb-6">
                             <h3 className="font-semibold text-blue-800 mb-2">Prediction Summary:</h3>
                             <div className="text-sm text-blue-700 grid grid-cols-2 gap-4">
-                              <div><strong>Confidence Score:</strong> {predictions.prediction.confidence_score}%</div>
-                              <div><strong>Course:</strong> {predictions.prediction.course}</div>
-                              <div><strong>Generated:</strong> {new Date(predictions.prediction.generated_at).toLocaleString()}</div>
-                              <div><strong>Status:</strong> {predictions.prediction.status}</div>
+                              <div><strong>Confidence Score:</strong> {safeRenderValue(predictions.prediction.confidence_score, '0')}%</div>
+                              <div><strong>Course:</strong> {safeRenderValue(predictions.prediction.course)}</div>
+                              <div><strong>Generated:</strong> {predictions.prediction.generated_at ? new Date(predictions.prediction.generated_at).toLocaleString() : 'N/A'}</div>
+                              <div><strong>Status:</strong> {safeRenderValue(predictions.prediction.status)}</div>
                             </div>
                           </div>
                         )}
@@ -623,15 +654,15 @@ export default function TestPredictions() {
                           <div className="bg-green-50 border border-green-200 p-4 rounded mb-6">
                             <h3 className="font-semibold text-green-800 mb-2">Content Analysis:</h3>
                             <div className="text-sm text-green-700">
-                              <div><strong>Materials Processed:</strong> {predictions.content_analysis.materials_processed}</div>
-                              <div><strong>Total Content Length:</strong> {predictions.content_analysis.total_content_length?.toLocaleString()} characters</div>
-                              <div><strong>Whispers Count:</strong> {predictions.content_analysis.whispers_count}</div>
+                              <div><strong>Materials Processed:</strong> {safeRenderValue(predictions.content_analysis.materials_processed, '0')}</div>
+                              <div><strong>Total Content Length:</strong> {predictions.content_analysis.total_content_length ? predictions.content_analysis.total_content_length.toLocaleString() : 'N/A'} characters</div>
+                              <div><strong>Whispers Count:</strong> {safeRenderValue(predictions.content_analysis.whispers_count, '0')}</div>
                             </div>
                           </div>
                         )}
 
                         {/* Generated Predictions */}
-                        {predictions.generated_content?.predictions && (
+                        {predictions.generated_content?.predictions && Array.isArray(predictions.generated_content.predictions) && (
                           <div>
                             <h3 className="font-semibold text-lg mb-4">Quality Exam Predictions ({predictions.generated_content.predictions.length}):</h3>
                             <div className="space-y-4">
@@ -644,21 +675,21 @@ export default function TestPredictions() {
                                     <div className="flex items-center gap-2">
                                       {prediction.confidence && (
                                         <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                          prediction.confidence >= 85 ? 'bg-green-100 text-green-700' :
-                                          prediction.confidence >= 70 ? 'bg-yellow-100 text-yellow-700' :
+                                          (prediction.confidence || 0) >= 85 ? 'bg-green-100 text-green-700' :
+                                          (prediction.confidence || 0) >= 70 ? 'bg-yellow-100 text-yellow-700' :
                                           'bg-red-100 text-red-700'
                                         }`}>
-                                          {prediction.confidence}% confidence
+                                          {safeRenderValue(prediction.confidence, '0')}% confidence
                                         </span>
                                       )}
                                       {prediction.type && (
                                         <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                                          {prediction.type}
+                                          {safeRenderValue(prediction.type)}
                                         </span>
                                       )}
                                       {prediction.difficulty && (
                                         <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium">
-                                          {prediction.difficulty}
+                                          {safeRenderValue(prediction.difficulty)}
                                         </span>
                                       )}
                                     </div>
@@ -667,7 +698,7 @@ export default function TestPredictions() {
                                   <div className="mb-3">
                                     <div className="font-medium text-gray-800 mb-2">Question:</div>
                                     <div className="text-gray-700 bg-gray-50 p-3 rounded">
-                                      {prediction.question}
+                                      {safeRenderValue(prediction.question, 'No question available')}
                                     </div>
                                   </div>
 
@@ -675,18 +706,18 @@ export default function TestPredictions() {
                                     <div className="mb-3">
                                       <div className="text-sm font-medium text-gray-600 mb-1">Reasoning:</div>
                                       <div className="text-sm text-gray-600">
-                                        {prediction.reasoning}
+                                        {safeRenderValue(prediction.reasoning)}
                                       </div>
                                     </div>
                                   )}
 
-                                  {prediction.sources && prediction.sources.length > 0 && (
+                                  {prediction.sources && Array.isArray(prediction.sources) && prediction.sources.length > 0 && (
                                     <div>
                                       <div className="text-sm font-medium text-gray-600 mb-1">Sources:</div>
                                       <div className="flex flex-wrap gap-1">
                                         {prediction.sources.map((source, srcIndex) => (
                                           <span key={srcIndex} className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
-                                            {source}
+                                            {safeRenderValue(source)}
                                           </span>
                                         ))}
                                       </div>
@@ -709,9 +740,9 @@ export default function TestPredictions() {
                           <div className="mt-6 bg-gray-50 border border-gray-200 p-4 rounded">
                             <h3 className="font-semibold text-gray-800 mb-2">Overall Analysis:</h3>
                             <div className="text-sm text-gray-700">
-                              <div><strong>Overall Confidence:</strong> {predictions.generated_content.overall_confidence}%</div>
+                              <div><strong>Overall Confidence:</strong> {safeRenderValue(predictions.generated_content.overall_confidence, '0')}%</div>
                               {predictions.generated_content.analysis_summary && (
-                                <div className="mt-2"><strong>Summary:</strong> {predictions.generated_content.analysis_summary}</div>
+                                <div className="mt-2"><strong>Summary:</strong> {safeRenderValue(predictions.generated_content.analysis_summary)}</div>
                               )}
                             </div>
                           </div>
