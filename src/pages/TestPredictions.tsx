@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaterials } from '@/hooks/useMaterials';
-import { FileText, Brain, Eye, EyeOff, Download, Search, Zap, CheckCircle, XCircle } from 'lucide-react';
+import { FileText, Brain, Eye, EyeOff, Download, Search, Zap, CheckCircle, XCircle, AlertTriangle, Clock, FileX } from 'lucide-react';
 
 export default function TestPredictions() {
   const { user } = useAuth();
@@ -16,12 +16,13 @@ export default function TestPredictions() {
   const [loading, setLoading] = useState(false);
   const [predictionLoading, setPredictionLoading] = useState(false);
   const [showFullContent, setShowFullContent] = useState(false);
+  const [detailedError, setDetailedError] = useState<any>(null);
 
   const extractTextFromFile = async (material: any) => {
     try {
       console.log(`Starting text extraction for: ${material.name} (${material.file_type})`);
+      setDetailedError(null);
       
-      // Call Google Vision service directly to get the actual extracted text
       const { data: visionData, error: visionError } = await supabase.functions.invoke('google-vision-service', {
         body: {
           filePath: material.file_path,
@@ -31,11 +32,31 @@ export default function TestPredictions() {
 
       if (visionError) {
         console.error('Google Vision service error:', visionError);
+        setDetailedError({
+          type: 'SUPABASE_ERROR',
+          message: visionError.message,
+          context: visionError.context || 'Supabase function invocation failed'
+        });
         throw new Error(`Google Vision service failed: ${visionError.message}`);
+      }
+
+      // Check if the response contains detailed error information
+      if (visionData && visionData.errorCode && !visionData.success) {
+        console.error('Detailed Vision service error:', visionData);
+        setDetailedError({
+          type: 'VISION_API_ERROR',
+          ...visionData
+        });
+        throw new Error(`${visionData.error}: ${visionData.details}`);
       }
 
       if (!visionData || !visionData.success) {
         console.error('Google Vision service returned unsuccessful response:', visionData);
+        setDetailedError({
+          type: 'VISION_RESPONSE_ERROR',
+          message: 'Google Vision service returned unsuccessful response',
+          data: visionData
+        });
         throw new Error('Google Vision service returned unsuccessful response');
       }
 
@@ -56,15 +77,16 @@ export default function TestPredictions() {
           wordCount: 0,
           characterCount: 0,
           extractionMethod: visionData.method,
-          extractionConfidence: visionData.confidence,
+          extractionConfidence: visionData.confidence || 0,
           error: 'No text could be extracted from this file',
           extractionTimestamp: new Date().toISOString(),
           isContentValid: false,
-          processingUsed: true
+          processingUsed: true,
+          processingTime: visionData.processingTime,
+          debugInfo: visionData.debugInfo
         };
       }
 
-      // Calculate additional metrics
       const wordCount = visionData.text.split(/\s+/).filter(word => word.length > 0).length;
       
       console.log(`Extraction successful: ${visionData.method}, confidence: ${visionData.confidence}%`);
@@ -87,10 +109,12 @@ export default function TestPredictions() {
         extractionConfidence: visionData.confidence,
         error: null,
         extractionTimestamp: new Date().toISOString(),
-        isContentValid: visionData.text.length >= 50, // Consider valid if at least 50 characters
+        isContentValid: visionData.text.length >= 50,
         processingUsed: true,
         boundingBoxes: visionData.boundingBoxes,
-        metadata: visionData.metadata
+        metadata: visionData.metadata,
+        processingTime: visionData.processingTime,
+        debugInfo: visionData.debugInfo
       };
 
     } catch (error) {
@@ -108,7 +132,8 @@ export default function TestPredictions() {
         extractionMethod: 'failed',
         extractionConfidence: 0,
         processingUsed: false,
-        isContentValid: false
+        isContentValid: false,
+        extractionTimestamp: new Date().toISOString()
       };
     }
   };
@@ -129,6 +154,7 @@ export default function TestPredictions() {
     setExtractedContent(null);
     setPredictions(null);
     setShowFullContent(false);
+    setDetailedError(null);
 
     try {
       const result = await extractTextFromFile(material);
@@ -158,8 +184,6 @@ export default function TestPredictions() {
 
     try {
       console.log('Generating predictions for material:', extractedContent.materialName);
-      console.log('Using extraction method:', extractedContent.extractionMethod);
-      console.log('Extraction confidence:', extractedContent.extractionConfidence);
       
       const { data, error } = await supabase.functions.invoke('generate-predictions', {
         body: {
@@ -216,15 +240,28 @@ export default function TestPredictions() {
     URL.revokeObjectURL(url);
   };
 
+  const getErrorIcon = (errorType: string) => {
+    switch (errorType) {
+      case 'SUPABASE_ERROR':
+        return <XCircle className="w-5 h-5 text-red-600" />;
+      case 'VISION_API_ERROR':
+        return <AlertTriangle className="w-5 h-5 text-orange-600" />;
+      case 'VISION_RESPONSE_ERROR':
+        return <FileX className="w-5 h-5 text-red-600" />;
+      default:
+        return <XCircle className="w-5 h-5 text-red-600" />;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Material Testing & Prediction Engine</h1>
           <p className="text-gray-600">Test material processing and generate intelligent exam predictions</p>
-          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded">
-            <p className="text-green-800 text-sm">
-              <strong>✨ Enhanced:</strong> Now using advanced text extraction with full content display and confidence scoring!
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
+            <p className="text-blue-800 text-sm">
+              <strong>🔍 Enhanced Debugging:</strong> Now with comprehensive error logging, detailed processing information, and improved PDF extraction!
             </p>
           </div>
         </div>
@@ -279,7 +316,7 @@ export default function TestPredictions() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Search className="w-5 h-5" />
-                  Live Text Extraction Testing
+                  Enhanced Text Extraction Testing
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -326,11 +363,68 @@ export default function TestPredictions() {
                 ) : (
                   <div className="text-center py-8">
                     <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">Select a material from the list to test live text extraction</p>
+                    <p className="text-gray-500">Select a material from the list to test enhanced text extraction</p>
                   </div>
                 )}
               </CardContent>
             </Card>
+
+            {/* Detailed Error Display */}
+            {detailedError && (
+              <Card className="border-red-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-red-700">
+                    {getErrorIcon(detailedError.type)}
+                    Detailed Error Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4 p-4 bg-red-50 rounded">
+                      <div>
+                        <div className="text-sm font-medium text-red-600">Error Type</div>
+                        <div className="text-red-800">{detailedError.type}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-red-600">Error Code</div>
+                        <div className="text-red-800">{detailedError.errorCode || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-red-600">Timestamp</div>
+                        <div className="text-red-800">{detailedError.timestamp || new Date().toISOString()}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-red-600">Context</div>
+                        <div className="text-red-800">{detailedError.context || 'General error'}</div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="text-sm font-medium text-red-600 mb-2">Error Message:</div>
+                      <div className="p-3 bg-red-100 rounded text-red-800 text-sm">
+                        {detailedError.message || detailedError.error}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="text-sm font-medium text-red-600 mb-2">Details:</div>
+                      <div className="p-3 bg-red-100 rounded text-red-800 text-sm">
+                        {detailedError.details || 'No additional details available'}
+                      </div>
+                    </div>
+
+                    {detailedError.debugInfo && (
+                      <div>
+                        <div className="text-sm font-medium text-red-600 mb-2">Debug Information:</div>
+                        <div className="p-3 bg-gray-100 rounded text-gray-800 text-xs font-mono">
+                          <pre>{JSON.stringify(detailedError.debugInfo, null, 2)}</pre>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Analysis Results */}
             {extractedContent && (
@@ -339,7 +433,7 @@ export default function TestPredictions() {
                   <CardTitle className="flex items-center justify-between">
                     <span className="flex items-center gap-2">
                       <Brain className="w-5 h-5" />
-                      Live Text Extraction Results
+                      Enhanced Text Extraction Results
                     </span>
                     {extractedContent.content && (
                       <Button
@@ -356,7 +450,7 @@ export default function TestPredictions() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    {/* Extraction Method Status */}
+                    {/* Processing Performance Metrics */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded">
                       <div>
                         <div className="text-sm font-medium text-gray-600">Extraction Method</div>
@@ -391,19 +485,40 @@ export default function TestPredictions() {
                         </div>
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-gray-600">Quality</div>
-                        <div className={`text-lg font-semibold ${extractedContent.isContentValid ? 'text-green-600' : 'text-red-600'}`}>
-                          {extractedContent.isContentValid ? 'Excellent' : 'Poor'}
+                        <div className="text-sm font-medium text-gray-600 flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          Processing Time
+                        </div>
+                        <div className="text-lg font-semibold text-blue-600">
+                          {extractedContent.processingTime ? `${extractedContent.processingTime}ms` : 'N/A'}
                         </div>
                       </div>
                     </div>
+
+                    {/* Debug Information */}
+                    {extractedContent.debugInfo && (
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded">
+                        <h3 className="font-semibold text-blue-800 mb-2">Debug Information:</h3>
+                        <div className="text-sm text-blue-700 space-y-1">
+                          {extractedContent.debugInfo.apiTime && (
+                            <div><strong>API Response Time:</strong> {extractedContent.debugInfo.apiTime}ms</div>
+                          )}
+                          {extractedContent.debugInfo.method && (
+                            <div><strong>Detection Method:</strong> {extractedContent.debugInfo.method}</div>
+                          )}
+                          {extractedContent.debugInfo.blockCount && (
+                            <div><strong>Text Blocks Detected:</strong> {extractedContent.debugInfo.blockCount}</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Error Display */}
                     {extractedContent.error ? (
                       <div className="bg-red-50 border border-red-200 p-4 rounded">
                         <p className="text-red-700">❌ Extraction Error: {extractedContent.error}</p>
                         <p className="text-red-600 text-sm mt-2">
-                          This could indicate an issue with the Google Vision service or file format compatibility.
+                          This indicates an issue with the text extraction process. Check the detailed error information above for more specific debugging details.
                         </p>
                       </div>
                     ) : (
@@ -411,17 +526,21 @@ export default function TestPredictions() {
                         {extractedContent.contentLength === 0 ? (
                           <div className="bg-amber-50 border border-amber-200 p-4 rounded">
                             <p className="text-amber-700">⚠️ No content extracted</p>
+                            <p className="text-amber-600 text-sm mt-2">
+                              Processing completed but no text was detected. This could be a valid result for image-based files.
+                            </p>
                           </div>
                         ) : (
                           <div className="space-y-4">
                             <div className="bg-green-50 border border-green-200 p-4 rounded">
                               <p className="text-green-700 mb-2">
-                                ✅ Live text extraction successful!
+                                ✅ Enhanced text extraction successful!
                               </p>
                               <div className="text-sm text-green-600">
                                 Extracted: {extractedContent.contentLength.toLocaleString()} characters | 
                                 {extractedContent.wordCount.toLocaleString()} words | 
                                 Confidence: {extractedContent.extractionConfidence}%
+                                {extractedContent.processingTime && ` | Processing: ${extractedContent.processingTime}ms`}
                               </div>
                             </div>
 
