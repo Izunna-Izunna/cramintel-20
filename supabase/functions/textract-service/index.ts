@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
@@ -117,16 +116,18 @@ async function processTextractSync(
   const endpoint = `https://textract.${region}.amazonaws.com/`;
   const service = 'textract';
   const method = 'POST';
-  const headers = {
-    'Content-Type': 'application/x-amz-json-1.1',
-    'X-Amz-Target': 'Textract.DetectDocumentText'
-  };
-
+  
   const body = JSON.stringify({
     Document: {
       Bytes: Array.from(uint8Array)
     }
   });
+
+  const headers = {
+    'Content-Type': 'application/x-amz-json-1.1',
+    'X-Amz-Target': 'Textract.DetectDocumentText',
+    'Host': `textract.${region}.amazonaws.com`
+  };
 
   const signedRequest = await createAWSSignedRequest(
     method, endpoint, headers, body, accessKeyId, secretAccessKey, region, service
@@ -197,13 +198,19 @@ async function createAWSSignedRequest(
   const dateStamp = now.toISOString().slice(0, 10).replace(/-/g, '');
   const timeStamp = now.toISOString().slice(0, 19).replace(/[-:]/g, '') + 'Z';
   
-  // Create canonical request
-  const canonicalHeaders = Object.entries(headers)
+  // Add required AWS headers
+  const amzHeaders = {
+    ...headers,
+    'X-Amz-Date': timeStamp
+  };
+  
+  // Create canonical headers (must include Host)
+  const canonicalHeaders = Object.entries(amzHeaders)
     .map(([key, value]) => `${key.toLowerCase()}:${value}`)
     .sort()
     .join('\n') + '\n';
     
-  const signedHeaders = Object.keys(headers)
+  const signedHeaders = Object.keys(amzHeaders)
     .map(key => key.toLowerCase())
     .sort()
     .join(';');
@@ -236,9 +243,8 @@ async function createAWSSignedRequest(
   return {
     method,
     headers: {
-      ...headers,
-      'Authorization': authorizationHeader,
-      'X-Amz-Date': timeStamp
+      ...amzHeaders,
+      'Authorization': authorizationHeader
     },
     body
   };
