@@ -148,9 +148,9 @@ serve(async (req) => {
       type: fileType
     });
 
-    // Send directly to Google Vision API - NO preprocessing, NO fallbacks
+    // Send directly to Google Vision API - ONLY method
     console.log('Sending file directly to Google Vision API...');
-    const visionResponse = await processWithGoogleVisionOnly(fileData, apiKey, fileSize, fileType);
+    const visionResponse = await processWithGoogleVision(fileData, apiKey, fileSize, fileType);
 
     const totalProcessingTime = Date.now() - requestStartTime;
     visionResponse.processingTime = totalProcessingTime;
@@ -216,7 +216,7 @@ serve(async (req) => {
   }
 });
 
-async function processWithGoogleVisionOnly(fileData: Blob, apiKey: string, fileSize: number, fileType: string): Promise<VisionResponse> {
+async function processWithGoogleVision(fileData: Blob, apiKey: string, fileSize: number, fileType: string): Promise<VisionResponse> {
   console.log('=== Processing with Google Vision API ONLY ===');
   const startTime = Date.now();
   
@@ -227,7 +227,7 @@ async function processWithGoogleVisionOnly(fileData: Blob, apiKey: string, fileS
     const base64Content = arrayBufferToBase64(arrayBuffer);
     const base64Size = base64Content.length;
     
-    // Enhanced size validation
+    // Enhanced size validation for Vision API limits
     const estimatedJsonSize = base64Size * 1.37;
     console.log('Size analysis:', {
       originalSize: fileSize,
@@ -373,21 +373,6 @@ async function processWithGoogleVisionOnly(fileData: Blob, apiKey: string, fileS
     const processingTime = Date.now() - startTime;
     console.error('Google Vision processing failed:', error, { processingTime: processingTime + 'ms' });
     
-    return {
-      text: '',
-      confidence: 0,
-      method: 'google-vision-failed',
-      metadata: {
-        error: error.message,
-        fileType: fileType,
-        fileSize: fileSize,
-        processingTime: processingTime
-      },
-      processingTime,
-      debugInfo: {
-        error: error.message,
-        processingTime: processingTime + 'ms'
-      }
-    };
+    throw new Error(`Google Vision processing failed: ${error.message}`);
   }
 }
