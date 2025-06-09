@@ -112,6 +112,9 @@ async function processTextractSync(
 ): Promise<TextractResponse> {
   const uint8Array = new Uint8Array(fileBuffer);
   
+  // Convert to base64 for AWS Textract
+  const base64String = btoa(String.fromCharCode(...uint8Array));
+  
   // Create AWS signature
   const endpoint = `https://textract.${region}.amazonaws.com/`;
   const service = 'textract';
@@ -119,7 +122,7 @@ async function processTextractSync(
   
   const body = JSON.stringify({
     Document: {
-      Bytes: Array.from(uint8Array)
+      Bytes: base64String
     }
   });
 
