@@ -14,10 +14,22 @@ export interface Material {
   processed: boolean;
   upload_date: string;
   file_path?: string;
+  group_id?: string;
+  group_name?: string;
+}
+
+export interface MaterialGroup {
+  group_id: string;
+  group_name: string;
+  materials: Material[];
+  total_count: number;
+  processed_count: number;
+  upload_date: string;
 }
 
 export function useMaterials() {
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [materialGroups, setMaterialGroups] = useState<MaterialGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
@@ -29,7 +41,6 @@ export function useMaterials() {
         .from('cramintel_materials')
         .select('*')
         .eq('user_id', user.id)
-        .eq('processed', true)
         .order('upload_date', { ascending: false });
 
       if (error) {
@@ -37,7 +48,33 @@ export function useMaterials() {
         return;
       }
 
-      setMaterials(data || []);
+      const allMaterials = data || [];
+      setMaterials(allMaterials);
+
+      // Group materials by group_id
+      const grouped = allMaterials.reduce((groups: { [key: string]: Material[] }, material) => {
+        const groupKey = material.group_id || material.id; // Use material id as fallback for ungrouped items
+        if (!groups[groupKey]) {
+          groups[groupKey] = [];
+        }
+        groups[groupKey].push(material);
+        return groups;
+      }, {});
+
+      // Convert to MaterialGroup format
+      const materialGroups: MaterialGroup[] = Object.entries(grouped).map(([groupKey, materials]) => {
+        const firstMaterial = materials[0];
+        return {
+          group_id: groupKey,
+          group_name: firstMaterial.group_name || firstMaterial.name,
+          materials,
+          total_count: materials.length,
+          processed_count: materials.filter(m => m.processed).length,
+          upload_date: firstMaterial.upload_date,
+        };
+      });
+
+      setMaterialGroups(materialGroups);
     } catch (error) {
       console.error('Error fetching materials:', error);
     } finally {
@@ -51,6 +88,7 @@ export function useMaterials() {
 
   return {
     materials,
+    materialGroups,
     loading,
     fetchMaterials,
   };

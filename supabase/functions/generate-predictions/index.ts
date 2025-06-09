@@ -181,7 +181,7 @@ serve(async (req) => {
         if (clue.type === 'whisper' && clue.content) {
           whisperTexts.push(clue.content)
         } else if (clue.materialId) {
-          // Fetch material from database
+          // Single material
           const { data: material } = await supabaseClient
             .from('cramintel_materials')
             .select('*')
@@ -206,6 +206,45 @@ serve(async (req) => {
             
             console.log(`Successfully retrieved ${materialContent.length} characters from stored text for ${material.name}`)
           }
+        } else if (clue.isGroup && clue.groupMaterials) {
+          // Group of materials
+          console.log(`Processing group: ${clue.name} with ${clue.groupMaterials.length} materials`)
+          
+          let groupContent = `Group: ${clue.name}\n\n`;
+          
+          for (const materialId of clue.groupMaterials) {
+            const { data: material } = await supabaseClient
+              .from('cramintel_materials')
+              .select('*')
+              .eq('id', materialId)
+              .single()
+
+            if (material) {
+              console.log(`Processing group material: ${material.name}`)
+              
+              try {
+                const materialContent = await getExtractedText(supabaseClient, material.id);
+                
+                if (materialContent && materialContent.length > 100) {
+                  groupContent += `File: ${material.name}\n${materialContent}\n\n`;
+                }
+              } catch (error) {
+                console.warn(`Failed to get content for group material ${material.name}:`, error);
+              }
+            }
+          }
+          
+          if (groupContent.length > 200) {
+            processedMaterials.push({
+              id: clue.id,
+              name: clue.name,
+              content: groupContent,
+              type: clue.type,
+              isGroup: true
+            });
+            
+            console.log(`Successfully processed group with ${groupContent.length} characters`);
+          }
         }
       } catch (error) {
         console.error('Error processing clue:', clue.id, error)
@@ -213,7 +252,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Processed ${processedMaterials.length} materials with stored extracted content`)
+    console.log(`Processed ${processedMaterials.length} materials/groups with stored extracted content`)
 
     if (processedMaterials.length === 0) {
       throw new Error('No valid materials found. Please upload materials with readable content.');

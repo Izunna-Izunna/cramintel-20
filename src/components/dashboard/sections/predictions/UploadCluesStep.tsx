@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Upload, FileText, MessageSquare, BookOpen, X, Check, Brain, TrendingUp } from 'lucide-react';
+import { Upload, FileText, MessageSquare, BookOpen, X, Check, Brain, TrendingUp, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +14,8 @@ interface Clue {
   type: 'past-questions' | 'assignment' | 'whisper';
   content?: string;
   materialId?: string;
+  isGroup?: boolean;
+  groupMaterials?: string[]; // Array of material IDs in the group
 }
 
 interface UploadCluesStepProps {
@@ -29,7 +30,7 @@ export function UploadCluesStep({ clues, onCluesChange, onNext, onBack }: Upload
   const [showWhisperInput, setShowWhisperInput] = useState(false);
   const [showMaterialsSelector, setShowMaterialsSelector] = useState(false);
   const [selectedType, setSelectedType] = useState<'past-questions' | 'assignment' | null>(null);
-  const { materials, loading } = useMaterials();
+  const { materials, materialGroups, loading } = useMaterials();
 
   const addWhisper = () => {
     if (whisperText.trim()) {
@@ -45,12 +46,14 @@ export function UploadCluesStep({ clues, onCluesChange, onNext, onBack }: Upload
     }
   };
 
-  const addMaterialClue = (material: any) => {
+  const addMaterialClue = (material: any, isGroup = false) => {
     const newClue: Clue = {
-      id: material.id,
-      name: material.name,
+      id: isGroup ? material.group_id : material.id,
+      name: isGroup ? material.group_name : material.name,
       type: selectedType!,
-      materialId: material.id
+      materialId: isGroup ? undefined : material.id,
+      isGroup,
+      groupMaterials: isGroup ? material.materials.map((m: any) => m.id) : undefined
     };
     onCluesChange([...clues, newClue]);
     setShowMaterialsSelector(false);
@@ -93,17 +96,27 @@ export function UploadCluesStep({ clues, onCluesChange, onNext, onBack }: Upload
   };
 
   const getFilteredMaterials = () => {
-    if (!selectedType) return materials;
+    if (!selectedType) return [];
     
     const typeMap = {
-      'past-questions': 'past-question',
-      'assignment': 'assignment'
+      'past-questions': ['past-question', 'past-question-images'],
+      'assignment': ['assignment', 'notes']
     };
     
-    return materials.filter(material => 
-      material.material_type === typeMap[selectedType] ||
-      material.material_type === 'notes'
+    // Filter individual materials
+    const individualMaterials = materials.filter(material => 
+      !material.group_id && // Not part of a group
+      typeMap[selectedType].includes(material.material_type)
     );
+
+    // Filter material groups
+    const groups = materialGroups.filter(group =>
+      group.materials.some(material => 
+        typeMap[selectedType].includes(material.material_type)
+      )
+    );
+
+    return { individualMaterials, groups };
   };
 
   const getAnalysisInsights = () => {
@@ -140,6 +153,7 @@ export function UploadCluesStep({ clues, onCluesChange, onNext, onBack }: Upload
   };
 
   const { confidenceLevel, insights } = getAnalysisInsights();
+  const { individualMaterials, groups } = getFilteredMaterials();
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -241,35 +255,79 @@ export function UploadCluesStep({ clues, onCluesChange, onNext, onBack }: Upload
                 ))}
               </div>
             ) : (
-              <div className="space-y-3 max-h-60 overflow-y-auto">
-                {getFilteredMaterials().length === 0 ? (
+              <div className="space-y-4 max-h-60 overflow-y-auto">
+                {/* Material Groups */}
+                {groups.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-700 mb-2">Groups</h5>
+                    <div className="space-y-2">
+                      {groups.map((group) => (
+                        <div key={group.group_id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-purple-300 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <Users className="w-4 h-4 text-purple-600" />
+                            <div>
+                              <p className="font-medium">{group.group_name}</p>
+                              <p className="text-sm text-gray-500">
+                                {group.total_count} files • {group.processed_count} processed
+                              </p>
+                            </div>
+                          </div>
+                          <Button 
+                            size="sm"
+                            onClick={() => addMaterialClue(group, true)}
+                            disabled={clues.some(clue => clue.id === group.group_id)}
+                            className="bg-purple-600 hover:bg-purple-700"
+                          >
+                            {clues.some(clue => clue.id === group.group_id) ? (
+                              <Check className="w-4 h-4" />
+                            ) : (
+                              'Add Group'
+                            )}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Individual Materials */}
+                {individualMaterials.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-700 mb-2">Individual Files</h5>
+                    <div className="space-y-2">
+                      {individualMaterials.map((material) => (
+                        <div key={material.id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-purple-300 transition-colors">
+                          <div className="flex items-center gap-3">
+                            {getClueIcon(selectedType)}
+                            <div>
+                              <p className="font-medium">{material.name}</p>
+                              <p className="text-sm text-gray-500">
+                                {material.course} • {material.material_type} • {material.processed ? 'Processed' : 'Processing'}
+                              </p>
+                            </div>
+                          </div>
+                          <Button 
+                            size="sm"
+                            onClick={() => addMaterialClue(material)}
+                            disabled={clues.some(clue => clue.materialId === material.id)}
+                            className="bg-purple-600 hover:bg-purple-700"
+                          >
+                            {clues.some(clue => clue.materialId === material.id) ? (
+                              <Check className="w-4 h-4" />
+                            ) : (
+                              'Add'
+                            )}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {individualMaterials.length === 0 && groups.length === 0 && (
                   <p className="text-gray-500 text-center py-4">
                     No materials found. Upload some materials first in the Upload section.
                   </p>
-                ) : (
-                  getFilteredMaterials().map((material) => (
-                    <div key={material.id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-purple-300 transition-colors">
-                      <div className="flex items-center gap-3">
-                        {getClueIcon(selectedType)}
-                        <div>
-                          <p className="font-medium">{material.name}</p>
-                          <p className="text-sm text-gray-500">{material.course} • {material.material_type}</p>
-                        </div>
-                      </div>
-                      <Button 
-                        size="sm"
-                        onClick={() => addMaterialClue(material)}
-                        disabled={clues.some(clue => clue.materialId === material.id)}
-                        className="bg-purple-600 hover:bg-purple-700"
-                      >
-                        {clues.some(clue => clue.materialId === material.id) ? (
-                          <Check className="w-4 h-4" />
-                        ) : (
-                          'Add'
-                        )}
-                      </Button>
-                    </div>
-                  ))
                 )}
               </div>
             )}
@@ -318,18 +376,24 @@ export function UploadCluesStep({ clues, onCluesChange, onNext, onBack }: Upload
               <div key={clue.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border hover:bg-gray-100 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
+                    {clue.isGroup && <Users className="w-4 h-4 text-purple-600" />}
                     {getClueIcon(clue.type)}
                     <span className="font-medium">{clue.name}</span>
                   </div>
                   <TagChip 
-                    label={clue.type.replace('-', ' ')} 
-                    color={getClueColor(clue.type)}
+                    label={clue.isGroup ? 'Group' : clue.type.replace('-', ' ')} 
+                    color={clue.isGroup ? 'purple' : getClueColor(clue.type)}
                   />
                   {clue.type === 'past-questions' && (
                     <Badge variant="outline" className="text-xs text-blue-600">High Impact</Badge>
                   )}
                   {clue.type === 'assignment' && (
                     <Badge variant="outline" className="text-xs text-green-600">Exam Likely</Badge>
+                  )}
+                  {clue.isGroup && (
+                    <Badge variant="outline" className="text-xs text-purple-600">
+                      {clue.groupMaterials?.length} files
+                    </Badge>
                   )}
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => removeClue(clue.id)} className="hover:bg-red-100 hover:text-red-700">

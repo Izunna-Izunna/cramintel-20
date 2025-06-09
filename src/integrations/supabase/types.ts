@@ -390,6 +390,8 @@ export type Database = {
           file_path: string | null
           file_size: number | null
           file_type: string | null
+          group_id: string | null
+          group_name: string | null
           id: string
           material_type: string | null
           name: string
@@ -409,6 +411,8 @@ export type Database = {
           file_path?: string | null
           file_size?: number | null
           file_type?: string | null
+          group_id?: string | null
+          group_name?: string | null
           id?: string
           material_type?: string | null
           name: string
@@ -428,6 +432,8 @@ export type Database = {
           file_path?: string | null
           file_size?: number | null
           file_type?: string | null
+          group_id?: string | null
+          group_name?: string | null
           id?: string
           material_type?: string | null
           name?: string

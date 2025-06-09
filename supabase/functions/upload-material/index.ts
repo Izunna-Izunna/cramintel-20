@@ -47,6 +47,8 @@ serve(async (req) => {
     const fileName = formData.get('fileName') as string;
     const course = formData.get('course') as string;
     const materialType = formData.get('materialType') as string;
+    const groupId = formData.get('groupId') as string; // For grouped uploads
+    const groupName = formData.get('groupName') as string; // For grouped uploads
 
     if (!file) {
       return new Response(JSON.stringify({ error: 'No file provided' }), {
@@ -84,23 +86,28 @@ serve(async (req) => {
     const isPastQuestionImages = materialType === 'past-question-images';
     const requiresOCR = isPastQuestionImages && file.type.startsWith('image/');
 
-    // Save material metadata to database with proper initial status
-    const { data: materialData, error: dbError } = await supabase
+    // Prepare material data
+    const materialData = {
+      user_id: user.id,
+      name: fileName || file.name.replace(/\.[^/.]+$/, ''),
+      file_name: file.name,
+      file_path: uploadData.path,
+      file_type: file.type,
+      file_size: file.size,
+      course: course,
+      material_type: materialType,
+      processed: false,
+      processing_status: requiresOCR ? 'pending_ocr' : 'pending',
+      processing_progress: 0,
+      tags: isPastQuestionImages ? ['past-questions', 'ocr-processed'] : [],
+      group_id: groupId || null,
+      group_name: groupName || null
+    };
+
+    // Save material metadata to database
+    const { data: savedMaterial, error: dbError } = await supabase
       .from('cramintel_materials')
-      .insert({
-        user_id: user.id,
-        name: fileName || file.name.replace(/\.[^/.]+$/, ''),
-        file_name: file.name,
-        file_path: uploadData.path,
-        file_type: file.type,
-        file_size: file.size,
-        course: course,
-        material_type: materialType,
-        processed: false,
-        processing_status: requiresOCR ? 'pending_ocr' : 'pending',
-        processing_progress: 0,
-        tags: isPastQuestionImages ? ['past-questions', 'ocr-processed'] : []
-      })
+      .insert(materialData)
       .select()
       .single();
 
@@ -115,15 +122,15 @@ serve(async (req) => {
       });
     }
 
-    console.log('Material saved to database:', materialData.id, 'Requires OCR:', requiresOCR);
+    console.log('Material saved to database:', savedMaterial.id, 'Requires OCR:', requiresOCR);
 
     // Immediately trigger background processing with proper error handling
     let processingTriggered = false;
     try {
-      console.log('Triggering background processing for material:', materialData.id);
+      console.log('Triggering background processing for material:', savedMaterial.id);
       
       const { data: processResult, error: processError } = await supabase.functions.invoke('process-material', {
-        body: { materialId: materialData.id },
+        body: { materialId: savedMaterial.id },
         headers: {
           Authorization: `Bearer ${token}`,
         }
@@ -147,11 +154,11 @@ serve(async (req) => {
           processing_status: 'error',
           processing_progress: 0 
         })
-        .eq('id', materialData.id);
+        .eq('id', savedMaterial.id);
         
       return new Response(JSON.stringify({
         error: 'Material uploaded but processing failed to start',
-        material: materialData,
+        material: savedMaterial,
         processingError: processError.message
       }), {
         status: 500,
@@ -161,7 +168,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      material: materialData,
+      material: savedMaterial,
       processingTriggered,
       requiresOCR,
       message: isPastQuestionImages 
