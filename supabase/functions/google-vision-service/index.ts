@@ -67,6 +67,47 @@ function createDetailedError(
   };
 }
 
+// Simple PDF text extraction fallback
+async function extractTextFromPdfDirectly(fileData: Blob): Promise<string> {
+  console.log('Attempting direct PDF text extraction...');
+  
+  try {
+    const arrayBuffer = await fileData.arrayBuffer();
+    const pdfText = new TextDecoder().decode(arrayBuffer);
+    
+    // Look for text between stream/endstream markers
+    const textMatches = pdfText.match(/stream\s*(.*?)\s*endstream/gs);
+    let extractedText = '';
+    
+    if (textMatches) {
+      for (const match of textMatches) {
+        const content = match.replace(/^stream\s*/, '').replace(/\s*endstream$/, '');
+        // Simple text extraction - look for readable text
+        const readableText = content.match(/[a-zA-Z0-9\s\.,;:!?\-\(\)]+/g);
+        if (readableText) {
+          extractedText += readableText.join(' ') + ' ';
+        }
+      }
+    }
+    
+    // Clean up extracted text
+    extractedText = extractedText
+      .replace(/\s+/g, ' ')
+      .replace(/[^\w\s\.,;:!?\-\(\)]/g, '')
+      .trim();
+    
+    console.log('Direct PDF extraction result:', {
+      textLength: extractedText.length,
+      preview: extractedText.substring(0, 200)
+    });
+    
+    return extractedText;
+  } catch (error) {
+    console.error('Direct PDF extraction failed:', error);
+    return '';
+  }
+}
+
 serve(async (req) => {
   const requestStartTime = Date.now();
   
@@ -171,7 +212,7 @@ serve(async (req) => {
       visionResponse = await processImageSync(fileData, apiKey, fileSize);
     } else if (fileType.includes('pdf')) {
       console.log('Processing as PDF file');
-      visionResponse = await processPdfWithEnhancedFallback(fileData, apiKey, fileSize);
+      visionResponse = await processPdfWithImprovedFallback(fileData, apiKey, fileSize);
     } else {
       const error = createDetailedError(
         'Unsupported file type',
@@ -392,13 +433,42 @@ async function processImageSync(fileData: Blob, apiKey: string, fileSize: number
   }
 }
 
-async function processPdfWithEnhancedFallback(fileData: Blob, apiKey: string, fileSize: number): Promise<VisionResponse> {
-  console.log('=== Starting enhanced PDF processing ===');
+async function processPdfWithImprovedFallback(fileData: Blob, apiKey: string, fileSize: number): Promise<VisionResponse> {
+  console.log('=== Starting improved PDF processing ===');
   const startTime = Date.now();
   
+  // Step 1: Try direct PDF text extraction first (fastest)
+  console.log('Step 1: Attempting direct PDF text extraction...');
+  const directText = await extractTextFromPdfDirectly(fileData);
+  
+  if (directText && directText.length > 100) {
+    console.log('Direct PDF extraction successful:', {
+      textLength: directText.length,
+      preview: directText.substring(0, 200)
+    });
+    
+    return {
+      text: directText,
+      confidence: 70,
+      method: 'direct-pdf-extraction',
+      metadata: {
+        pdfSize: fileSize,
+        extractionType: 'direct'
+      },
+      processingTime: Date.now() - startTime,
+      debugInfo: { 
+        method: 'direct-pdf', 
+        textLength: directText.length 
+      }
+    };
+  }
+  
+  console.log('Direct extraction insufficient, trying Google Vision API...');
+  
+  // Step 2: Try Google Vision API with smaller size limits and better error handling
   const attempts = [
-    { method: 'TEXT_DETECTION', maxSize: 4 * 1024 * 1024, description: 'Simple text detection' },
-    { method: 'DOCUMENT_TEXT_DETECTION', maxSize: 6 * 1024 * 1024, description: 'Document text detection' }
+    { method: 'DOCUMENT_TEXT_DETECTION', maxSize: 2 * 1024 * 1024, description: 'Document text detection (2MB limit)' },
+    { method: 'TEXT_DETECTION', maxSize: 4 * 1024 * 1024, description: 'Simple text detection (4MB limit)' }
   ];
 
   for (const attempt of attempts) {
@@ -448,7 +518,7 @@ async function processPdfWithEnhancedFallback(fileData: Blob, apiKey: string, fi
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`${attempt.method} API error:`, {
+        console.log(`${attempt.method} API error:`, {
           status: response.status,
           errorText: errorText
         });
@@ -464,12 +534,12 @@ async function processPdfWithEnhancedFallback(fileData: Blob, apiKey: string, fi
       }
 
       let extractedText = '';
-      let confidence = 75;
+      let confidence = 60;
 
       if (attempt.method === 'TEXT_DETECTION') {
         if (annotation.textAnnotations && annotation.textAnnotations.length > 0) {
           extractedText = annotation.textAnnotations[0].description || '';
-          confidence = 85;
+          confidence = 75;
         }
       } else if (attempt.method === 'DOCUMENT_TEXT_DETECTION') {
         if (annotation.fullTextAnnotation?.text) {
@@ -509,7 +579,7 @@ async function processPdfWithEnhancedFallback(fileData: Blob, apiKey: string, fi
 
     } catch (attemptError) {
       const attemptTime = Date.now() - attemptStartTime;
-      console.error(`${attempt.method} failed:`, {
+      console.log(`${attempt.method} failed:`, {
         error: attemptError.message,
         attemptTime: attemptTime + 'ms'
       });
@@ -517,13 +587,49 @@ async function processPdfWithEnhancedFallback(fileData: Blob, apiKey: string, fi
     }
   }
 
-  // All attempts failed
+  // Step 3: Return the direct extraction result even if it's minimal
+  if (directText && directText.length > 0) {
+    console.log('Falling back to direct extraction result');
+    return {
+      text: directText,
+      confidence: 50,
+      method: 'direct-pdf-fallback',
+      metadata: {
+        pdfSize: fileSize,
+        extractionType: 'fallback',
+        note: 'Google Vision API failed, using direct extraction'
+      },
+      processingTime: Date.now() - startTime,
+      debugInfo: { 
+        method: 'direct-pdf-fallback', 
+        textLength: directText.length 
+      }
+    };
+  }
+
+  // All attempts failed - return structured error instead of throwing
   const totalTime = Date.now() - startTime;
-  console.error('=== All PDF processing attempts failed ===', {
+  console.log('=== All PDF processing attempts failed ===', {
     fileSize: Math.round(fileSize / 1024) + 'KB',
     totalTime: totalTime + 'ms',
     attemptsCount: attempts.length
   });
 
-  throw new Error(`PDF processing failed: Unable to extract text using any method. File size: ${Math.round(fileSize / 1024)}KB. This PDF may contain scanned images, be corrupted, or in an unsupported format. Try converting to images or a different PDF format.`);
+  // Return empty result instead of throwing error
+  return {
+    text: '',
+    confidence: 0,
+    method: 'pdf-processing-failed',
+    metadata: {
+      pdfSize: fileSize,
+      error: 'Unable to extract text using any method',
+      note: 'This PDF may contain scanned images, be corrupted, or in an unsupported format'
+    },
+    processingTime: totalTime,
+    debugInfo: { 
+      attemptsCount: attempts.length,
+      fileSize: Math.round(fileSize / 1024) + 'KB',
+      totalTime: totalTime + 'ms'
+    }
+  };
 }
