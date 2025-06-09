@@ -1,9 +1,9 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 import { TextractClient, DetectDocumentTextCommand } from 'https://esm.sh/@aws-sdk/client-textract@3.0.0';
 import { Sha256 } from 'https://esm.sh/@aws-crypto/sha256-js@3.0.0';
+import { FetchHttpHandler } from 'https://esm.sh/@aws-sdk/fetch-http-handler@3.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -115,7 +115,7 @@ async function processTextractSync(
 ): Promise<TextractResponse> {
   const uint8Array = new Uint8Array(fileBuffer);
   
-  // Create Textract client with SHA256 polyfill for Deno compatibility
+  // Create Textract client with both SHA256 polyfill and FetchHttpHandler for complete Deno compatibility
   const textractClient = new TextractClient({
     region: region,
     credentials: {
@@ -123,11 +123,13 @@ async function processTextractSync(
       secretAccessKey: secretAccessKey
     },
     // Override the default Node-only hash implementation with pure JS
-    sha256: Sha256
+    sha256: Sha256,
+    // Use fetch-based HTTP handler compatible with Deno
+    requestHandler: new FetchHttpHandler()
   });
 
   try {
-    console.log('Calling Textract with polyfilled SHA256 implementation');
+    console.log('Calling Textract with SHA256 polyfill and FetchHttpHandler for full Deno compatibility');
     
     const command = new DetectDocumentTextCommand({
       Document: {
@@ -165,7 +167,7 @@ async function processTextractSync(
       metadata: {
         totalBlocks: response.Blocks?.length || 0,
         textBlocks: blockCount,
-        sdkVersion: 'aws-sdk-v3-with-sha256-polyfill'
+        sdkVersion: 'aws-sdk-v3-with-sha256-and-fetch-handler'
       }
     };
   } catch (error) {
