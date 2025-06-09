@@ -1,9 +1,7 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
-import { TextractClient, DetectDocumentTextCommand } from 'https://esm.sh/@aws-sdk/client-textract@3.0.0';
-import { Sha256 } from 'https://esm.sh/@aws-crypto/sha256-js@3.0.0';
-import { FetchHttpHandler } from 'https://esm.sh/@aws-sdk/fetch-http-handler@3.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,6 +13,103 @@ interface TextractResponse {
   confidence: number;
   method: 'textract-sync' | 'textract-async';
   metadata?: any;
+}
+
+// AWS Signature V4 implementation using Deno's native crypto
+class AWSSignatureV4 {
+  private accessKeyId: string;
+  private secretAccessKey: string;
+  private region: string;
+  private service: string;
+
+  constructor(accessKeyId: string, secretAccessKey: string, region: string, service: string) {
+    this.accessKeyId = accessKeyId;
+    this.secretAccessKey = secretAccessKey;
+    this.region = region;
+    this.service = service;
+  }
+
+  private async hash(data: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
+    return Array.from(new Uint8Array(hashBuffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  private async hmac(key: Uint8Array, data: string): Promise<Uint8Array> {
+    const encoder = new TextEncoder();
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      key,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(data));
+    return new Uint8Array(signature);
+  }
+
+  private async getSignatureKey(dateStamp: string): Promise<Uint8Array> {
+    const encoder = new TextEncoder();
+    const kDate = await this.hmac(encoder.encode(`AWS4${this.secretAccessKey}`), dateStamp);
+    const kRegion = await this.hmac(kDate, this.region);
+    const kService = await this.hmac(kRegion, this.service);
+    const kSigning = await this.hmac(kService, 'aws4_request');
+    return kSigning;
+  }
+
+  async signRequest(method: string, host: string, path: string, payload: string, headers: Record<string, string>): Promise<Record<string, string>> {
+    const now = new Date();
+    const amzDate = now.toISOString().replace(/[:\-]|\.\d{3}/g, '');
+    const dateStamp = amzDate.substr(0, 8);
+
+    // Canonical request
+    const payloadHash = await this.hash(payload);
+    const canonicalHeaders = Object.keys(headers)
+      .sort()
+      .map(key => `${key.toLowerCase()}:${headers[key]}\n`)
+      .join('');
+    const signedHeaders = Object.keys(headers)
+      .sort()
+      .map(key => key.toLowerCase())
+      .join(';');
+
+    const canonicalRequest = [
+      method,
+      path,
+      '', // query string
+      canonicalHeaders,
+      signedHeaders,
+      payloadHash
+    ].join('\n');
+
+    // String to sign
+    const algorithm = 'AWS4-HMAC-SHA256';
+    const credentialScope = `${dateStamp}/${this.region}/${this.service}/aws4_request`;
+    const stringToSign = [
+      algorithm,
+      amzDate,
+      credentialScope,
+      await this.hash(canonicalRequest)
+    ].join('\n');
+
+    // Calculate signature
+    const signingKey = await this.getSignatureKey(dateStamp);
+    const signature = await this.hmac(signingKey, stringToSign);
+    const signatureHex = Array.from(signature)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    // Authorization header
+    const authorization = `${algorithm} Credential=${this.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signatureHex}`;
+
+    return {
+      ...headers,
+      'X-Amz-Date': amzDate,
+      'Authorization': authorization
+    };
+  }
 }
 
 serve(async (req) => {
@@ -37,7 +132,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log('Starting Textract extraction for material:', materialId);
+    console.log('Starting manual Textract extraction for material:', materialId);
 
     // Get AWS credentials
     const awsAccessKeyId = Deno.env.get('AWS_ACCESS_KEY_ID');
@@ -115,37 +210,55 @@ async function processTextractSync(
 ): Promise<TextractResponse> {
   const uint8Array = new Uint8Array(fileBuffer);
   
-  // Create Textract client with both SHA256 polyfill and FetchHttpHandler for complete Deno compatibility
-  const textractClient = new TextractClient({
-    region: region,
-    credentials: {
-      accessKeyId: accessKeyId,
-      secretAccessKey: secretAccessKey
-    },
-    // Override the default Node-only hash implementation with pure JS
-    sha256: Sha256,
-    // Use fetch-based HTTP handler compatible with Deno
-    requestHandler: new FetchHttpHandler()
-  });
-
   try {
-    console.log('Calling Textract with SHA256 polyfill and FetchHttpHandler for full Deno compatibility');
+    console.log('Calling Textract using manual AWS API implementation with Deno native fetch and crypto');
     
-    const command = new DetectDocumentTextCommand({
+    // Create AWS API request payload
+    const payload = {
       Document: {
-        Bytes: uint8Array
+        Bytes: Array.from(uint8Array)
       }
+    };
+
+    const body = JSON.stringify(payload);
+    const host = `textract.${region}.amazonaws.com`;
+    const path = '/';
+    const method = 'POST';
+
+    // Prepare headers
+    const headers = {
+      'Content-Type': 'application/x-amz-json-1.1',
+      'X-Amz-Target': 'Textract.DetectDocumentText',
+      'Host': host,
+      'Content-Length': body.length.toString()
+    };
+
+    // Sign the request using our manual AWS Signature V4 implementation
+    const signer = new AWSSignatureV4(accessKeyId, secretAccessKey, region, 'textract');
+    const signedHeaders = await signer.signRequest(method, host, path, body, headers);
+
+    // Make the API call using Deno's native fetch
+    const response = await fetch(`https://${host}${path}`, {
+      method: method,
+      headers: signedHeaders,
+      body: body
     });
 
-    const response = await textractClient.send(command);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Textract API error:', response.status, errorText);
+      throw new Error(`Textract API returned ${response.status}: ${errorText}`);
+    }
+
+    const responseData = await response.json();
     
     // Extract text and calculate average confidence
     let extractedText = '';
     let totalConfidence = 0;
     let blockCount = 0;
 
-    if (response.Blocks) {
-      for (const block of response.Blocks) {
+    if (responseData.Blocks) {
+      for (const block of responseData.Blocks) {
         if (block.BlockType === 'LINE' && block.Text) {
           extractedText += block.Text + '\n';
           if (block.Confidence) {
@@ -158,21 +271,22 @@ async function processTextractSync(
 
     const averageConfidence = blockCount > 0 ? totalConfidence / blockCount : 0;
 
-    console.log(`Textract extraction successful: ${extractedText.length} characters extracted with ${averageConfidence.toFixed(1)}% confidence`);
+    console.log(`Manual Textract extraction successful: ${extractedText.length} characters extracted with ${averageConfidence.toFixed(1)}% confidence`);
 
     return {
       text: extractedText.trim(),
       confidence: averageConfidence,
       method: 'textract-sync',
       metadata: {
-        totalBlocks: response.Blocks?.length || 0,
+        totalBlocks: responseData.Blocks?.length || 0,
         textBlocks: blockCount,
-        sdkVersion: 'aws-sdk-v3-with-sha256-and-fetch-handler'
+        implementation: 'manual-aws-api-deno-native',
+        apiVersion: 'textract-detect-document-text-v1'
       }
     };
   } catch (error) {
-    console.error('Textract processing error:', error);
-    throw new Error(`Textract processing failed: ${error.message}`);
+    console.error('Manual Textract processing error:', error);
+    throw new Error(`Manual Textract processing failed: ${error.message}`);
   }
 }
 
