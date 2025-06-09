@@ -1,242 +1,291 @@
-
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, Target, TrendingUp, Plus, Filter } from 'lucide-react';
+import { Sparkles, TrendingUp, Clock, Brain, Plus, Trash2 } from 'lucide-react';
 import { PredictionJourney } from './predictions/PredictionJourney';
-import { usePredictions } from '@/hooks/usePredictions';
+import { SavedPredictionView } from './predictions/SavedPredictionView';
+import { usePredictions, Prediction } from '@/hooks/usePredictions';
+import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export function PredictionsSection() {
-  const { predictions, loading } = usePredictions();
-  const [showCreateFlow, setShowCreateFlow] = useState(false);
-  const [filter, setFilter] = useState('all');
+  const [showJourney, setShowJourney] = useState(false);
+  const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
+  const { predictions, loading, fetchPredictions } = usePredictions();
+  const { toast } = useToast();
 
-  if (showCreateFlow) {
-    return <PredictionJourney />;
-  }
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'expired': return 'bg-gray-100 text-gray-800';
-      case 'draft': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-blue-100 text-blue-800';
+    if (diffInHours < 1) {
+      return 'Just now';
+    } else if (diffInHours < 24) {
+      return `${Math.floor(diffInHours)} hour${Math.floor(diffInHours) > 1 ? 's' : ''} ago`;
+    } else {
+      const diffInDays = Math.floor(diffInHours / 24);
+      return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
     }
   };
 
-  const filteredPredictions = predictions.filter(pred => 
-    filter === 'all' || pred.status === filter
-  );
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'exam-paper':
+        return <Brain className="w-4 h-4" />;
+      case 'bullet':
+      case 'theory':
+      case 'mixed':
+        return <Sparkles className="w-4 h-4" />;
+      default:
+        return <Sparkles className="w-4 h-4" />;
+    }
+  };
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex justify-between items-center"
-      >
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Exam Predictions</h1>
-          <p className="text-gray-600 mt-2">
-            AI-powered predictions based on your study materials and past exam patterns
-          </p>
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'exam-paper':
+        return 'Exam Paper';
+      case 'bullet':
+        return 'Quick Predictions';
+      case 'theory':
+        return 'Theory Questions';
+      case 'mixed':
+        return 'Mixed Format';
+      default:
+        return 'Prediction';
+    }
+  };
+
+  const handleDeletePrediction = async (predictionId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent card click from firing
+    
+    try {
+      const { error } = await supabase
+        .from('cramintel_predictions')
+        .delete()
+        .eq('id', predictionId);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Prediction deleted",
+        description: "The prediction has been successfully removed.",
+      });
+
+      // Refresh the predictions list
+      await fetchPredictions();
+    } catch (error) {
+      console.error('Error deleting prediction:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete the prediction. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-800 font-space mb-2">AI Predictions</h2>
+            <p className="text-gray-600">Likely exam questions based on your uploaded materials</p>
+          </div>
+          <Skeleton className="h-12 w-48" />
         </div>
-        <Button
-          onClick={() => setShowCreateFlow(true)}
-          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          New Prediction
-        </Button>
-      </motion.div>
-
-      {/* Stats Overview */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-4 gap-4"
-      >
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Target className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Predictions</p>
-                <p className="text-2xl font-bold text-gray-900">{predictions.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <TrendingUp className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Avg. Accuracy</p>
-                <p className="text-2xl font-bold text-gray-900">87%</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Calendar className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">This Month</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {predictions.filter(p => {
-                    const thisMonth = new Date().getMonth();
-                    const predMonth = new Date(p.generated_at).getMonth();
-                    return predMonth === thisMonth;
-                  }).length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Clock className="w-5 h-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Active</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {predictions.filter(p => p.status === 'active').length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Filter Bar */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="flex items-center gap-4"
-      >
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-500" />
-          <span className="text-sm text-gray-600">Filter:</span>
-        </div>
-        <div className="flex gap-2">
-          {['all', 'active', 'expired', 'draft'].map((status) => (
-            <Button
-              key={status}
-              variant={filter === status ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilter(status)}
-            >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </Button>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Predictions List */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="space-y-4"
-      >
-        {loading ? (
-          <div className="grid grid-cols-1 gap-4">
-            {[1, 2, 3].map(i => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="p-6">
-                  <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
-                  <div className="h-2 bg-gray-200 rounded w-3/4"></div>
-                </CardContent>
-              </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-32 w-full" />
             ))}
           </div>
-        ) : filteredPredictions.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <div className="text-6xl mb-4">🔮</div>
-              <h3 className="text-xl font-semibold mb-2">No predictions yet</h3>
-              <p className="text-gray-600 mb-6">
-                Create your first exam prediction to get AI-powered insights
+          <div className="space-y-6">
+            <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-800 font-space mb-2">AI Predictions</h2>
+            <p className="text-gray-600">Likely exam questions based on your uploaded materials</p>
+          </div>
+          <Button 
+            onClick={() => setShowJourney(true)}
+            className="bg-gray-800 hover:bg-gray-900 text-white"
+            size="lg"
+          >
+            <Brain className="w-5 h-5 mr-2" />
+            Start Prediction Journey
+          </Button>
+        </div>
+
+        {predictions.length === 0 ? (
+          // Empty state
+          <Card className="border-dashed border-2 border-gray-300">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Brain className="w-8 h-8 text-gray-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">No Predictions Yet</h3>
+              <p className="text-gray-600 text-center mb-6 max-w-md">
+                Upload your exam materials and let our AI predict what's likely to appear on your exam
               </p>
-              <Button onClick={() => setShowCreateFlow(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Prediction
+              <Button 
+                onClick={() => setShowJourney(true)}
+                className="bg-gray-800 hover:bg-gray-900 text-white"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Create Your First Prediction
               </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {filteredPredictions.map((prediction, index) => (
-              <motion.div
-                key={prediction.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {prediction.course} - {prediction.prediction_type}
-                        </h3>
-                        <p className="text-gray-600">
-                          Generated on {new Date(prediction.generated_at).toLocaleDateString()}
-                        </p>
+          // Existing predictions
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              {predictions.map((prediction) => (
+                <Card 
+                  key={prediction.id} 
+                  className="hover:shadow-md transition-shadow cursor-pointer border border-gray-200 hover:border-gray-300"
+                  onClick={() => setSelectedPrediction(prediction)}
+                >
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        {getTypeIcon(prediction.prediction_type)}
+                        <CardTitle className="text-lg">{getTypeLabel(prediction.prediction_type)}</CardTitle>
                       </div>
-                      <div className="flex gap-2">
-                        <Badge className={getStatusColor(prediction.status)}>
-                          {prediction.status}
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="bg-gray-100 text-gray-700">
+                          {Math.round(prediction.confidence_score)}% likely
                         </Badge>
-                        {prediction.confidence_score && (
-                          <Badge variant="outline">
-                            {prediction.confidence_score}% confidence
-                          </Badge>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => handleDeletePrediction(prediction.id, e)}
+                          className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
-
-                    {prediction.exam_date && (
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-                        <Calendar className="w-4 h-4" />
-                        <span>Exam: {new Date(prediction.exam_date).toLocaleDateString()}</span>
-                      </div>
-                    )}
-
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm">
-                        View Details
-                      </Button>
-                      <Button size="sm">
-                        Study Plan
-                      </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-700 mb-3">
+                      <strong>{prediction.course}</strong> - {Array.isArray(prediction.questions) ? prediction.questions.length : 0} predictions generated
+                    </p>
+                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <TrendingUp className="w-4 h-4" />
+                        {prediction.prediction_type === 'exam-paper' ? 'Full exam paper' : 'Question predictions'}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        Generated {formatTimeAgo(prediction.generated_at)}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
-              </motion.div>
-            ))}
+              ))}
+              
+              <Card className="border-dashed border-2 border-gray-200 hover:border-gray-300 transition-colors cursor-pointer">
+                <CardContent 
+                  className="flex items-center justify-center py-8"
+                  onClick={() => setShowJourney(true)}
+                >
+                  <div className="text-center">
+                    <Plus className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                    <p className="text-gray-600 font-medium">Generate More Predictions</p>
+                    <p className="text-sm text-gray-500 mt-1">Add new materials for better accuracy</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Prediction Stats</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Average Confidence</span>
+                        <span>{predictions.length > 0 ? Math.round(predictions.reduce((acc, p) => acc + p.confidence_score, 0) / predictions.length) : 0}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-gray-800 h-2 rounded-full" 
+                          style={{ 
+                            width: `${predictions.length > 0 ? predictions.reduce((acc, p) => acc + p.confidence_score, 0) / predictions.length : 0}%` 
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Total Predictions</span>
+                        <span>{predictions.length}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>High Confidence</span>
+                        <span>{predictions.filter(p => p.confidence_score > 85).length}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <button 
+                    onClick={() => setShowJourney(true)}
+                    className="w-full text-left p-2 rounded hover:bg-gray-50 transition-colors"
+                  >
+                    📤 Upload more materials
+                  </button>
+                  <button className="w-full text-left p-2 rounded hover:bg-gray-50 transition-colors">
+                    🧠 Generate flashcards
+                  </button>
+                  <button className="w-full text-left p-2 rounded hover:bg-gray-50 transition-colors">
+                    📊 View detailed analysis
+                  </button>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         )}
-      </motion.div>
-    </div>
+      </div>
+
+      {showJourney && (
+        <PredictionJourney onClose={() => setShowJourney(false)} />
+      )}
+
+      {selectedPrediction && (
+        <SavedPredictionView 
+          prediction={selectedPrediction} 
+          onClose={() => setSelectedPrediction(null)} 
+        />
+      )}
+    </>
   );
 }

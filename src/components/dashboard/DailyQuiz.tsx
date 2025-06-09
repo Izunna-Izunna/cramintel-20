@@ -2,21 +2,32 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useQuizQuestions } from '@/hooks/useQuizQuestions';
 
 export function DailyQuiz() {
-  const { questions, loading, error } = useQuizQuestions();
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [score, setScore] = useState(0);
   const [showResults, setShowResults] = useState(false);
-  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
+
+  const questions = [
+    {
+      question: "What is the time complexity of binary search?",
+      options: ["O(n)", "O(log n)", "O(n²)", "O(1)"],
+      correct: 1
+    },
+    {
+      question: "Which data structure uses LIFO principle?",
+      options: ["Queue", "Stack", "Array", "Linked List"],
+      correct: 1
+    },
+    {
+      question: "What does CPU stand for?",
+      options: ["Computer Processing Unit", "Central Processing Unit", "Central Program Unit", "Computer Program Unit"],
+      correct: 1
+    }
+  ];
 
   const handleAnswer = (selectedIndex: number) => {
-    const newAnswers = [...selectedAnswers, selectedIndex];
-    setSelectedAnswers(newAnswers);
-
-    if (selectedIndex === questions[currentQuestion].correct_answer) {
+    if (selectedIndex === questions[currentQuestion].correct) {
       setScore(score + 1);
     }
     
@@ -31,51 +42,7 @@ export function DailyQuiz() {
     setCurrentQuestion(0);
     setScore(0);
     setShowResults(false);
-    setSelectedAnswers([]);
   };
-
-  if (loading) {
-    return (
-      <Card className="border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="flex items-center gap-3 text-gray-800 font-space text-lg sm:text-xl">
-            🧪 Daily Quiz
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6 pt-0">
-          <div className="space-y-4">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-2 w-full" />
-            <Skeleton className="h-6 w-full" />
-            <div className="space-y-2">
-              {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error || !questions.length) {
-    return (
-      <Card className="border-gray-100 shadow-sm">
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="flex items-center gap-3 text-gray-800 font-space text-lg sm:text-xl">
-            🧪 Daily Quiz
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6 pt-0">
-          <div className="text-center py-6">
-            <p className="text-gray-500 text-sm">
-              {error || 'No quiz questions available today'}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card className="border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">

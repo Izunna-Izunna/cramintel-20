@@ -140,17 +140,13 @@ export function UploadCluesStep({
                   <Card key={group.group_id} className="border hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <Checkbox
-                            checked={allSelected}
-                            onCheckedChange={() => handleGroupToggle(group)}
-                          />
-                          {someSelected && !allSelected && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-2 h-2 bg-primary rounded-sm" />
-                            </div>
-                          )}
-                        </div>
+                        <Checkbox
+                          checked={allSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = someSelected && !allSelected;
+                          }}
+                          onCheckedChange={() => handleGroupToggle(group)}
+                        />
                         <div className="flex-1">
                           <CardTitle className="text-base">{group.group_name}</CardTitle>
                           <div className="flex items-center gap-2 text-sm text-gray-600">
