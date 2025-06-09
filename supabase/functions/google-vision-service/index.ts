@@ -109,7 +109,8 @@ serve(async (req) => {
       visionResponse = await processImageSync(fileData, apiKey);
     } else if (fileType.includes('pdf')) {
       console.log('Processing as PDF file');
-      visionResponse = await processPdfSync(fileData, apiKey, fileSize);
+      // For PDFs, try a different approach - use document text detection with special handling
+      visionResponse = await processPdfWithFallback(fileData, apiKey, fileSize);
     } else {
       console.error('Unsupported file type:', fileType);
       return new Response(JSON.stringify({ 
@@ -282,117 +283,126 @@ async function processImageSync(fileData: Blob, apiKey: string): Promise<VisionR
   };
 }
 
-async function processPdfSync(fileData: Blob, apiKey: string, fileSize: number): Promise<VisionResponse> {
-  console.log('Processing PDF with Google Vision sync API');
+async function processPdfWithFallback(fileData: Blob, apiKey: string, fileSize: number): Promise<VisionResponse> {
+  console.log('Processing PDF with fallback approach');
   
-  // For smaller PDFs, try to process as base64
-  if (fileSize > 8 * 1024 * 1024) { // 8MB limit to account for base64 overhead
-    throw new Error('PDF too large for synchronous processing (>8MB). Please use a smaller PDF file.');
-  }
-
-  const arrayBuffer = await fileData.arrayBuffer();
-  const base64Content = arrayBufferToBase64(arrayBuffer);
-
-  console.log('PDF converted to base64, sending to Vision API...');
-
-  const visionRequest = {
-    requests: [{
-      image: {
-        content: base64Content
-      },
-      features: [{
-        type: 'DOCUMENT_TEXT_DETECTION',
-        maxResults: 1
-      }]
-    }]
-  };
-
-  const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(visionRequest)
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Vision API error for PDF:', {
-      status: response.status,
-      statusText: response.statusText,
-      errorText
-    });
-    
-    // Parse error details for better reporting
+  // For PDFs, we'll try multiple approaches
+  
+  // First approach: Try TEXT_DETECTION instead of DOCUMENT_TEXT_DETECTION for PDFs
+  if (fileSize <= 4 * 1024 * 1024) { // 4MB limit for first attempt
     try {
-      const errorData = JSON.parse(errorText);
-      if (errorData.error?.details) {
-        const billingError = errorData.error.details.find((detail: any) => 
-          detail.reason === 'BILLING_DISABLED'
-        );
-        if (billingError) {
-          throw new Error(`BILLING_DISABLED: ${errorData.error.message}`);
-        }
-      }
-    } catch (parseError) {
-      // If we can't parse the error, fall back to original message
-    }
-    
-    throw new Error(`Vision API failed for PDF: ${response.status} - ${errorText}`);
-  }
+      console.log('Attempting PDF processing with TEXT_DETECTION...');
+      const arrayBuffer = await fileData.arrayBuffer();
+      const base64Content = arrayBufferToBase64(arrayBuffer);
 
-  const result = await response.json();
-  const annotation = result.responses[0];
+      const visionRequest = {
+        requests: [{
+          image: {
+            content: base64Content
+          },
+          features: [{
+            type: 'TEXT_DETECTION', // Use simpler text detection for PDFs
+            maxResults: 1
+          }]
+        }]
+      };
 
-  if (annotation.error) {
-    console.error('Vision API PDF annotation error:', annotation.error);
-    throw new Error(`Vision API error for PDF: ${annotation.error.message}`);
-  }
+      const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(visionRequest)
+      });
 
-  const fullTextAnnotation = annotation.fullTextAnnotation;
-  if (!fullTextAnnotation || !fullTextAnnotation.text) {
-    console.log('No text detected in PDF');
-    return {
-      text: '',
-      confidence: 0,
-      method: 'google-vision-pdf-sync',
-      metadata: { message: 'No text detected in PDF' }
-    };
-  }
+      if (response.ok) {
+        const result = await response.json();
+        const annotation = result.responses[0];
 
-  // Calculate confidence for PDF processing
-  let totalConfidence = 0;
-  let blockCount = 0;
-  
-  if (fullTextAnnotation.pages) {
-    for (const page of fullTextAnnotation.pages) {
-      if (page.blocks) {
-        for (const block of page.blocks) {
-          if (block.confidence !== undefined) {
-            totalConfidence += block.confidence;
-            blockCount++;
+        if (annotation.error) {
+          console.log('TEXT_DETECTION failed, trying DOCUMENT_TEXT_DETECTION:', annotation.error.message);
+        } else if (annotation.textAnnotations && annotation.textAnnotations.length > 0) {
+          const extractedText = annotation.textAnnotations[0].description || '';
+          
+          if (extractedText.length > 50) { // If we got meaningful text
+            console.log('PDF TEXT_DETECTION successful:', {
+              textLength: extractedText.length
+            });
+
+            return {
+              text: extractedText,
+              confidence: 85, // Good confidence for successful PDF text detection
+              method: 'google-vision-pdf-text',
+              boundingBoxes: annotation.textAnnotations,
+              metadata: {
+                pdfSize: fileSize,
+                detectionType: 'TEXT_DETECTION'
+              }
+            };
           }
         }
       }
+    } catch (textDetectionError) {
+      console.log('TEXT_DETECTION failed, trying DOCUMENT_TEXT_DETECTION:', textDetectionError.message);
     }
   }
 
-  const averageConfidence = blockCount > 0 ? Math.round((totalConfidence / blockCount) * 100) : 85;
-  console.log('PDF text extraction successful:', {
-    textLength: fullTextAnnotation.text.length,
-    blockCount,
-    averageConfidence
-  });
+  // Second approach: Try DOCUMENT_TEXT_DETECTION (original approach)
+  if (fileSize <= 6 * 1024 * 1024) { // 6MB limit for document detection
+    try {
+      console.log('Attempting PDF processing with DOCUMENT_TEXT_DETECTION...');
+      const arrayBuffer = await fileData.arrayBuffer();
+      const base64Content = arrayBufferToBase64(arrayBuffer);
 
-  return {
-    text: fullTextAnnotation.text,
-    confidence: Math.max(averageConfidence, 80), // Higher minimum for PDF processing
-    method: 'google-vision-pdf-sync',
-    boundingBoxes: annotation.textAnnotations,
-    metadata: {
-      detectedLanguages: fullTextAnnotation.pages?.[0]?.property?.detectedLanguages,
-      blockCount,
-      pdfSize: fileSize
+      const visionRequest = {
+        requests: [{
+          image: {
+            content: base64Content
+          },
+          features: [{
+            type: 'DOCUMENT_TEXT_DETECTION',
+            maxResults: 1
+          }]
+        }]
+      };
+
+      const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(visionRequest)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const annotation = result.responses[0];
+
+        if (!annotation.error && annotation.fullTextAnnotation?.text) {
+          const extractedText = annotation.fullTextAnnotation.text;
+          
+          console.log('PDF DOCUMENT_TEXT_DETECTION successful:', {
+            textLength: extractedText.length
+          });
+
+          return {
+            text: extractedText,
+            confidence: 80,
+            method: 'google-vision-pdf-document',
+            boundingBoxes: annotation.textAnnotations,
+            metadata: {
+              pdfSize: fileSize,
+              detectionType: 'DOCUMENT_TEXT_DETECTION'
+            }
+          };
+        }
+      }
+    } catch (documentDetectionError) {
+      console.log('DOCUMENT_TEXT_DETECTION also failed:', documentDetectionError.message);
     }
-  };
+  }
+
+  // If all approaches failed, return an informative error
+  console.error('All PDF processing approaches failed');
+  throw new Error(`PDF processing failed: This PDF file may be scanned images, corrupted, or in an unsupported format. File size: ${Math.round(fileSize / 1024)}KB. Try converting to images or a different PDF format.`);
 }
