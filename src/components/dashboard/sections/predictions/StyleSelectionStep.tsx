@@ -37,7 +37,7 @@ export function StyleSelectionStep({ selectedStyle, onStyleChange, onNext, onBac
       title: 'Mixed with confidence scores',
       description: 'Smart summary with bold guesses + rationale',
       example: '🔮 95% confident: "Define entropy" (appears in 4/5 past papers)\n📌 78% confident: "Binary mixture problems" (matches assignment pattern)',
-      color: 'gray'
+      color: 'purple'
     },
     {
       id: 'exam-paper' as const,
@@ -62,7 +62,7 @@ export function StyleSelectionStep({ selectedStyle, onStyleChange, onNext, onBac
             key={style.id}
             className={`cursor-pointer transition-all duration-200 ${
               selectedStyle === style.id
-                ? 'ring-2 ring-gray-500 border-gray-200 shadow-lg'
+                ? 'ring-2 ring-purple-500 border-purple-200 shadow-lg'
                 : 'hover:shadow-md border-gray-200'
             }`}
             onClick={() => onStyleChange(style.id)}
@@ -72,12 +72,12 @@ export function StyleSelectionStep({ selectedStyle, onStyleChange, onNext, onBac
                 <div className={`w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3 ${
                   style.color === 'blue' ? 'bg-blue-100' :
                   style.color === 'green' ? 'bg-green-100' :
-                  style.color === 'orange' ? 'bg-orange-100' : 'bg-gray-100'
+                  style.color === 'orange' ? 'bg-orange-100' : 'bg-purple-100'
                 }`}>
                   <style.icon className={`w-6 h-6 ${
                     style.color === 'blue' ? 'text-blue-600' :
                     style.color === 'green' ? 'text-green-600' :
-                    style.color === 'orange' ? 'text-orange-600' : 'text-gray-600'
+                    style.color === 'orange' ? 'text-orange-600' : 'text-purple-600'
                   }`} />
                 </div>
                 <h4 className="font-semibold text-gray-800 mb-2">{style.title}</h4>
@@ -97,7 +97,7 @@ export function StyleSelectionStep({ selectedStyle, onStyleChange, onNext, onBac
 
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack}>Back</Button>
-        <Button onClick={onNext} className="bg-gray-900 hover:bg-gray-800">
+        <Button onClick={onNext} className="bg-purple-600 hover:bg-purple-700">
           Generate Predictions
         </Button>
       </div>

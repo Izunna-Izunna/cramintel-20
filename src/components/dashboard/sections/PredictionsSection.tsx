@@ -1,10 +1,8 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sparkles, Plus, Calendar, Target, TrendingUp, BookOpen, Eye } from 'lucide-react';
 import { PredictionJourney } from './predictions/PredictionJourney';
 
@@ -57,6 +55,10 @@ export function PredictionsSection() {
     }
   ];
 
+  if (showJourney) {
+    return <PredictionJourney />;
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
@@ -85,7 +87,7 @@ export function PredictionsSection() {
         </div>
         <Button 
           onClick={() => setShowJourney(true)}
-          className="bg-gray-900 hover:bg-gray-800 text-white"
+          className="bg-purple-600 hover:bg-purple-700 text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
           Generate New Prediction
@@ -97,8 +99,8 @@ export function PredictionsSection() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-gray-600" />
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-purple-600" />
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Predictions</p>
@@ -111,8 +113,8 @@ export function PredictionsSection() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <Target className="w-5 h-5 text-gray-600" />
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <Target className="w-5 h-5 text-green-600" />
               </div>
               <div>
                 <p className="text-sm text-gray-600">Avg. Confidence</p>
@@ -127,8 +129,8 @@ export function PredictionsSection() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-gray-600" />
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-blue-600" />
               </div>
               <div>
                 <p className="text-sm text-gray-600">Active</p>
@@ -143,8 +145,8 @@ export function PredictionsSection() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-gray-600" />
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-orange-600" />
               </div>
               <div>
                 <p className="text-sm text-gray-600">Questions</p>
@@ -170,7 +172,7 @@ export function PredictionsSection() {
               </p>
               <Button 
                 onClick={() => setShowJourney(true)}
-                className="bg-gray-900 hover:bg-gray-800"
+                className="bg-purple-600 hover:bg-purple-700"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create Your First Prediction
@@ -178,36 +180,55 @@ export function PredictionsSection() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {predictions.map((prediction) => (
-              <Card key={prediction.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h4 className="font-semibold text-gray-800">{prediction.course}</h4>
-                        <Badge className={getStatusColor(prediction.status)}>
-                          {prediction.status}
-                        </Badge>
+              <motion.div
+                key={prediction.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileHover={{ y: -2 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{prediction.course}</CardTitle>
+                      <Badge className={getStatusColor(prediction.status)}>
+                        {prediction.status}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600">Exam Date</p>
+                        <p className="font-medium">{new Date(prediction.exam_date).toLocaleDateString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Questions</p>
+                        <p className="font-medium">{prediction.questions_count}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-gray-600 text-sm">Confidence Score</p>
+                        <p className={`text-lg font-bold ${getConfidenceColor(prediction.confidence_score)}`}>
+                          {prediction.confidence_score}%
+                        </p>
+                      </div>
+                      <div className="text-right">
                         <Badge variant="outline" className="text-xs">
                           {prediction.style}
                         </Badge>
                       </div>
-                      
-                      <div className="flex items-center gap-6 text-sm text-gray-600">
-                        <span>Exam: {new Date(prediction.exam_date).toLocaleDateString()}</span>
-                        <span>{prediction.questions_count} questions</span>
-                        <span className={`font-medium ${getConfidenceColor(prediction.confidence_score)}`}>
-                          {prediction.confidence_score}% confidence
-                        </span>
-                        <span>Generated {new Date(prediction.generated_at).toLocaleDateString()}</span>
-                      </div>
                     </div>
                     
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 pt-2">
                       <Button 
                         variant="outline" 
-                        size="sm"
+                        size="sm" 
+                        className="flex-1"
                         onClick={() => setSelectedPrediction(prediction)}
                       >
                         <Eye className="w-3 h-3 mr-1" />
@@ -215,30 +236,20 @@ export function PredictionsSection() {
                       </Button>
                       <Button 
                         variant="outline" 
-                        size="sm"
-                        className="bg-gray-900 hover:bg-gray-800 text-white"
+                        size="sm" 
+                        className="flex-1"
                       >
                         <BookOpen className="w-3 h-3 mr-1" />
                         Study
                       </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))}
           </div>
         )}
       </div>
-
-      {/* Modal for Prediction Journey */}
-      <Dialog open={showJourney} onOpenChange={setShowJourney}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Generate New Prediction</DialogTitle>
-          </DialogHeader>
-          <PredictionJourney />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

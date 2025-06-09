@@ -16,11 +16,11 @@ export function UploadedMaterialsList({ onSectionChange }: UploadedMaterialsList
   const [showAll, setShowAll] = useState(false);
 
   const getFileIcon = (fileType: string) => {
-    if (fileType?.includes('pdf')) return <FileText className="w-6 h-6 text-red-500" />;
-    if (fileType?.includes('image')) return <Image className="w-6 h-6 text-green-500" />;
-    if (fileType?.includes('video')) return <Video className="w-6 h-6 text-blue-500" />;
-    if (fileType?.includes('audio')) return <Music className="w-6 h-6 text-purple-500" />;
-    return <Archive className="w-6 h-6 text-gray-500" />;
+    if (fileType?.includes('pdf')) return <FileText className="w-5 h-5 text-red-500" />;
+    if (fileType?.includes('image')) return <Image className="w-5 h-5 text-green-500" />;
+    if (fileType?.includes('video')) return <Video className="w-5 h-5 text-blue-500" />;
+    if (fileType?.includes('audio')) return <Music className="w-5 h-5 text-purple-500" />;
+    return <Archive className="w-5 h-5 text-gray-500" />;
   };
 
   const formatFileSize = (bytes: number) => {
@@ -31,139 +31,132 @@ export function UploadedMaterialsList({ onSectionChange }: UploadedMaterialsList
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const displayedMaterials = showAll ? materials : materials.slice(0, 6);
+  const displayedMaterials = showAll ? materials : materials.slice(0, 3);
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2 font-space">📚 Your Study Materials</h2>
-          <p className="text-gray-600">Your uploaded study materials</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-48 w-full rounded-xl" />
-          ))}
-        </div>
-      </div>
+      <Card className="border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="flex items-center gap-3 text-gray-800 font-space text-lg sm:text-xl">
+            📚 Your Study Materials
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6 pt-0">
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   if (materials.length === 0) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2 font-space">📚 Your Study Materials</h2>
-          <p className="text-gray-600">Your uploaded study materials</p>
-        </div>
-        <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 rounded-xl">
-          <CardContent className="p-8">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-8 h-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No materials uploaded yet</h3>
-              <p className="text-gray-600 mb-6">Upload your study materials to get started with flashcards and predictions</p>
-              <Button 
-                onClick={() => onSectionChange?.('upload')}
-                className="bg-gray-900 hover:bg-gray-800 text-white"
-              >
-                Upload Materials
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="border-gray-100 shadow-sm">
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="flex items-center gap-3 text-gray-800 font-space text-lg sm:text-xl">
+            📚 Your Study Materials
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6 pt-0">
+          <div className="text-center py-6">
+            <p className="text-gray-500 text-sm mb-4">No materials uploaded yet</p>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => onSectionChange?.('upload')}
+            >
+              Upload Materials
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2 font-space">📚 Your Study Materials</h2>
-        <p className="text-gray-600">Your uploaded study materials</p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {displayedMaterials.map((material) => (
-          <Card
-            key={material.id}
-            className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 rounded-xl group cursor-pointer"
-          >
-            <CardHeader className="p-4 pb-3">
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-gray-100 transition-colors flex-shrink-0">
-                  {getFileIcon(material.file_type)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <CardTitle className="text-base font-semibold text-gray-900 truncate font-space">
-                    {material.name}
-                  </CardTitle>
-                  <p className="text-sm text-gray-600 mt-1 truncate">
-                    {material.course}
-                  </p>
+    <Card className="border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
+      <CardHeader className="p-4 sm:p-6">
+        <CardTitle className="flex items-center gap-3 text-gray-800 font-space text-lg sm:text-xl">
+          📚 Your Study Materials
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 sm:p-6 pt-0">
+        <div className="space-y-3">
+          {displayedMaterials.map((material) => (
+            <div
+              key={material.id}
+              className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              {getFileIcon(material.file_type)}
+              <div className="flex-1 min-w-0">
+                <h4 className="font-medium text-gray-800 truncate text-sm">
+                  {material.name}
+                </h4>
+                <div className="flex items-center gap-2 text-xs text-gray-600">
+                  <span>{material.course}</span>
+                  <span>•</span>
+                  <span>{formatFileSize(material.file_size)}</span>
                   {material.processed && (
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs mt-2">
-                      ✓ Processed
-                    </Badge>
+                    <>
+                      <span>•</span>
+                      <Badge variant="outline" className="text-xs px-1 py-0">
+                        ✓ Processed
+                      </Badge>
+                    </>
                   )}
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs text-gray-600">
-                  <span className="truncate">{material.material_type}</span>
-                  <span className="flex-shrink-0">{formatFileSize(material.file_size)}</span>
-                </div>
-                
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  title="View material"
+                >
+                  <Eye className="w-4 h-4" />
+                </Button>
+                {material.processed && (
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="flex-1 hover:bg-gray-50 text-xs h-8"
+                    className="h-8 w-8 p-0"
+                    title="Study flashcards"
+                    onClick={() => onSectionChange?.('flashcards')}
                   >
-                    <Eye className="w-3 h-3 mr-1" />
-                    View
+                    <Play className="w-4 h-4" />
                   </Button>
-                  {material.processed && (
-                    <Button
-                      size="sm"
-                      className="flex-1 bg-gray-900 hover:bg-gray-800 text-white text-xs h-8"
-                      onClick={() => onSectionChange?.('flashcards')}
-                    >
-                      <Play className="w-3 h-3 mr-1" />
-                      Study
-                    </Button>
-                  )}
-                </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {materials.length > 6 && (
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            onClick={() => setShowAll(!showAll)}
-            className="flex items-center gap-2 hover:bg-gray-50"
-          >
-            {showAll ? (
-              <>
-                Show Less
-                <ChevronUp className="w-4 h-4" />
-              </>
-            ) : (
-              <>
-                Show {materials.length - 6} More
-                <ChevronDown className="w-4 h-4" />
-              </>
-            )}
-          </Button>
+            </div>
+          ))}
         </div>
-      )}
-    </div>
+
+        {materials.length > 3 && (
+          <div className="pt-4 border-t border-gray-100 mt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full flex items-center justify-center gap-2 text-gray-600 hover:text-gray-800"
+              onClick={() => setShowAll(!showAll)}
+            >
+              {showAll ? (
+                <>
+                  Show Less
+                  <ChevronUp className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  Show {materials.length - 3} More
+                  <ChevronDown className="w-4 h-4" />
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
