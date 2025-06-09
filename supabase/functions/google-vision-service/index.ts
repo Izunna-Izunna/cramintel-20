@@ -67,157 +67,6 @@ function createDetailedError(
   };
 }
 
-// PDF validation to check if PDF is readable/valid
-function validatePDF(fileData: Uint8Array): { isValid: boolean; error?: string; metadata?: any } {
-  try {
-    // Check PDF header
-    const header = new TextDecoder('latin1').decode(fileData.slice(0, 8));
-    if (!header.startsWith('%PDF-')) {
-      return { 
-        isValid: false, 
-        error: 'Invalid PDF: Missing PDF header signature',
-        metadata: { detectedHeader: header }
-      };
-    }
-    
-    // Extract PDF version
-    const version = header.slice(5, 8);
-    console.log('PDF validation - Version detected:', version);
-    
-    // Check for PDF trailer
-    const endData = new TextDecoder('latin1').decode(fileData.slice(-1024));
-    const hasTrailer = endData.includes('%%EOF');
-    
-    if (!hasTrailer) {
-      return { 
-        isValid: false, 
-        error: 'Invalid PDF: Missing EOF marker - file may be corrupted',
-        metadata: { version, hasTrailer: false }
-      };
-    }
-    
-    // Check file size
-    const sizeInMB = fileData.length / (1024 * 1024);
-    if (sizeInMB > 20) {
-      return { 
-        isValid: false, 
-        error: `PDF too large: ${sizeInMB.toFixed(2)}MB exceeds 20MB limit`,
-        metadata: { version, sizeInMB }
-      };
-    }
-    
-    // Basic structure validation
-    const pdfString = new TextDecoder('latin1').decode(fileData);
-    const hasXref = pdfString.includes('xref');
-    const hasRoot = pdfString.includes('/Root');
-    
-    console.log('PDF validation successful:', {
-      version,
-      sizeInMB: Math.round(sizeInMB * 100) / 100,
-      hasTrailer,
-      hasXref,
-      hasRoot
-    });
-    
-    return { 
-      isValid: true, 
-      metadata: { 
-        version, 
-        sizeInMB: Math.round(sizeInMB * 100) / 100,
-        hasTrailer,
-        hasXref,
-        hasRoot,
-        totalSize: fileData.length
-      }
-    };
-    
-  } catch (error) {
-    console.error('PDF validation error:', error);
-    return { 
-      isValid: false, 
-      error: `PDF validation failed: ${error.message}`,
-      metadata: { validationError: error.message }
-    };
-  }
-}
-
-// Simple PDF text extraction as LAST RESORT fallback only
-async function extractTextFromPdfFallback(fileData: Blob): Promise<{ text: string; confidence: number; method: string; }> {
-  console.log('Using fallback PDF text extraction (last resort)...');
-  
-  try {
-    const arrayBuffer = await fileData.arrayBuffer();
-    const pdfBytes = new Uint8Array(arrayBuffer);
-    
-    // Convert to string for basic text extraction
-    const pdfString = new TextDecoder('latin1').decode(pdfBytes);
-    
-    // Look for readable text patterns - much more conservative approach
-    const textMatches: string[] = [];
-    
-    // Extract text from basic PDF text objects only
-    const simpleTextRegex = /\(([\w\s.,;:!?\-]{10,})\)\s*Tj/gi;
-    let match;
-    
-    while ((match = simpleTextRegex.exec(pdfString)) !== null) {
-      const text = match[1].trim();
-      if (text.length > 10 && /[a-zA-Z]/.test(text)) {
-        textMatches.push(text);
-      }
-    }
-    
-    // Also try BT/ET blocks
-    const btBlocks = pdfString.match(/BT([\s\S]{0,500}?)ET/gi);
-    if (btBlocks) {
-      btBlocks.forEach(block => {
-        const textInBlock = block.match(/\(([\w\s.,;:!?\-]{5,})\)/g);
-        if (textInBlock) {
-          textInBlock.forEach(text => {
-            const cleanText = text.slice(1, -1).trim();
-            if (cleanText.length > 5 && /[a-zA-Z]/.test(cleanText)) {
-              textMatches.push(cleanText);
-            }
-          });
-        }
-      });
-    }
-    
-    let extractedText = '';
-    if (textMatches.length > 0) {
-      extractedText = textMatches
-        .filter(text => text.length > 5)
-        .slice(0, 100) // Limit to prevent garbage
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-    }
-    
-    const confidence = extractedText.length > 500 ? 30 : 
-                     extractedText.length > 100 ? 20 : 10;
-    
-    console.log('Fallback PDF extraction result:', {
-      textLength: extractedText.length,
-      fragmentsFound: textMatches.length,
-      confidence,
-      preview: extractedText.substring(0, 200)
-    });
-    
-    return {
-      text: extractedText,
-      confidence,
-      method: 'fallback-pdf-extraction'
-    };
-    
-  } catch (error) {
-    console.error('Fallback PDF extraction failed:', error);
-    return {
-      text: '',
-      confidence: 0,
-      method: 'fallback-extraction-failed'
-    };
-  }
-}
-
 serve(async (req) => {
   const requestStartTime = Date.now();
   
@@ -299,33 +148,14 @@ serve(async (req) => {
       type: fileType
     });
 
-    let visionResponse: VisionResponse;
-    const processingStartTime = Date.now();
-
-    if (fileType.includes('image')) {
-      console.log('Processing as image file');
-      visionResponse = await processImageWithGoogleVision(fileData, apiKey, fileSize);
-    } else if (fileType.includes('pdf')) {
-      console.log('Processing as PDF file - PRIORITIZING Google Vision');
-      visionResponse = await processPdfWithGoogleVisionFirst(fileData, apiKey, fileSize);
-    } else {
-      const error = createDetailedError(
-        'Unsupported file type',
-        `File type ${fileType} is not supported. Only images and PDFs are supported.`,
-        'UNSUPPORTED_FILE_TYPE',
-        { fileType }
-      );
-      console.error('File type validation failed:', error);
-      return new Response(JSON.stringify(error), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Send directly to Google Vision API - NO preprocessing, NO fallbacks
+    console.log('Sending file directly to Google Vision API...');
+    const visionResponse = await processWithGoogleVisionOnly(fileData, apiKey, fileSize, fileType);
 
     const totalProcessingTime = Date.now() - requestStartTime;
     visionResponse.processingTime = totalProcessingTime;
 
-    console.log('=== Vision processing completed successfully ===', {
+    console.log('=== Vision processing completed ===', {
       method: visionResponse.method,
       confidence: visionResponse.confidence,
       textLength: visionResponse.text.length,
@@ -386,8 +216,8 @@ serve(async (req) => {
   }
 });
 
-async function processImageWithGoogleVision(fileData: Blob, apiKey: string, fileSize: number): Promise<VisionResponse> {
-  console.log('=== Starting image processing with Google Vision ===');
+async function processWithGoogleVisionOnly(fileData: Blob, apiKey: string, fileSize: number, fileType: string): Promise<VisionResponse> {
+  console.log('=== Processing with Google Vision API ONLY ===');
   const startTime = Date.now();
   
   try {
@@ -402,11 +232,12 @@ async function processImageWithGoogleVision(fileData: Blob, apiKey: string, file
     console.log('Size analysis:', {
       originalSize: fileSize,
       base64Size: base64Size,
-      estimatedJsonSize: Math.round(estimatedJsonSize / 1024 / 1024 * 100) / 100 + 'MB'
+      estimatedJsonSizeMB: Math.round(estimatedJsonSize / 1024 / 1024 * 100) / 100,
+      fileType: fileType
     });
     
-    if (estimatedJsonSize > 10 * 1024 * 1024) {
-      throw new Error(`Image too large for processing: estimated JSON size ${Math.round(estimatedJsonSize / 1024 / 1024)}MB exceeds 10MB limit`);
+    if (estimatedJsonSize > 20 * 1024 * 1024) {
+      throw new Error(`File too large for Google Vision API: estimated JSON size ${Math.round(estimatedJsonSize / 1024 / 1024)}MB exceeds 20MB limit`);
     }
 
     const visionRequest = {
@@ -470,18 +301,26 @@ async function processImageWithGoogleVision(fileData: Blob, apiKey: string, file
 
     const fullTextAnnotation = annotation.fullTextAnnotation;
     if (!fullTextAnnotation || !fullTextAnnotation.text) {
-      console.log('No text detected in image');
+      console.log('No text detected by Google Vision');
       return {
         text: '',
         confidence: 0,
-        method: 'google-vision-image',
-        metadata: { message: 'No text detected in image' },
+        method: 'google-vision-no-text',
+        metadata: { 
+          message: 'No text detected by Google Vision API',
+          fileType: fileType,
+          fileSize: fileSize
+        },
         processingTime: Date.now() - startTime,
-        debugInfo: { apiTime, totalProcessingTime: Date.now() - startTime }
+        debugInfo: { 
+          apiTime, 
+          totalProcessingTime: Date.now() - startTime,
+          visionResponse: 'no_text_detected'
+        }
       };
     }
 
-    // Calculate confidence
+    // Calculate confidence from Vision API response
     let totalConfidence = 0;
     let blockCount = 0;
     
@@ -498,229 +337,57 @@ async function processImageWithGoogleVision(fileData: Blob, apiKey: string, file
       }
     }
 
-    const averageConfidence = blockCount > 0 ? Math.round((totalConfidence / blockCount) * 100) : 80;
+    const averageConfidence = blockCount > 0 ? Math.round((totalConfidence / blockCount) * 100) : 85;
     const processingTime = Date.now() - startTime;
     
-    console.log('=== Image processing completed ===', {
+    console.log('=== Google Vision processing completed successfully ===', {
       textLength: fullTextAnnotation.text.length,
       blockCount,
       averageConfidence,
-      processingTime: processingTime + 'ms'
+      processingTime: processingTime + 'ms',
+      method: 'google-vision-direct'
     });
 
     return {
       text: fullTextAnnotation.text,
       confidence: Math.max(averageConfidence, 75),
-      method: 'google-vision-image',
+      method: 'google-vision-direct',
       boundingBoxes: annotation.textAnnotations,
       metadata: {
         detectedLanguages: fullTextAnnotation.pages?.[0]?.property?.detectedLanguages,
-        blockCount
+        blockCount,
+        fileType: fileType,
+        fileSize: fileSize,
+        apiProcessingTime: apiTime
       },
       processingTime,
-      debugInfo: { apiTime, blockCount, averageConfidence }
+      debugInfo: { 
+        apiTime, 
+        blockCount, 
+        averageConfidence,
+        visionMethod: 'DOCUMENT_TEXT_DETECTION'
+      }
     };
 
   } catch (error) {
     const processingTime = Date.now() - startTime;
-    console.error('Image processing failed:', error, { processingTime: processingTime + 'ms' });
-    throw error;
-  }
-}
-
-async function processPdfWithGoogleVisionFirst(fileData: Blob, apiKey: string, fileSize: number): Promise<VisionResponse> {
-  console.log('=== Starting PDF processing with Google Vision FIRST ===');
-  const startTime = Date.now();
-  
-  // Step 1: Validate PDF first
-  console.log('Step 1: Validating PDF structure...');
-  const arrayBuffer = await fileData.arrayBuffer();
-  const pdfBytes = new Uint8Array(arrayBuffer);
-  const validation = validatePDF(pdfBytes);
-  
-  if (!validation.isValid) {
-    console.error('PDF validation failed:', validation.error);
+    console.error('Google Vision processing failed:', error, { processingTime: processingTime + 'ms' });
+    
     return {
       text: '',
       confidence: 0,
-      method: 'pdf-validation-failed',
+      method: 'google-vision-failed',
       metadata: {
-        validationError: validation.error,
-        pdfSize: fileSize,
-        ...validation.metadata
+        error: error.message,
+        fileType: fileType,
+        fileSize: fileSize,
+        processingTime: processingTime
       },
-      processingTime: Date.now() - startTime,
-      debugInfo: { validationError: validation.error }
-    };
-  }
-  
-  console.log('PDF validation successful:', validation.metadata);
-  
-  // Step 2: Try Google Vision API FIRST (primary method)
-  console.log('Step 2: Sending PDF directly to Google Vision API...');
-  try {
-    const visionStartTime = Date.now();
-    
-    const base64Content = arrayBufferToBase64(arrayBuffer);
-    const estimatedJsonSize = base64Content.length * 1.37;
-    
-    console.log('PDF size analysis for Vision API:', {
-      originalSizeMB: Math.round(fileSize / 1024 / 1024 * 100) / 100,
-      base64SizeMB: Math.round(base64Content.length / 1024 / 1024 * 100) / 100,
-      estimatedJsonSizeMB: Math.round(estimatedJsonSize / 1024 / 1024 * 100) / 100
-    });
-    
-    // Size check for Vision API
-    if (estimatedJsonSize > 10 * 1024 * 1024) {
-      console.log('PDF too large for Google Vision API, will use fallback extraction');
-      throw new Error('PDF_TOO_LARGE_FOR_VISION');
-    }
-
-    const visionRequest = {
-      requests: [{
-        image: { content: base64Content },
-        features: [{ type: 'DOCUMENT_TEXT_DETECTION', maxResults: 1 }]
-      }]
-    };
-
-    console.log('Sending PDF to Google Vision API...');
-    const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(visionRequest)
-    });
-
-    const visionTime = Date.now() - visionStartTime;
-    console.log('Google Vision API response for PDF:', {
-      status: response.status,
-      statusText: response.statusText,
-      visionTime: visionTime + 'ms'
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      const annotation = result.responses[0];
-
-      if (!annotation.error && annotation.fullTextAnnotation?.text) {
-        const visionText = annotation.fullTextAnnotation.text;
-        
-        // Calculate confidence for Vision API result
-        let totalConfidence = 0;
-        let blockCount = 0;
-        
-        if (annotation.fullTextAnnotation.pages) {
-          for (const page of annotation.fullTextAnnotation.pages) {
-            if (page.blocks) {
-              for (const block of page.blocks) {
-                if (block.confidence !== undefined) {
-                  totalConfidence += block.confidence;
-                  blockCount++;
-                }
-              }
-            }
-          }
-        }
-
-        const averageConfidence = blockCount > 0 ? Math.round((totalConfidence / blockCount) * 100) : 85;
-        
-        console.log('=== Google Vision PDF processing successful ===', {
-          textLength: visionText.length,
-          blockCount,
-          averageConfidence,
-          visionTime: visionTime + 'ms',
-          preview: visionText.substring(0, 200)
-        });
-        
-        return {
-          text: visionText,
-          confidence: Math.max(averageConfidence, 75),
-          method: 'google-vision-pdf-direct',
-          boundingBoxes: annotation.textAnnotations,
-          metadata: {
-            pdfSize: fileSize,
-            detectionType: 'DOCUMENT_TEXT_DETECTION',
-            visionProcessingTime: visionTime,
-            blockCount,
-            pdfValidation: validation.metadata
-          },
-          processingTime: Date.now() - startTime,
-          debugInfo: { 
-            visionTime, 
-            textLength: visionText.length,
-            blockCount,
-            averageConfidence
-          }
-        };
-      } else {
-        console.log('Google Vision API returned no text for PDF:', annotation.error || 'No text detected');
-        throw new Error('VISION_NO_TEXT_DETECTED');
+      processingTime,
+      debugInfo: {
+        error: error.message,
+        processingTime: processingTime + 'ms'
       }
-    } else {
-      const errorText = await response.text();
-      console.error('Google Vision API failed for PDF:', {
-        status: response.status,
-        error: errorText
-      });
-      throw new Error(`VISION_API_ERROR: ${response.status}`);
-    }
-    
-  } catch (visionError) {
-    console.log('Google Vision API failed for PDF:', visionError.message);
-    
-    // Step 3: Fallback to manual extraction ONLY if Vision fails
-    console.log('Step 3: Using fallback PDF extraction as last resort...');
-    
-    const fallbackResult = await extractTextFromPdfFallback(fileData);
-    
-    if (fallbackResult.text && fallbackResult.text.length > 50) {
-      console.log('Fallback extraction provided some text:', {
-        textLength: fallbackResult.text.length,
-        confidence: fallbackResult.confidence,
-        preview: fallbackResult.text.substring(0, 200)
-      });
-      
-      return {
-        text: fallbackResult.text,
-        confidence: fallbackResult.confidence,
-        method: fallbackResult.method + '-after-vision-failed',
-        metadata: {
-          pdfSize: fileSize,
-          visionFailureReason: visionError.message,
-          pdfValidation: validation.metadata,
-          note: 'Google Vision failed, used fallback extraction'
-        },
-        processingTime: Date.now() - startTime,
-        debugInfo: { 
-          visionError: visionError.message,
-          fallbackMethod: fallbackResult.method,
-          textLength: fallbackResult.text.length
-        }
-      };
-    }
+    };
   }
-
-  // All methods failed
-  const totalTime = Date.now() - startTime;
-  console.log('=== All PDF processing methods failed ===', {
-    fileSize: Math.round(fileSize / 1024) + 'KB',
-    totalTime: totalTime + 'ms'
-  });
-
-  return {
-    text: '',
-    confidence: 0,
-    method: 'all-pdf-methods-failed',
-    metadata: {
-      pdfSize: fileSize,
-      pdfValidation: validation.metadata,
-      error: 'All PDF processing methods failed - this PDF may contain only images or be heavily encrypted',
-      note: 'Both Google Vision and fallback extraction failed to extract readable text'
-    },
-    processingTime: totalTime,
-    debugInfo: { 
-      fileSize: Math.round(fileSize / 1024) + 'KB',
-      totalTime: totalTime + 'ms',
-      pdfValidation: validation.metadata
-    }
-  };
 }
