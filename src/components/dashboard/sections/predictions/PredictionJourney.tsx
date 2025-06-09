@@ -9,7 +9,6 @@ import { GenerationStep } from './GenerationStep';
 import { PredictionResults } from './PredictionResults';
 
 type Step = 'start' | 'upload-clues' | 'tag-context' | 'style-selection' | 'generating' | 'results';
-type StyleType = 'bullet' | 'theory' | 'mixed' | 'exam-paper';
 
 export function PredictionJourney() {
   const [currentStep, setCurrentStep] = useState<Step>('start');
@@ -22,7 +21,7 @@ export function PredictionJourney() {
     course: '',
     examDate: ''
   });
-  const [selectedStyle, setSelectedStyle] = useState<StyleType>('bullet');
+  const [selectedStyle, setSelectedStyle] = useState('');
   const [generatedPrediction, setGeneratedPrediction] = useState(null);
 
   const handleNext = () => {
@@ -81,7 +80,7 @@ export function PredictionJourney() {
       case 'tag-context':
         return (
           <TagContextStep
-            tags={selectedTags}
+            selectedTags={selectedTags}
             onTagsChange={setSelectedTags}
             examContext={examContext}
             onExamContextChange={setExamContext}
@@ -101,8 +100,8 @@ export function PredictionJourney() {
       case 'generating':
         return (
           <GenerationStep
-            materials={selectedMaterials}
-            tags={selectedTags}
+            selectedMaterials={selectedMaterials}
+            selectedTags={selectedTags}
             examContext={examContext}
             selectedStyle={selectedStyle}
             onComplete={(prediction) => {
@@ -128,7 +127,7 @@ export function PredictionJourney() {
                 course: '',
                 examDate: ''
               });
-              setSelectedStyle('bullet');
+              setSelectedStyle('');
               setGeneratedPrediction(null);
             }}
           />
