@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Upload, FileText, Image, BookOpen, Camera, CheckCircle, X, AlertCircle, Plus } from 'lucide-react';
+import { Upload, FileText, Image, BookOpen, Camera, CheckCircle, X, AlertCircle, Plus, FileImage } from 'lucide-react';
 import { TagChip } from '../TagChip';
 import { UploadedMaterialsList } from './UploadedMaterialsList';
+import { UploadPastQuestionImages } from './UploadPastQuestionImages';
 import { ProcessingAnimation } from '@/components/ProcessingAnimation';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -35,6 +36,7 @@ export function EnhancedUploadSection() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { profile, loading: profileLoading, error: profileError } = useUserProfile();
+  const [showPastQuestionUpload, setShowPastQuestionUpload] = useState(false);
 
   const courseOptions = ['CSC 202', 'PHY 101', 'ENG 301', 'MTH 201', 'CHE 205', 'BIO 101', 'HIST 201'];
   const typeOptions = [
@@ -295,6 +297,18 @@ export function EnhancedUploadSection() {
         )}
       </AnimatePresence>
 
+      {/* Past Question Upload Modal */}
+      <AnimatePresence>
+        {showPastQuestionUpload && (
+          <UploadPastQuestionImages
+            onClose={() => setShowPastQuestionUpload(false)}
+            onUploadComplete={() => {
+              setRefreshKey(prev => prev + 1);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {!hasCourses ? (
         <Card className="max-w-2xl mx-auto">
           <CardContent className="p-8 text-center">
@@ -319,173 +333,187 @@ export function EnhancedUploadSection() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="max-w-2xl mx-auto">
-          <CardContent className="p-8 relative">
-            <AnimatePresence mode="wait">
-              {!uploadedFile ? (
-                <motion.div
-                  key="upload"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-6"
+        <div className="space-y-4">
+          {/* Past Question Upload Card */}
+          <Card className="max-w-2xl mx-auto border-2 border-blue-200 bg-blue-50">
+            <CardContent className="p-6">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileImage className="w-8 h-8 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-bold text-blue-800 mb-2">Upload Past Question Images</h3>
+                <p className="text-blue-700 mb-4">
+                  Upload multiple images of past questions (up to 10). We'll use OCR to extract text and generate flashcards automatically.
+                </p>
+                <Button 
+                  onClick={() => setShowPastQuestionUpload(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  <div
-                    className="border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors rounded-lg p-8 text-center cursor-pointer"
-                    onDrop={handleDrop}
-                    onDragOver={(e) => e.preventDefault()}
-                    onClick={() => document.getElementById('file-upload')?.click()}
+                  <FileImage className="w-4 h-4 mr-2" />
+                  Upload Past Questions
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Regular Upload Card */}
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="p-8 relative">
+              <AnimatePresence mode="wait">
+                {!uploadedFile ? (
+                  <motion.div
+                    key="upload"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="space-y-6"
                   >
-                    <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Drop your study materials here</h3>
-                    <p className="text-gray-600 mb-4">PDF, JPG, PNG, DOCX, TXT supported • AI will generate 20 flashcards</p>
-                    <div className="flex gap-3 justify-center">
-                      <Button className="bg-gray-800 hover:bg-gray-700">
-                        Browse Files
-                      </Button>
-                      <Button variant="outline" onClick={(e) => {
-                        e.stopPropagation();
-                        handleTakePhoto();
-                      }}>
-                        <Camera className="w-4 h-4 mr-2" />
-                        Take Photo
-                      </Button>
-                    </div>
-                  </div>
-
-                  <input
-                    type="file"
-                    id="file-upload"
-                    className="hidden"
-                    accept=".pdf,.jpg,.jpeg,.png,.txt,.docx"
-                    onChange={handleFileSelect}
-                  />
-
-                  <div className="flex justify-center gap-6 text-sm text-gray-500">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-blue-500" />
-                      <span>Documents</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Image className="w-4 h-4 text-green-500" />
-                      <span>Images</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Camera className="w-4 h-4 text-purple-500" />
-                      <span>Photos</span>
-                    </div>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="details"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-6"
-                >
-                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                    <div className="flex-shrink-0">
-                      {uploadedFile.preview ? (
-                        <img src={uploadedFile.preview} alt="Preview" className="w-12 h-12 object-cover rounded" />
-                      ) : (
-                        <FileText className="w-12 h-12 text-blue-500" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">{uploadedFile.file.name}</p>
-                      <p className="text-sm text-gray-600">
-                        {uploadedFile.file.size > 1024 * 1024 ? 
-                          `${(uploadedFile.file.size / 1024 / 1024).toFixed(1)} MB` : 
-                          `${(uploadedFile.file.size / 1024).toFixed(0)} KB`}
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={resetUpload} disabled={isProcessing}>
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  {isProcessing && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Uploading...</span>
-                        <span>{uploadProgress}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
-                          style={{ width: `${uploadProgress}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Name (optional)</label>
-                    <Input
-                      value={fileName}
-                      onChange={(e) => setFileName(e.target.value)}
-                      placeholder="e.g., Thermodynamics Week 4 Notes"
-                      className="text-base"
-                      disabled={isProcessing}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Course</label>
-                    <div className="flex flex-wrap gap-2">
-                      {userCourses.map(course => (
-                        <TagChip
-                          key={course}
-                          label={course}
-                          color={selectedCourse === course ? 'blue' : 'gray'}
-                          onClick={() => !isProcessing && setSelectedCourse(course)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Material Type</label>
-                    <div className="flex flex-wrap gap-2">
-                      {typeOptions.map(type => (
-                        <TagChip
-                          key={type.id}
-                          label={`${type.icon} ${type.label}`}
-                          color={selectedType === type.id ? 'green' : 'gray'}
-                          onClick={() => !isProcessing && setSelectedType(type.id)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <Button variant="outline" onClick={resetUpload} disabled={isProcessing}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleSubmit}
-                      disabled={!selectedCourse || !selectedType || isProcessing || !user}
-                      className="bg-gray-800 hover:bg-gray-700 flex-1"
+                    <div
+                      className="border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors rounded-lg p-8 text-center cursor-pointer"
+                      onDrop={handleDrop}
+                      onDragOver={(e) => e.preventDefault()}
+                      onClick={() => document.getElementById('file-upload')?.click()}
                     >
-                      {isProcessing ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4 mr-2" />
-                          Upload & Generate 20 Flashcards
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </CardContent>
-        </Card>
+                      <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Drop your study materials here</h3>
+                      <p className="text-gray-600 mb-4">PDF, JPG, PNG, DOCX, TXT supported • AI will generate 20 flashcards</p>
+                      <div className="flex gap-3 justify-center">
+                        <Button className="bg-gray-800 hover:bg-gray-700">
+                          Browse Files
+                        </Button>
+                      </div>
+                    </div>
+
+                    <input
+                      type="file"
+                      id="file-upload"
+                      className="hidden"
+                      accept=".pdf,.jpg,.jpeg,.png,.txt,.docx"
+                      onChange={handleFileSelect}
+                    />
+
+                    <div className="flex justify-center gap-6 text-sm text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-blue-500" />
+                        <span>Documents</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Image className="w-4 h-4 text-green-500" />
+                        <span>Images</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="details"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="space-y-6"
+                  >
+                    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                      <div className="flex-shrink-0">
+                        {uploadedFile.preview ? (
+                          <img src={uploadedFile.preview} alt="Preview" className="w-12 h-12 object-cover rounded" />
+                        ) : (
+                          <FileText className="w-12 h-12 text-blue-500" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">{uploadedFile.file.name}</p>
+                        <p className="text-sm text-gray-600">
+                          {uploadedFile.file.size > 1024 * 1024 ? 
+                            `${(uploadedFile.file.size / 1024 / 1024).toFixed(1)} MB` : 
+                            `${(uploadedFile.file.size / 1024).toFixed(0)} KB`}
+                        </p>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={resetUpload} disabled={isProcessing}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    {isProcessing && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Uploading...</span>
+                          <span>{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Name (optional)</label>
+                      <Input
+                        value={fileName}
+                        onChange={(e) => setFileName(e.target.value)}
+                        placeholder="e.g., Thermodynamics Week 4 Notes"
+                        className="text-base"
+                        disabled={isProcessing}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Course</label>
+                      <div className="flex flex-wrap gap-2">
+                        {userCourses.map(course => (
+                          <TagChip
+                            key={course}
+                            label={course}
+                            color={selectedCourse === course ? 'blue' : 'gray'}
+                            onClick={() => !isProcessing && setSelectedCourse(course)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Material Type</label>
+                      <div className="flex flex-wrap gap-2">
+                        {typeOptions.map(type => (
+                          <TagChip
+                            key={type.id}
+                            label={`${type.icon} ${type.label}`}
+                            color={selectedType === type.id ? 'green' : 'gray'}
+                            onClick={() => !isProcessing && setSelectedType(type.id)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                      <Button variant="outline" onClick={resetUpload} disabled={isProcessing}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleSubmit}
+                        disabled={!selectedCourse || !selectedType || isProcessing || !user}
+                        className="bg-gray-800 hover:bg-gray-700 flex-1"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4 mr-2" />
+                            Upload & Generate 20 Flashcards
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       <UploadedMaterialsList key={refreshKey} />

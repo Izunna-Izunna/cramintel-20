@@ -55,7 +55,7 @@ serve(async (req) => {
       });
     }
 
-    console.log('Uploading file:', file.name, 'Size:', file.size);
+    console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', materialType);
 
     // Generate unique file path
     const fileExt = file.name.split('.').pop();
@@ -80,6 +80,10 @@ serve(async (req) => {
 
     console.log('File uploaded successfully:', uploadData.path);
 
+    // Determine processing approach based on material type
+    const isPastQuestionImages = materialType === 'past-question-images';
+    const requiresOCR = isPastQuestionImages && file.type.startsWith('image/');
+
     // Save material metadata to database with proper initial status
     const { data: materialData, error: dbError } = await supabase
       .from('cramintel_materials')
@@ -93,9 +97,9 @@ serve(async (req) => {
         course: course,
         material_type: materialType,
         processed: false,
-        processing_status: 'pending',
+        processing_status: requiresOCR ? 'pending_ocr' : 'pending',
         processing_progress: 0,
-        tags: []
+        tags: isPastQuestionImages ? ['past-questions', 'ocr-processed'] : []
       })
       .select()
       .single();
@@ -111,7 +115,7 @@ serve(async (req) => {
       });
     }
 
-    console.log('Material saved to database:', materialData.id);
+    console.log('Material saved to database:', materialData.id, 'Requires OCR:', requiresOCR);
 
     // Immediately trigger background processing with proper error handling
     let processingTriggered = false;
@@ -159,7 +163,10 @@ serve(async (req) => {
       success: true,
       material: materialData,
       processingTriggered,
-      message: 'Material uploaded successfully and processing started'
+      requiresOCR,
+      message: isPastQuestionImages 
+        ? 'Past question image uploaded successfully and OCR processing started'
+        : 'Material uploaded successfully and processing started'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
