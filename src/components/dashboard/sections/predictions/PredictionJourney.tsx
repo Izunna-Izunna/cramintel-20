@@ -12,6 +12,7 @@ import { StyleSelectionStep } from './StyleSelectionStep';
 import { GenerationStep } from './GenerationStep';
 import { PredictionResults } from './PredictionResults';
 import { ExamPaperView } from './ExamPaperView';
+import { PredictionResponse } from '@/types/predictions';
 
 interface PredictionJourneyProps {
   onClose: () => void;
@@ -32,6 +33,7 @@ interface PredictionData {
     lecturer?: string;
   };
   style: 'bullet' | 'theory' | 'mixed' | 'exam-paper';
+  generatedContent?: PredictionResponse;
 }
 
 export function PredictionJourney({ onClose }: PredictionJourneyProps) {
@@ -65,6 +67,14 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
     } else if (typeof currentStep === 'number' && currentStep > 1) {
       setCurrentStep((prev) => (prev as number - 1) as PredictionStep);
     }
+  };
+
+  const handleGenerationComplete = (generatedContent: PredictionResponse) => {
+    setPredictionData(prev => ({
+      ...prev,
+      generatedContent
+    }));
+    setCurrentStep('results');
   };
 
   const renderCurrentStep = () => {
@@ -104,6 +114,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
             predictionData={predictionData}
             onNext={handleNext}
             onBack={handleBack}
+            onGenerationComplete={handleGenerationComplete}
           />
         );
       case 'results':

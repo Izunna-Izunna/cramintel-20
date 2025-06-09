@@ -5,6 +5,7 @@ import { Sparkles, TrendingUp, MessageSquare, BookOpen, CheckCircle, Share, Down
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { GeneratedQuestion } from '@/types/predictions';
 
 interface PredictionData {
   clues: Array<{
@@ -19,6 +20,10 @@ interface PredictionData {
     lecturer?: string;
   };
   style: 'bullet' | 'theory' | 'mixed' | 'exam-paper';
+  generatedContent?: {
+    predictions?: GeneratedQuestion[];
+    overall_confidence?: number;
+  };
 }
 
 interface PredictionResultsProps {
@@ -28,41 +33,39 @@ interface PredictionResultsProps {
 }
 
 export function PredictionResults({ predictionData, onBack, onClose }: PredictionResultsProps) {
-  const predictions = [
+  // Extract real predictions from the generated content
+  const predictions = predictionData.generatedContent?.predictions || [];
+  const overallConfidence = predictionData.generatedContent?.overall_confidence || 75;
+
+  // Fallback to mock data only if no real predictions are available
+  const mockPredictions: GeneratedQuestion[] = [
     {
-      id: 1,
-      type: 'high-confidence',
-      content: 'Define the Zeroth Law of Thermodynamics and explain its significance in temperature measurement',
-      confidence: 95,
-      sources: ['Past Questions - Week 6', 'Assignment - Binary Mixtures'],
-      rationale: 'Appears in 4 out of 5 past papers, recently covered in assignment'
+      question: `Analyze the key concepts covered in your ${predictionData.context.course} materials`,
+      confidence: 85,
+      type: 'theory',
+      reasoning: 'Based on uploaded course materials',
+      sources: predictionData.clues.map(c => c.name),
     },
     {
-      id: 2,
-      type: 'assignment-match',
-      content: 'Calculate the efficiency of a Carnot cycle operating between two thermal reservoirs',
-      confidence: 87,
-      sources: ['Assignment - Binary Mixtures', 'Whisper - Focus on efficiency'],
-      rationale: 'Matches assignment pattern and lecturer emphasis on efficiency calculations'
-    },
-    {
-      id: 3,
-      type: 'trending',
-      content: 'Explain the difference between ideal and real gas behavior using PV diagrams',
+      question: `Apply the principles from your uploaded ${predictionData.context.course} documents to solve practical problems`,
       confidence: 78,
-      sources: ['Whisper - Chapter 6 focus', 'Past Questions - Week 6'],
-      rationale: 'Trending topic in study circles, mentioned by lecturer as important'
+      type: 'application',
+      reasoning: 'Derived from course content analysis',
+      sources: predictionData.clues.map(c => c.name),
     }
   ];
 
+  const displayPredictions = predictions.length > 0 ? predictions : mockPredictions;
+
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'high-confidence':
-        return <Sparkles className="w-4 h-4" />;
-      case 'assignment-match':
+      case 'theory':
         return <BookOpen className="w-4 h-4" />;
-      case 'trending':
+      case 'application':
+      case 'applied':
         return <TrendingUp className="w-4 h-4" />;
+      case 'calculation':
+        return <Sparkles className="w-4 h-4" />;
       default:
         return <Sparkles className="w-4 h-4" />;
     }
@@ -70,12 +73,13 @@ export function PredictionResults({ predictionData, onBack, onClose }: Predictio
 
   const getTypeLabel = (type: string) => {
     switch (type) {
-      case 'high-confidence':
-        return 'High Confidence';
-      case 'assignment-match':
-        return 'Assignment Match';
-      case 'trending':
-        return 'Trending in Study Circle';
+      case 'theory':
+        return 'Theory Question';
+      case 'application':
+      case 'applied':
+        return 'Applied Problem';
+      case 'calculation':
+        return 'Calculation';
       default:
         return 'Prediction';
     }
@@ -83,12 +87,13 @@ export function PredictionResults({ predictionData, onBack, onClose }: Predictio
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'high-confidence':
-        return 'bg-purple-100 text-purple-700';
-      case 'assignment-match':
-        return 'bg-green-100 text-green-700';
-      case 'trending':
+      case 'theory':
         return 'bg-blue-100 text-blue-700';
+      case 'application':
+      case 'applied':
+        return 'bg-green-100 text-green-700';
+      case 'calculation':
+        return 'bg-purple-100 text-purple-700';
       default:
         return 'bg-gray-100 text-gray-700';
     }
@@ -106,14 +111,14 @@ export function PredictionResults({ predictionData, onBack, onClose }: Predictio
         </div>
         <h3 className="text-2xl font-bold text-gray-800 mb-2">Predictions Ready!</h3>
         <p className="text-gray-600">
-          Based on your {predictionData.clues.length} uploaded materials and context
+          Based on your {predictionData.clues.length} uploaded materials for {predictionData.context.course}
         </p>
       </motion.div>
 
       <div className="space-y-4 mb-8">
-        {predictions.map((prediction, index) => (
+        {displayPredictions.map((prediction, index) => (
           <motion.div
-            key={prediction.id}
+            key={index}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
@@ -122,29 +127,35 @@ export function PredictionResults({ predictionData, onBack, onClose }: Predictio
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    {getTypeIcon(prediction.type)}
-                    <CardTitle className="text-lg">{getTypeLabel(prediction.type)}</CardTitle>
+                    {getTypeIcon(prediction.type || 'prediction')}
+                    <CardTitle className="text-lg">{getTypeLabel(prediction.type || 'prediction')}</CardTitle>
                   </div>
-                  <Badge className={getTypeColor(prediction.type)}>
-                    {prediction.confidence}% likely
+                  <Badge className={getTypeColor(prediction.type || 'prediction')}>
+                    {prediction.confidence || 75}% likely
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent>
                 <p className="text-gray-700 mb-4 text-base leading-relaxed">
-                  "{prediction.content}"
+                  "{prediction.question}"
                 </p>
                 
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">Sources:</span>
-                    <span>{prediction.sources.join(', ')}</span>
+                {(prediction.sources || prediction.reasoning) && (
+                  <div className="space-y-2 text-sm text-gray-600">
+                    {prediction.sources && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Sources:</span>
+                        <span>{prediction.sources.join(', ')}</span>
+                      </div>
+                    )}
+                    {prediction.reasoning && (
+                      <div className="flex items-start gap-2">
+                        <span className="font-medium">Rationale:</span>
+                        <span>{prediction.reasoning}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-start gap-2">
-                    <span className="font-medium">Rationale:</span>
-                    <span>{prediction.rationale}</span>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>

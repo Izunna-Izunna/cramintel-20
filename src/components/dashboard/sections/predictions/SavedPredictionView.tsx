@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Prediction } from '@/hooks/usePredictions';
+import { GeneratedQuestion, ExamSection } from '@/types/predictions';
 
 interface SavedPredictionViewProps {
   prediction: Prediction;
@@ -38,6 +39,107 @@ export function SavedPredictionView({ prediction, onClose }: SavedPredictionView
     }
   };
 
+  // Enhanced parsing of questions data
+  const parseQuestions = () => {
+    if (!Array.isArray(prediction.questions)) {
+      return [];
+    }
+
+    // Handle exam paper format (sections with questions)
+    if (prediction.prediction_type === 'exam-paper') {
+      const examData = prediction.questions[0]; // Exam paper structure is typically stored as first element
+      
+      if (examData && typeof examData === 'object' && 'sections' in examData) {
+        const sections = examData.sections as ExamSection[];
+        return sections.flatMap((section, sectionIndex) => 
+          section.questions.map((question, questionIndex) => ({
+            id: `${sectionIndex}-${questionIndex}`,
+            content: question.question,
+            type: question.type || 'theory',
+            confidence: question.confidence,
+            marks: question.marks,
+            section: section.title
+          }))
+        );
+      }
+    }
+
+    // Handle regular predictions format
+    return prediction.questions.map((question: any, index: number) => {
+      if (typeof question === 'string') {
+        return {
+          id: index.toString(),
+          content: question,
+          type: 'prediction',
+          confidence: null
+        };
+      }
+
+      if (typeof question === 'object') {
+        return {
+          id: index.toString(),
+          content: question.question || question.content || 'Generated prediction',
+          type: question.type || 'prediction',
+          confidence: question.confidence,
+          reasoning: question.reasoning,
+          sources: question.sources,
+          marks: question.marks
+        };
+      }
+
+      return {
+        id: index.toString(),
+        content: 'Generated prediction',
+        type: 'prediction',
+        confidence: null
+      };
+    });
+  };
+
+  const parsedQuestions = parseQuestions();
+
+  const renderQuestion = (question: any, index: number) => {
+    return (
+      <Card key={question.id || index} className="border border-gray-200">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <h4 className="font-medium text-gray-800">
+                {question.section ? `${question.section} - ` : ''}Question {index + 1}
+              </h4>
+              {question.marks && (
+                <Badge variant="outline" className="text-xs">
+                  {question.marks} marks
+                </Badge>
+              )}
+            </div>
+            {question.confidence && (
+              <Badge variant="outline" className="text-xs">
+                {question.confidence}% likely
+              </Badge>
+            )}
+          </div>
+          
+          <p className="text-gray-700 leading-relaxed mb-3">
+            {question.content}
+          </p>
+          
+          {question.reasoning && (
+            <p className="text-sm text-gray-500 italic">
+              Rationale: {question.reasoning}
+            </p>
+          )}
+          
+          {question.sources && Array.isArray(question.sources) && (
+            <p className="text-sm text-gray-500 mt-1">
+              Sources: {question.sources.join(', ')}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <motion.div
@@ -68,36 +170,15 @@ export function SavedPredictionView({ prediction, onClose }: SavedPredictionView
           </div>
 
           <div className="space-y-4 mb-8">
-            {Array.isArray(prediction.questions) && prediction.questions.length > 0 ? (
-              prediction.questions.map((question: any, index: number) => (
-                <Card key={index} className="border border-gray-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-medium text-gray-800">Question {index + 1}</h4>
-                      {typeof question === 'object' && question.confidence && (
-                        <Badge variant="outline" className="text-xs">
-                          {question.confidence}% likely
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-gray-700 leading-relaxed">
-                      {typeof question === 'string' ? question : question.question || question.content}
-                    </p>
-                    {typeof question === 'object' && question.rationale && (
-                      <p className="text-sm text-gray-500 mt-2 italic">
-                        Rationale: {question.rationale}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
+            {parsedQuestions.length > 0 ? (
+              parsedQuestions.map((question, index) => renderQuestion(question, index))
             ) : (
               <Card className="border border-gray-200">
                 <CardContent className="p-4 text-center">
                   <p className="text-gray-500">
                     {prediction.prediction_type === 'exam-paper' 
-                      ? 'Full exam paper was generated' 
-                      : 'Prediction content is not available'}
+                      ? 'Exam paper content is not available for preview' 
+                      : 'Prediction content could not be parsed'}
                   </p>
                 </CardContent>
               </Card>
