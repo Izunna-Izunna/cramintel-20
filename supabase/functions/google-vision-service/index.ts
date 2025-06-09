@@ -67,45 +67,202 @@ function createDetailedError(
   };
 }
 
-// Simple PDF text extraction fallback
-async function extractTextFromPdfDirectly(fileData: Blob): Promise<string> {
-  console.log('Attempting direct PDF text extraction...');
+// Enhanced PDF text extraction using proper PDF parsing
+async function extractTextFromPdfProperly(fileData: Blob): Promise<{ text: string; confidence: number; method: string; }> {
+  console.log('Attempting enhanced PDF text extraction...');
   
   try {
     const arrayBuffer = await fileData.arrayBuffer();
-    const pdfText = new TextDecoder().decode(arrayBuffer);
+    const pdfBytes = new Uint8Array(arrayBuffer);
     
-    // Look for text between stream/endstream markers
-    const textMatches = pdfText.match(/stream\s*(.*?)\s*endstream/gs);
+    // Convert to string for pattern matching
+    const pdfString = new TextDecoder('latin1').decode(pdfBytes);
+    
+    // Enhanced PDF text extraction strategies
     let extractedText = '';
+    let extractionMethod = 'enhanced-pdf-parsing';
     
-    if (textMatches) {
-      for (const match of textMatches) {
-        const content = match.replace(/^stream\s*/, '').replace(/\s*endstream$/, '');
-        // Simple text extraction - look for readable text
-        const readableText = content.match(/[a-zA-Z0-9\s\.,;:!?\-\(\)]+/g);
-        if (readableText) {
-          extractedText += readableText.join(' ') + ' ';
+    // Strategy 1: Extract from text objects (Tj and TJ operators)
+    const textObjectRegex = /\[(.*?)\]\s*TJ|(?:\((.*?)\)|\<(.*?)\>)\s*Tj/gi;
+    let match;
+    const textFragments: string[] = [];
+    
+    while ((match = textObjectRegex.exec(pdfString)) !== null) {
+      if (match[1]) {
+        // Array format [text] TJ
+        const arrayContent = match[1];
+        const textMatches = arrayContent.match(/\((.*?)\)/g);
+        if (textMatches) {
+          textMatches.forEach(textMatch => {
+            const cleanText = textMatch.slice(1, -1); // Remove parentheses
+            if (cleanText.length > 0) {
+              textFragments.push(cleanText);
+            }
+          });
+        }
+      } else if (match[2]) {
+        // Parentheses format (text) Tj
+        textFragments.push(match[2]);
+      } else if (match[3]) {
+        // Hex format <text> Tj
+        try {
+          const hexText = match[3];
+          const decodedText = hexText.match(/.{2}/g)?.map(hex => 
+            String.fromCharCode(parseInt(hex, 16))
+          ).join('') || '';
+          if (decodedText.length > 0) {
+            textFragments.push(decodedText);
+          }
+        } catch (e) {
+          // Skip invalid hex
         }
       }
     }
     
-    // Clean up extracted text
-    extractedText = extractedText
-      .replace(/\s+/g, ' ')
-      .replace(/[^\w\s\.,;:!?\-\(\)]/g, '')
-      .trim();
+    // Strategy 2: Extract from stream objects with better filtering
+    const streamRegex = /stream\s*([\s\S]*?)\s*endstream/gi;
+    const streamMatches = pdfString.match(streamRegex);
     
-    console.log('Direct PDF extraction result:', {
+    if (streamMatches) {
+      streamMatches.forEach(stream => {
+        const content = stream.replace(/^stream\s*/, '').replace(/\s*endstream$/, '');
+        
+        // Look for readable text patterns
+        const readableMatches = content.match(/[a-zA-Z]{3,}[\s\w\.,;:!?\-\(\)]*[a-zA-Z]/g);
+        if (readableMatches) {
+          readableMatches.forEach(text => {
+            // Filter out control sequences and ensure minimum quality
+            if (text.length > 3 && !/^[\x00-\x1F\x7F-\xFF]+$/.test(text)) {
+              textFragments.push(text);
+            }
+          });
+        }
+      });
+    }
+    
+    // Strategy 3: Look for BT/ET (Begin Text/End Text) blocks
+    const textBlockRegex = /BT([\s\S]*?)ET/gi;
+    const textBlocks = pdfString.match(textBlockRegex);
+    
+    if (textBlocks) {
+      textBlocks.forEach(block => {
+        const textInBlock = block.match(/\((.*?)\)/g);
+        if (textInBlock) {
+          textInBlock.forEach(text => {
+            const cleanText = text.slice(1, -1); // Remove parentheses
+            if (cleanText.length > 2) {
+              textFragments.push(cleanText);
+            }
+          });
+        }
+      });
+    }
+    
+    // Combine and clean extracted text
+    if (textFragments.length > 0) {
+      extractedText = textFragments
+        .filter(fragment => fragment.trim().length > 0)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control characters
+        .trim();
+        
+      // Quality check: ensure we have meaningful content
+      const wordCount = extractedText.split(/\s+/).filter(word => word.length > 2).length;
+      const alphaRatio = (extractedText.match(/[a-zA-Z]/g) || []).length / extractedText.length;
+      
+      if (wordCount < 10 || alphaRatio < 0.3) {
+        console.log('Extracted text quality too low, trying fallback method');
+        extractedText = '';
+      }
+    }
+    
+    // Fallback: Simple regex-based extraction
+    if (extractedText.length < 100) {
+      console.log('Primary extraction insufficient, trying simple fallback...');
+      const simpleTextMatches = pdfString.match(/[A-Za-z][A-Za-z\s\.,;:!?\-\(\)]{10,}/g);
+      if (simpleTextMatches) {
+        const fallbackText = simpleTextMatches
+          .filter(text => text.trim().length > 10)
+          .slice(0, 50) // Limit to prevent too much noise
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+          
+        if (fallbackText.length > extractedText.length) {
+          extractedText = fallbackText;
+          extractionMethod = 'simple-regex-fallback';
+        }
+      }
+    }
+    
+    const confidence = extractedText.length > 1000 ? 85 : 
+                     extractedText.length > 500 ? 75 : 
+                     extractedText.length > 100 ? 65 : 45;
+    
+    console.log('Enhanced PDF extraction result:', {
       textLength: extractedText.length,
+      fragmentsFound: textFragments.length,
+      confidence,
+      method: extractionMethod,
       preview: extractedText.substring(0, 200)
     });
     
-    return extractedText;
+    return {
+      text: extractedText,
+      confidence,
+      method: extractionMethod
+    };
+    
   } catch (error) {
-    console.error('Direct PDF extraction failed:', error);
-    return '';
+    console.error('Enhanced PDF extraction failed:', error);
+    return {
+      text: '',
+      confidence: 0,
+      method: 'enhanced-pdf-failed'
+    };
   }
+}
+
+// Quality assessment for extracted text
+function assessTextQuality(text: string): { isReadable: boolean; confidence: number; metrics: any } {
+  if (!text || text.length < 10) {
+    return { isReadable: false, confidence: 0, metrics: { reason: 'too_short' } };
+  }
+  
+  const totalChars = text.length;
+  const alphaChars = (text.match(/[a-zA-Z]/g) || []).length;
+  const digitChars = (text.match(/\d/g) || []).length;
+  const spaceChars = (text.match(/\s/g) || []).length;
+  const punctChars = (text.match(/[.,;:!?]/g) || []).length;
+  const controlChars = (text.match(/[\x00-\x1F\x7F-\xFF]/g) || []).length;
+  
+  const alphaRatio = alphaChars / totalChars;
+  const controlRatio = controlChars / totalChars;
+  const wordCount = text.split(/\s+/).filter(w => w.length > 2).length;
+  
+  const metrics = {
+    totalChars,
+    alphaRatio: Math.round(alphaRatio * 100) / 100,
+    controlRatio: Math.round(controlRatio * 100) / 100,
+    wordCount,
+    hasRepeatingPatterns: /(.{3,})\1{3,}/.test(text),
+    avgWordLength: wordCount > 0 ? Math.round(alphaChars / wordCount) : 0
+  };
+  
+  // Determine if text is readable
+  const isReadable = alphaRatio > 0.4 && 
+                    controlRatio < 0.1 && 
+                    wordCount > 5 && 
+                    !metrics.hasRepeatingPatterns &&
+                    metrics.avgWordLength >= 3 &&
+                    metrics.avgWordLength <= 15;
+  
+  const confidence = isReadable ? 
+    Math.min(95, 50 + (alphaRatio * 30) + (Math.min(wordCount, 100) * 0.15)) : 
+    Math.max(10, alphaRatio * 40);
+  
+  return { isReadable, confidence: Math.round(confidence), metrics };
 }
 
 serve(async (req) => {
@@ -212,7 +369,7 @@ serve(async (req) => {
       visionResponse = await processImageSync(fileData, apiKey, fileSize);
     } else if (fileType.includes('pdf')) {
       console.log('Processing as PDF file');
-      visionResponse = await processPdfWithImprovedFallback(fileData, apiKey, fileSize);
+      visionResponse = await processPdfWithEnhancedExtraction(fileData, apiKey, fileSize);
     } else {
       const error = createDetailedError(
         'Unsupported file type',
@@ -433,203 +590,161 @@ async function processImageSync(fileData: Blob, apiKey: string, fileSize: number
   }
 }
 
-async function processPdfWithImprovedFallback(fileData: Blob, apiKey: string, fileSize: number): Promise<VisionResponse> {
-  console.log('=== Starting improved PDF processing ===');
+async function processPdfWithEnhancedExtraction(fileData: Blob, apiKey: string, fileSize: number): Promise<VisionResponse> {
+  console.log('=== Starting enhanced PDF processing ===');
   const startTime = Date.now();
   
-  // Step 1: Try direct PDF text extraction first (fastest)
-  console.log('Step 1: Attempting direct PDF text extraction...');
-  const directText = await extractTextFromPdfDirectly(fileData);
+  // Step 1: Try enhanced PDF text extraction first
+  console.log('Step 1: Attempting enhanced PDF text extraction...');
+  const enhancedResult = await extractTextFromPdfProperly(fileData);
   
-  if (directText && directText.length > 100) {
-    console.log('Direct PDF extraction successful:', {
-      textLength: directText.length,
-      preview: directText.substring(0, 200)
+  if (enhancedResult.text && enhancedResult.text.length > 0) {
+    const qualityAssessment = assessTextQuality(enhancedResult.text);
+    
+    console.log('Enhanced PDF extraction result:', {
+      textLength: enhancedResult.text.length,
+      method: enhancedResult.method,
+      confidence: enhancedResult.confidence,
+      qualityAssessment,
+      preview: enhancedResult.text.substring(0, 300)
     });
     
-    return {
-      text: directText,
-      confidence: 70,
-      method: 'direct-pdf-extraction',
-      metadata: {
-        pdfSize: fileSize,
-        extractionType: 'direct'
-      },
-      processingTime: Date.now() - startTime,
-      debugInfo: { 
-        method: 'direct-pdf', 
-        textLength: directText.length 
-      }
-    };
+    // If we have good quality text, return it
+    if (qualityAssessment.isReadable && enhancedResult.text.length > 200) {
+      return {
+        text: enhancedResult.text,
+        confidence: Math.max(enhancedResult.confidence, qualityAssessment.confidence),
+        method: enhancedResult.method,
+        metadata: {
+          pdfSize: fileSize,
+          extractionType: 'enhanced-parsing',
+          qualityMetrics: qualityAssessment.metrics
+        },
+        processingTime: Date.now() - startTime,
+        debugInfo: { 
+          method: enhancedResult.method,
+          textLength: enhancedResult.text.length,
+          qualityAssessment
+        }
+      };
+    }
   }
   
-  console.log('Direct extraction insufficient, trying Google Vision API...');
+  console.log('Enhanced extraction insufficient, trying Google Vision API...');
   
-  // Step 2: Try Google Vision API with smaller size limits and better error handling
-  const attempts = [
-    { method: 'DOCUMENT_TEXT_DETECTION', maxSize: 2 * 1024 * 1024, description: 'Document text detection (2MB limit)' },
-    { method: 'TEXT_DETECTION', maxSize: 4 * 1024 * 1024, description: 'Simple text detection (4MB limit)' }
-  ];
-
-  for (const attempt of attempts) {
-    if (fileSize > attempt.maxSize) {
-      console.log(`Skipping ${attempt.method}: file too large (${Math.round(fileSize / 1024)}KB > ${Math.round(attempt.maxSize / 1024)}KB)`);
-      continue;
-    }
-
-    console.log(`=== Attempting PDF processing with ${attempt.method} ===`);
-    const attemptStartTime = Date.now();
-
+  // Step 2: Try Google Vision API with better size handling
+  if (fileSize <= 4 * 1024 * 1024) { // Only try Vision API for smaller PDFs
     try {
-      const arrayBuffer = await fileData.arrayBuffer();
-      console.log('PDF ArrayBuffer created, size:', arrayBuffer.byteLength);
-      
-      const base64Content = arrayBufferToBase64(arrayBuffer);
-      const base64Size = base64Content.length;
-      
-      console.log('PDF base64 conversion completed:', {
-        originalSize: fileSize,
-        base64Size: base64Size,
-        method: attempt.method
-      });
+      console.log('=== Attempting Google Vision API for PDF ===');
+      const visionStartTime = Date.now();
 
+      const arrayBuffer = await fileData.arrayBuffer();
+      const base64Content = arrayBufferToBase64(arrayBuffer);
+      
       const visionRequest = {
         requests: [{
           image: { content: base64Content },
-          features: [{ type: attempt.method, maxResults: 1 }]
+          features: [{ type: 'DOCUMENT_TEXT_DETECTION', maxResults: 1 }]
         }]
       };
 
-      console.log(`Sending ${attempt.method} request to Google Vision API...`);
-      const apiStartTime = Date.now();
-      
+      console.log('Sending PDF to Google Vision API...');
       const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(visionRequest)
       });
 
-      const apiTime = Date.now() - apiStartTime;
-      console.log(`${attempt.method} API response:`, {
+      const visionTime = Date.now() - visionStartTime;
+      console.log('Google Vision API response:', {
         status: response.status,
-        statusText: response.statusText,
-        apiTime: apiTime + 'ms'
+        visionTime: visionTime + 'ms'
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.log(`${attempt.method} API error:`, {
-          status: response.status,
-          errorText: errorText
-        });
-        continue; // Try next method
-      }
+      if (response.ok) {
+        const result = await response.json();
+        const annotation = result.responses[0];
 
-      const result = await response.json();
-      const annotation = result.responses[0];
-
-      if (annotation.error) {
-        console.log(`${attempt.method} annotation error:`, annotation.error.message);
-        continue; // Try next method
-      }
-
-      let extractedText = '';
-      let confidence = 60;
-
-      if (attempt.method === 'TEXT_DETECTION') {
-        if (annotation.textAnnotations && annotation.textAnnotations.length > 0) {
-          extractedText = annotation.textAnnotations[0].description || '';
-          confidence = 75;
-        }
-      } else if (attempt.method === 'DOCUMENT_TEXT_DETECTION') {
-        if (annotation.fullTextAnnotation?.text) {
-          extractedText = annotation.fullTextAnnotation.text;
-          confidence = 80;
-        }
-      }
-
-      if (extractedText.length > 50) {
-        const processingTime = Date.now() - startTime;
-        console.log(`=== PDF processing successful with ${attempt.method} ===`, {
-          textLength: extractedText.length,
-          confidence,
-          processingTime: processingTime + 'ms'
-        });
-
-        return {
-          text: extractedText,
-          confidence,
-          method: `google-vision-pdf-${attempt.method.toLowerCase()}`,
-          boundingBoxes: annotation.textAnnotations,
-          metadata: {
-            pdfSize: fileSize,
-            detectionType: attempt.method,
-            attemptUsed: attempt.description
-          },
-          processingTime,
-          debugInfo: { 
-            apiTime, 
-            method: attempt.method, 
-            textLength: extractedText.length 
+        if (!annotation.error && annotation.fullTextAnnotation?.text) {
+          const visionText = annotation.fullTextAnnotation.text;
+          const visionQuality = assessTextQuality(visionText);
+          
+          // Compare with enhanced extraction results
+          if (visionQuality.isReadable && visionText.length > enhancedResult.text.length) {
+            console.log('Google Vision provided better results');
+            return {
+              text: visionText,
+              confidence: Math.min(90, visionQuality.confidence),
+              method: 'google-vision-pdf',
+              boundingBoxes: annotation.textAnnotations,
+              metadata: {
+                pdfSize: fileSize,
+                detectionType: 'DOCUMENT_TEXT_DETECTION',
+                visionProcessingTime: visionTime,
+                qualityMetrics: visionQuality.metrics
+              },
+              processingTime: Date.now() - startTime,
+              debugInfo: { 
+                visionTime, 
+                textLength: visionText.length,
+                qualityAssessment: visionQuality
+              }
+            };
           }
-        };
-      } else {
-        console.log(`${attempt.method} returned insufficient text (${extractedText.length} chars), trying next method`);
+        }
       }
-
-    } catch (attemptError) {
-      const attemptTime = Date.now() - attemptStartTime;
-      console.log(`${attempt.method} failed:`, {
-        error: attemptError.message,
-        attemptTime: attemptTime + 'ms'
-      });
-      // Continue to next method
+    } catch (visionError) {
+      console.log('Google Vision API failed for PDF:', visionError.message);
     }
+  } else {
+    console.log('PDF too large for Google Vision API, skipping...');
   }
 
-  // Step 3: Return the direct extraction result even if it's minimal
-  if (directText && directText.length > 0) {
-    console.log('Falling back to direct extraction result');
+  // Step 3: Return the best result we have, even if not perfect
+  if (enhancedResult.text && enhancedResult.text.length > 50) {
+    console.log('Returning enhanced extraction result as best available');
+    const qualityAssessment = assessTextQuality(enhancedResult.text);
+    
     return {
-      text: directText,
-      confidence: 50,
-      method: 'direct-pdf-fallback',
+      text: enhancedResult.text,
+      confidence: Math.max(45, Math.min(enhancedResult.confidence, qualityAssessment.confidence)),
+      method: enhancedResult.method + '-best-effort',
       metadata: {
         pdfSize: fileSize,
-        extractionType: 'fallback',
-        note: 'Google Vision API failed, using direct extraction'
+        extractionType: 'best-effort',
+        qualityMetrics: qualityAssessment.metrics,
+        note: 'Partial extraction - may contain formatting artifacts'
       },
       processingTime: Date.now() - startTime,
       debugInfo: { 
-        method: 'direct-pdf-fallback', 
-        textLength: directText.length 
+        method: enhancedResult.method,
+        textLength: enhancedResult.text.length,
+        qualityAssessment
       }
     };
   }
 
-  // All attempts failed - return structured error instead of throwing
+  // All extraction methods failed
   const totalTime = Date.now() - startTime;
   console.log('=== All PDF processing attempts failed ===', {
     fileSize: Math.round(fileSize / 1024) + 'KB',
-    totalTime: totalTime + 'ms',
-    attemptsCount: attempts.length
+    totalTime: totalTime + 'ms'
   });
 
-  // Return empty result instead of throwing error
   return {
     text: '',
     confidence: 0,
     method: 'pdf-processing-failed',
     metadata: {
       pdfSize: fileSize,
-      error: 'Unable to extract text using any method',
-      note: 'This PDF may contain scanned images, be corrupted, or in an unsupported format'
+      error: 'Unable to extract readable text using any method',
+      note: 'This PDF may contain scanned images, be heavily formatted, or use unsupported encoding'
     },
     processingTime: totalTime,
     debugInfo: { 
-      attemptsCount: attempts.length,
       fileSize: Math.round(fileSize / 1024) + 'KB',
-      totalTime: totalTime + 'ms'
+      totalTime: totalTime + 'ms',
+      enhancedResultLength: enhancedResult.text.length
     }
   };
 }
