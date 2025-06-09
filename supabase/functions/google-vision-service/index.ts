@@ -16,6 +16,20 @@ interface VisionResponse {
   metadata?: any;
 }
 
+// Utility function to convert ArrayBuffer to base64 in chunks to avoid stack overflow
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 8192; // Process 8KB at a time
+  let binary = '';
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  
+  return btoa(binary);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -76,6 +90,18 @@ serve(async (req) => {
     const fileSize = fileData.size;
     console.log('File downloaded successfully. Size:', fileSize, 'bytes');
 
+    // Check file size limits upfront
+    if (fileSize > 20 * 1024 * 1024) { // 20MB limit
+      console.error('File too large:', fileSize);
+      return new Response(JSON.stringify({ 
+        error: 'File too large',
+        details: `File size ${Math.round(fileSize / 1024 / 1024)}MB exceeds 20MB limit`
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     let visionResponse: VisionResponse;
 
     if (fileType.includes('image')) {
@@ -125,9 +151,9 @@ serve(async (req) => {
 async function processImageSync(fileData: Blob, apiKey: string): Promise<VisionResponse> {
   console.log('Processing image with Google Vision sync API');
   
-  // Convert to base64
+  // Convert to base64 using chunk-based approach
   const arrayBuffer = await fileData.arrayBuffer();
-  const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+  const base64Content = arrayBufferToBase64(arrayBuffer);
   
   // Check size limit (10MB for JSON payload, accounting for 37% base64 overhead)
   const estimatedJsonSize = base64Content.length * 1.37;
@@ -234,7 +260,7 @@ async function processPdfSync(fileData: Blob, apiKey: string, fileSize: number):
   }
 
   const arrayBuffer = await fileData.arrayBuffer();
-  const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+  const base64Content = arrayBufferToBase64(arrayBuffer);
 
   console.log('PDF converted to base64, sending to Vision API...');
 

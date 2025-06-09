@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
@@ -17,6 +18,18 @@ interface FlashcardQuestion {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Read request body once and store it
+  let requestBody;
+  try {
+    requestBody = await req.json();
+  } catch (error) {
+    console.error('Failed to parse request body:', error);
+    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -43,7 +56,7 @@ serve(async (req) => {
       });
     }
 
-    const { materialId } = await req.json();
+    const { materialId } = requestBody;
 
     if (!materialId) {
       return new Response(JSON.stringify({ error: 'Material ID is required' }), {
@@ -381,7 +394,8 @@ Extraction Quality: ${extractionConfidence}%`
     console.error('Error in process-material function:', error);
     
     try {
-      const { materialId } = await req.json();
+      // Use the stored request body instead of reading it again
+      const { materialId } = requestBody;
       if (materialId) {
         const supabase = createClient(
           Deno.env.get('SUPABASE_URL') ?? '',
