@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SidebarProvider } from '@/components/ui/sidebar';
@@ -24,6 +25,10 @@ export type DashboardSection = 'dashboard' | 'upload' | 'flashcards' | 'predicti
 const Dashboard = () => {
   const userData = JSON.parse(localStorage.getItem('cramIntelUser') || '{}');
   const [activeSection, setActiveSection] = useState<DashboardSection>('dashboard');
+
+  const handleSectionChange = (section: DashboardSection) => {
+    setActiveSection(section);
+  };
 
   const renderMainContent = () => {
     switch (activeSection) {
@@ -91,7 +96,7 @@ const Dashboard = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.5 }}
               >
-                <RecentUploads onSectionChange={setActiveSection} />
+                <RecentUploads onSectionChange={handleSectionChange} />
               </motion.div>
             </div>
 

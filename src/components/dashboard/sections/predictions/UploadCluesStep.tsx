@@ -25,11 +25,13 @@ export function UploadCluesStep({
   const { materials, materialGroups, loading } = useMaterials();
   const [showUploadHint, setShowUploadHint] = useState(false);
 
-  const getFileIcon = (fileType: string) => {
-    if (fileType?.includes('pdf')) return <FileText className="w-6 h-6 text-red-500" />;
-    if (fileType?.includes('image')) return <Image className="w-6 h-6 text-green-500" />;
-    if (fileType?.includes('video')) return <Video className="w-6 h-6 text-blue-500" />;
-    if (fileType?.includes('audio')) return <Music className="w-6 h-6 text-purple-500" />;
+  const getFileIcon = (fileType: string | null | undefined) => {
+    if (!fileType) return <Archive className="w-6 h-6 text-gray-500" />;
+    
+    if (fileType.includes('pdf')) return <FileText className="w-6 h-6 text-red-500" />;
+    if (fileType.includes('image')) return <Image className="w-6 h-6 text-green-500" />;
+    if (fileType.includes('video')) return <Video className="w-6 h-6 text-blue-500" />;
+    if (fileType.includes('audio')) return <Music className="w-6 h-6 text-purple-500" />;
     return <Archive className="w-6 h-6 text-gray-500" />;
   };
 
@@ -142,9 +144,6 @@ export function UploadCluesStep({
                       <div className="flex items-center gap-3">
                         <Checkbox
                           checked={allSelected}
-                          ref={(el) => {
-                            if (el) el.indeterminate = someSelected && !allSelected;
-                          }}
                           onCheckedChange={() => handleGroupToggle(group)}
                         />
                         <div className="flex-1">

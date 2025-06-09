@@ -21,13 +21,7 @@ interface PredictionJourneyProps {
 export type PredictionStep = 1 | 2 | 3 | 4 | 5 | 'results';
 
 interface PredictionData {
-  clues: Array<{
-    id: string;
-    name: string;
-    type: 'past-questions' | 'assignment' | 'whisper';
-    content?: string;
-    materialId?: string;
-  }>;
+  selectedMaterials: string[];
   context: {
     course: string;
     topics: string[];
@@ -40,7 +34,7 @@ interface PredictionData {
 export function PredictionJourney({ onClose }: PredictionJourneyProps) {
   const [currentStep, setCurrentStep] = useState<PredictionStep>(1);
   const [predictionData, setPredictionData] = useState<PredictionData>({
-    clues: [],
+    selectedMaterials: [],
     context: {
       course: '',
       topics: [],
@@ -86,8 +80,8 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
       case 2:
         return (
           <UploadCluesStep
-            clues={predictionData.clues}
-            onCluesChange={(clues) => setPredictionData(prev => ({ ...prev, clues }))}
+            selectedMaterials={predictionData.selectedMaterials}
+            onMaterialsChange={(materials) => setPredictionData(prev => ({ ...prev, selectedMaterials: materials }))}
             onNext={handleNext}
             onBack={handleBack}
           />
