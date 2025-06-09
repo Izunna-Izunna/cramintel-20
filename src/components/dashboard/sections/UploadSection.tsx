@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Image, BookOpen } from 'lucide-react';
+import { Upload, FileText, Image, BookOpen, Zap } from 'lucide-react';
 
 export function UploadSection() {
   return (
@@ -27,23 +27,35 @@ export function UploadSection() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Supported Formats
+              <Zap className="w-5 h-5 text-blue-500" />
+              Enhanced File Processing
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <FileText className="w-4 h-4 text-blue-500" />
-                <span>PDF Documents</span>
+            <div className="space-y-4">
+              <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                <div className="flex items-center gap-3 mb-2">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  <span className="font-medium text-blue-800">PDF Documents</span>
+                </div>
+                <p className="text-sm text-blue-700">
+                  ✨ Now with AWS Textract async processing for multi-page PDFs and scanned documents
+                </p>
               </div>
-              <div className="flex items-center gap-3">
-                <Image className="w-4 h-4 text-green-500" />
-                <span>Images (JPG, PNG)</span>
+              
+              <div className="p-3 bg-green-50 rounded border border-green-200">
+                <div className="flex items-center gap-3 mb-2">
+                  <Image className="w-4 h-4 text-green-600" />
+                  <span className="font-medium text-green-800">Images (JPG, PNG)</span>
+                </div>
+                <p className="text-sm text-green-700">
+                  High-speed sync processing with confidence scoring
+                </p>
               </div>
+              
               <div className="flex items-center gap-3">
                 <BookOpen className="w-4 h-4 text-purple-500" />
-                <span>Text Files</span>
+                <span>Text Files (TXT)</span>
               </div>
             </div>
           </CardContent>
