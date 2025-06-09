@@ -82,34 +82,71 @@ serve(async (req) => {
     }
 
     let extractedText = '';
+    let extractionMethod = 'unknown';
+    let extractionConfidence = 0;
 
     try {
-      if (material.file_type?.includes('pdf')) {
-        console.log('Extracting text from PDF:', material.file_path);
+      if (material.file_type?.includes('pdf') || material.file_type?.includes('image')) {
+        console.log('Attempting Textract extraction for:', material.file_path);
         
-        const { data: fileData, error: downloadError } = await supabase.storage
-          .from('cramintel-materials')
-          .download(material.file_path);
+        // Try Textract first
+        try {
+          const { data: textractResult, error: textractError } = await supabase.functions.invoke('textract-service', {
+            body: { 
+              filePath: material.file_path, 
+              materialId: materialId,
+              fileType: material.file_type 
+            },
+            headers: {
+              Authorization: `Bearer ${token}`,
+            }
+          });
 
-        if (downloadError || !fileData) {
-          throw new Error(`Failed to download PDF: ${downloadError?.message}`);
-        }
+          if (textractError) {
+            console.error('Textract service error:', textractError);
+            throw new Error(`Textract failed: ${textractError.message}`);
+          }
 
-        const arrayBuffer = await fileData.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        
-        console.log('PDF file size:', uint8Array.length, 'bytes');
-        
-        const pdf = await getDocumentProxy(uint8Array);
-        const { text } = await extractText(pdf, { mergePages: true });
-        
-        console.log('PDF text extraction completed, length:', text.length);
-        
-        if (text && text.trim().length > 200) {
-          extractedText = text;
-          console.log('Using extracted PDF text for processing');
-        } else {
-          throw new Error('Insufficient text content extracted from PDF');
+          if (textractResult.success && textractResult.extractedText) {
+            extractedText = textractResult.extractedText;
+            extractionMethod = textractResult.method || 'textract';
+            extractionConfidence = textractResult.confidence || 0;
+            console.log(`Textract extraction successful, confidence: ${extractionConfidence}%`);
+          } else {
+            throw new Error('Textract returned no text');
+          }
+        } catch (textractError) {
+          console.error('Textract extraction failed:', textractError);
+          
+          // Fallback to unpdf for PDFs
+          if (material.file_type?.includes('pdf')) {
+            console.log('Falling back to unpdf extraction');
+            
+            const { data: fileData, error: downloadError } = await supabase.storage
+              .from('cramintel-materials')
+              .download(material.file_path);
+
+            if (downloadError || !fileData) {
+              throw new Error(`Failed to download PDF: ${downloadError?.message}`);
+            }
+
+            const arrayBuffer = await fileData.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            
+            const pdf = await getDocumentProxy(uint8Array);
+            const { text } = await extractText(pdf, { mergePages: true });
+            
+            if (text && text.trim().length > 200) {
+              extractedText = text;
+              extractionMethod = 'unpdf-fallback';
+              extractionConfidence = 75; // Assume reasonable confidence for fallback
+              console.log('unpdf fallback successful');
+            } else {
+              throw new Error('Insufficient text content from unpdf');
+            }
+          } else {
+            throw new Error('Textract failed and no fallback available for this file type');
+          }
         }
         
       } else if (material.file_type?.includes('text')) {
@@ -122,8 +159,12 @@ serve(async (req) => {
         }
 
         extractedText = await fileData.text();
+        extractionMethod = 'direct-text';
+        extractionConfidence = 100;
       } else {
-        // Better fallback for non-text files
+        // Generic fallback content
+        extractionMethod = 'generic-template';
+        extractionConfidence = 50;
         extractedText = `Course Material Analysis: ${material.name}
 Subject: ${material.course}
 Material Type: ${material.material_type}
@@ -162,7 +203,7 @@ Study Focus Areas:
 Students should concentrate on understanding how these concepts interconnect and apply to practical scenarios within ${material.course}.`;
       }
     } catch (extractionError) {
-      console.error('Text extraction failed:', extractionError);
+      console.error('All text extraction methods failed:', extractionError);
       throw new Error(`Content extraction failed: ${extractionError.message}`);
     }
 
@@ -171,7 +212,9 @@ Students should concentrate on understanding how these concepts interconnect and
       .from('cramintel_materials')
       .update({ 
         processing_status: 'processing_content',
-        processing_progress: 30 
+        processing_progress: 30,
+        extraction_method: extractionMethod,
+        extraction_confidence: extractionConfidence
       })
       .eq('id', materialId);
 
@@ -182,6 +225,7 @@ Students should concentrate on understanding how these concepts interconnect and
       .trim();
 
     console.log('Cleaned text length:', cleanText.length);
+    console.log('Extraction method:', extractionMethod, 'Confidence:', extractionConfidence);
 
     if (cleanText.length < 100) {
       throw new Error('Insufficient content for flashcard generation');
@@ -227,6 +271,11 @@ REQUIREMENTS:
 - Focus on key concepts, definitions, and important facts
 - Make questions specific and clear
 
+EXTRACTION INFO:
+- Method: ${extractionMethod}
+- Confidence: ${extractionConfidence}%
+- Adjust question complexity based on extraction quality
+
 Return ONLY a JSON array:
 [
   {
@@ -247,7 +296,8 @@ ${cleanText.substring(0, 12000)}
 
 Course: ${material.course}
 Type: ${material.material_type}
-Title: ${material.name}`
+Title: ${material.name}
+Extraction Quality: ${extractionConfidence}%`
             }
           ],
           temperature: 0.3,
@@ -302,7 +352,7 @@ Title: ${material.name}`
       .from('cramintel_decks')
       .insert({
         name: `${material.name} - Flashcards`,
-        description: `Generated from ${material.material_type} for ${material.course}`,
+        description: `Generated from ${material.material_type} for ${material.course} (${extractionMethod})`,
         course: material.course,
         user_id: user.id,
         source_materials: [material.name],
@@ -367,7 +417,9 @@ Title: ${material.name}`
       success: true,
       flashcards_generated: flashcards.length,
       deck_id: deck.id,
-      message: `Successfully generated ${flashcards.length} flashcards from content`
+      extraction_method: extractionMethod,
+      extraction_confidence: extractionConfidence,
+      message: `Successfully generated ${flashcards.length} flashcards using ${extractionMethod} (${extractionConfidence}% confidence)`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
