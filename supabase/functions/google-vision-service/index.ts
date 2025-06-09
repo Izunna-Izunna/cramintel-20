@@ -137,12 +137,27 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in google-vision-service:', error);
     
+    // Enhanced error reporting for billing and API issues
+    let errorDetails = 'Google Vision processing failed';
+    let errorCode = 500;
+    
+    if (error.message?.includes('BILLING_DISABLED')) {
+      errorDetails = 'Google Cloud billing is not enabled. Please enable billing on your Google Cloud project and wait a few minutes for changes to propagate.';
+      errorCode = 402; // Payment Required
+    } else if (error.message?.includes('API_KEY_INVALID')) {
+      errorDetails = 'Invalid Google Cloud Vision API key. Please check your API key configuration.';
+      errorCode = 401; // Unauthorized
+    } else if (error.message?.includes('PERMISSION_DENIED')) {
+      errorDetails = 'Permission denied. Please check that the Vision API is enabled and your API key has the necessary permissions.';
+      errorCode = 403; // Forbidden
+    }
+    
     return new Response(JSON.stringify({ 
       error: error.message || 'Unknown error occurred',
-      details: 'Google Vision processing failed',
+      details: errorDetails,
       stack: error.stack
     }), {
-      status: 500,
+      status: errorCode,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -191,6 +206,22 @@ async function processImageSync(fileData: Blob, apiKey: string): Promise<VisionR
       statusText: response.statusText,
       errorText
     });
+    
+    // Parse error details for better reporting
+    try {
+      const errorData = JSON.parse(errorText);
+      if (errorData.error?.details) {
+        const billingError = errorData.error.details.find((detail: any) => 
+          detail.reason === 'BILLING_DISABLED'
+        );
+        if (billingError) {
+          throw new Error(`BILLING_DISABLED: ${errorData.error.message}`);
+        }
+      }
+    } catch (parseError) {
+      // If we can't parse the error, fall back to original message
+    }
+    
     throw new Error(`Vision API failed: ${response.status} - ${errorText}`);
   }
 
@@ -291,6 +322,22 @@ async function processPdfSync(fileData: Blob, apiKey: string, fileSize: number):
       statusText: response.statusText,
       errorText
     });
+    
+    // Parse error details for better reporting
+    try {
+      const errorData = JSON.parse(errorText);
+      if (errorData.error?.details) {
+        const billingError = errorData.error.details.find((detail: any) => 
+          detail.reason === 'BILLING_DISABLED'
+        );
+        if (billingError) {
+          throw new Error(`BILLING_DISABLED: ${errorData.error.message}`);
+        }
+      }
+    } catch (parseError) {
+      // If we can't parse the error, fall back to original message
+    }
+    
     throw new Error(`Vision API failed for PDF: ${response.status} - ${errorText}`);
   }
 

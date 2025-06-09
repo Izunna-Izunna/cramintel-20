@@ -115,7 +115,20 @@ serve(async (req) => {
 
         if (visionResponse.error) {
           console.error('Google Vision service error details:', visionResponse.error);
-          throw new Error(`Google Vision service failed: ${visionResponse.error.message || 'Unknown error'}`);
+          
+          // Enhanced error handling for specific cases
+          let errorMessage = 'Google Vision service failed';
+          if (visionResponse.error.message?.includes('BILLING_DISABLED')) {
+            errorMessage = 'Google Cloud billing is not enabled. Please enable billing on your Google Cloud project and wait for changes to propagate.';
+          } else if (visionResponse.error.message?.includes('API_KEY_INVALID')) {
+            errorMessage = 'Invalid Google Cloud Vision API key. Please check your API key configuration.';
+          } else if (visionResponse.error.message?.includes('PERMISSION_DENIED')) {
+            errorMessage = 'Permission denied. Please check that the Vision API is enabled and your API key has proper permissions.';
+          } else if (visionResponse.error.message) {
+            errorMessage = `Google Vision service failed: ${visionResponse.error.message}`;
+          }
+          
+          throw new Error(errorMessage);
         }
 
         const visionData = visionResponse.data;
@@ -418,7 +431,9 @@ Extraction Quality: ${extractionConfidence}%`
 
     return new Response(JSON.stringify({ 
       error: error.message,
-      details: 'Material processing failed - Google Vision extraction required'
+      details: error.message.includes('billing') ? 
+        'Google Cloud billing issue - please check your billing configuration' : 
+        'Material processing failed'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
