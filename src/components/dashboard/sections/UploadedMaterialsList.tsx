@@ -31,9 +31,10 @@ interface Material {
 
 interface UploadedMaterialsListProps {
   key?: number;
+  onSectionChange?: (section: string) => void;
 }
 
-export function UploadedMaterialsList({ key }: UploadedMaterialsListProps) {
+export function UploadedMaterialsList({ key, onSectionChange }: UploadedMaterialsListProps) {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
@@ -158,7 +159,11 @@ export function UploadedMaterialsList({ key }: UploadedMaterialsListProps) {
 
   const handleStudyFlashcards = (deckId: string) => {
     // Navigate to flashcards section with this deck selected
-    window.location.hash = 'flashcards';
+    if (onSectionChange) {
+      onSectionChange('flashcards');
+    } else {
+      window.location.hash = 'flashcards';
+    }
     toast({
       title: "Flashcards Ready",
       description: "Navigate to the Flashcards section to study your generated cards"

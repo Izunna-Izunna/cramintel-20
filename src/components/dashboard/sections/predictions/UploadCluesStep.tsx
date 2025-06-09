@@ -1,420 +1,248 @@
-import React, { useState } from 'react';
-import { Upload, FileText, MessageSquare, BookOpen, X, Check, Brain, TrendingUp, Users } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { TagChip } from '@/components/dashboard/TagChip';
-import { useMaterials } from '@/hooks/useMaterials';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 
-interface Clue {
-  id: string;
-  name: string;
-  type: 'past-questions' | 'assignment' | 'whisper';
-  content?: string;
-  materialId?: string;
-  isGroup?: boolean;
-  groupMaterials?: string[]; // Array of material IDs in the group
-}
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { FileText, Image, Video, Music, Archive, Users, ChevronRight, Upload } from 'lucide-react';
+import { useMaterials, Material, MaterialGroup } from '@/hooks/useMaterials';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface UploadCluesStepProps {
-  clues: Clue[];
-  onCluesChange: (clues: Clue[]) => void;
+  selectedMaterials: string[];
+  onMaterialsChange: (materials: string[]) => void;
   onNext: () => void;
   onBack: () => void;
 }
 
-export function UploadCluesStep({ clues, onCluesChange, onNext, onBack }: UploadCluesStepProps) {
-  const [whisperText, setWhisperText] = useState('');
-  const [showWhisperInput, setShowWhisperInput] = useState(false);
-  const [showMaterialsSelector, setShowMaterialsSelector] = useState(false);
-  const [selectedType, setSelectedType] = useState<'past-questions' | 'assignment' | null>(null);
+export function UploadCluesStep({ 
+  selectedMaterials, 
+  onMaterialsChange, 
+  onNext, 
+  onBack 
+}: UploadCluesStepProps) {
   const { materials, materialGroups, loading } = useMaterials();
+  const [showUploadHint, setShowUploadHint] = useState(false);
 
-  const addWhisper = () => {
-    if (whisperText.trim()) {
-      const newClue: Clue = {
-        id: Date.now().toString(),
-        name: `Whisper: ${whisperText.slice(0, 30)}...`,
-        type: 'whisper',
-        content: whisperText
-      };
-      onCluesChange([...clues, newClue]);
-      setWhisperText('');
-      setShowWhisperInput(false);
-    }
+  const getFileIcon = (fileType: string) => {
+    if (fileType?.includes('pdf')) return <FileText className="w-6 h-6 text-red-500" />;
+    if (fileType?.includes('image')) return <Image className="w-6 h-6 text-green-500" />;
+    if (fileType?.includes('video')) return <Video className="w-6 h-6 text-blue-500" />;
+    if (fileType?.includes('audio')) return <Music className="w-6 h-6 text-purple-500" />;
+    return <Archive className="w-6 h-6 text-gray-500" />;
   };
 
-  const addMaterialClue = (material: any, isGroup = false) => {
-    const newClue: Clue = {
-      id: isGroup ? material.group_id : material.id,
-      name: isGroup ? material.group_name : material.name,
-      type: selectedType!,
-      materialId: isGroup ? undefined : material.id,
-      isGroup,
-      groupMaterials: isGroup ? material.materials.map((m: any) => m.id) : undefined
-    };
-    onCluesChange([...clues, newClue]);
-    setShowMaterialsSelector(false);
-    setSelectedType(null);
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const removeClue = (id: string) => {
-    onCluesChange(clues.filter(clue => clue.id !== id));
+  const handleMaterialToggle = (materialId: string) => {
+    const newSelection = selectedMaterials.includes(materialId)
+      ? selectedMaterials.filter(id => id !== materialId)
+      : [...selectedMaterials, materialId];
+    onMaterialsChange(newSelection);
   };
 
-  const openMaterialsSelector = (type: 'past-questions' | 'assignment') => {
-    setSelectedType(type);
-    setShowMaterialsSelector(true);
-  };
-
-  const getClueIcon = (type: string) => {
-    switch (type) {
-      case 'past-questions':
-        return <FileText className="w-4 h-4" />;
-      case 'assignment':
-        return <BookOpen className="w-4 h-4" />;
-      case 'whisper':
-        return <MessageSquare className="w-4 h-4" />;
-      default:
-        return <FileText className="w-4 h-4" />;
-    }
-  };
-
-  const getClueColor = (type: string): 'blue' | 'green' | 'yellow' => {
-    switch (type) {
-      case 'past-questions':
-        return 'blue';
-      case 'assignment':
-        return 'green';
-      case 'whisper':
-        return 'yellow';
-      default:
-        return 'blue';
-    }
-  };
-
-  const getFilteredMaterials = () => {
-    if (!selectedType) return [];
+  const handleGroupToggle = (group: MaterialGroup) => {
+    const groupMaterialIds = group.materials.map(m => m.id);
+    const allSelected = groupMaterialIds.every(id => selectedMaterials.includes(id));
     
-    const typeMap = {
-      'past-questions': ['past-question', 'past-question-images'],
-      'assignment': ['assignment', 'notes']
-    };
-    
-    // Filter individual materials
-    const individualMaterials = materials.filter(material => 
-      !material.group_id && // Not part of a group
-      typeMap[selectedType].includes(material.material_type)
-    );
-
-    // Filter material groups
-    const groups = materialGroups.filter(group =>
-      group.materials.some(material => 
-        typeMap[selectedType].includes(material.material_type)
-      )
-    );
-
-    return { individualMaterials, groups };
+    if (allSelected) {
+      // Unselect all materials in this group
+      const newSelection = selectedMaterials.filter(id => !groupMaterialIds.includes(id));
+      onMaterialsChange(newSelection);
+    } else {
+      // Select all materials in this group
+      const newSelection = [...new Set([...selectedMaterials, ...groupMaterialIds])];
+      onMaterialsChange(newSelection);
+    }
   };
 
-  const getAnalysisInsights = () => {
-    const materialTypes = clues.map(clue => clue.type);
-    const hasPastQuestions = materialTypes.includes('past-questions');
-    const hasAssignments = materialTypes.includes('assignment');
-    const hasWhispers = materialTypes.includes('whisper');
-    const totalClues = clues.length;
+  // Get individual materials (not part of any group)
+  const individualMaterials = materials.filter(material => !material.group_id);
+  
+  // Get grouped materials
+  const groups = materialGroups.filter(group => group.materials.length > 1);
 
-    let confidenceLevel = 'Low';
-    let insights = [];
+  if (loading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-6"
+      >
+        <div>
+          <h3 className="text-xl font-semibold mb-2">Select Study Materials</h3>
+          <p className="text-gray-600">Choose the materials you want to use for generating predictions.</p>
+        </div>
+        
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-20 w-full" />
+          ))}
+        </div>
+      </motion.div>
+    );
+  }
 
-    if (totalClues >= 3) {
-      confidenceLevel = 'Medium';
-      if (hasPastQuestions && hasAssignments) {
-        confidenceLevel = 'High';
-      }
-    }
-
-    if (hasPastQuestions) {
-      insights.push('Past questions provide high prediction accuracy');
-    }
-    if (hasAssignments) {
-      insights.push('Assignments often become exam questions');
-    }
-    if (hasWhispers) {
-      insights.push('Lecturer hints add valuable context');
-    }
-    if (totalClues >= 4) {
-      insights.push('Multiple sources increase reliability');
-    }
-
-    return { confidenceLevel, insights };
-  };
-
-  const { confidenceLevel, insights } = getAnalysisInsights();
-  const { individualMaterials, groups } = getFilteredMaterials();
+  const hasNoMaterials = individualMaterials.length === 0 && groups.length === 0;
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="text-center mb-8">
-        <h3 className="text-xl font-bold text-gray-800 mb-2">Upload Your Exam Clues</h3>
-        <p className="text-gray-600">Add materials that help our AI predict your exam questions</p>
-        
-        {clues.length > 0 && (
-          <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Brain className="w-5 h-5 text-purple-600" />
-              <span className="font-semibold text-purple-800">AI Analysis Preview</span>
-            </div>
-            <div className="flex items-center justify-center gap-4 text-sm">
-              <Badge variant={confidenceLevel === 'High' ? 'default' : confidenceLevel === 'Medium' ? 'secondary' : 'outline'}>
-                {confidenceLevel} Confidence
-              </Badge>
-              <span className="text-purple-700">{clues.length} sources detected</span>
-            </div>
-            {insights.length > 0 && (
-              <div className="mt-2 text-xs text-purple-600">
-                <TrendingUp className="w-3 h-3 inline mr-1" />
-                {insights[0]}
-              </div>
-            )}
-          </div>
-        )}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6"
+    >
+      <div>
+        <h3 className="text-xl font-semibold mb-2">Select Study Materials</h3>
+        <p className="text-gray-600">Choose the materials you want to use for generating predictions.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-blue-200" onClick={() => openMaterialsSelector('past-questions')}>
-          <CardContent className="p-6 text-center">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-              <FileText className="w-6 h-6 text-blue-600" />
-            </div>
-            <h4 className="font-semibold mb-1">Past Questions</h4>
-            <p className="text-sm text-gray-600 mb-3">Highest accuracy predictor</p>
-            <div className="text-xs text-blue-600 mb-3">
-              <Badge variant="outline" className="text-xs">95% accuracy</Badge>
-            </div>
-            <Button variant="outline" size="sm">
-              <Upload className="w-4 h-4 mr-2" />
-              Browse Materials
+      {hasNoMaterials ? (
+        <Card className="border-dashed border-2 border-gray-300">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Upload className="w-12 h-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">No materials uploaded yet</h3>
+            <p className="text-gray-600 text-center mb-4">
+              Upload some study materials first to generate predictions.
+            </p>
+            <Button 
+              variant="outline"
+              onClick={() => {
+                window.location.hash = 'upload';
+                setShowUploadHint(true);
+              }}
+            >
+              Go to Upload Section
             </Button>
           </CardContent>
         </Card>
-
-        <Card className="cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-green-200" onClick={() => openMaterialsSelector('assignment')}>
-          <CardContent className="p-6 text-center">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-              <BookOpen className="w-6 h-6 text-green-600" />
-            </div>
-            <h4 className="font-semibold mb-1">Assignments</h4>
-            <p className="text-sm text-gray-600 mb-3">Test scripts, coursework</p>
-            <div className="text-xs text-green-600 mb-3">
-              <Badge variant="outline" className="text-xs">85% accuracy</Badge>
-            </div>
-            <Button variant="outline" size="sm">
-              <Upload className="w-4 h-4 mr-2" />
-              Browse Materials
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-yellow-200" onClick={() => setShowWhisperInput(true)}>
-          <CardContent className="p-6 text-center">
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-              <MessageSquare className="w-6 h-6 text-yellow-600" />
-            </div>
-            <h4 className="font-semibold mb-1">Class Whispers</h4>
-            <p className="text-sm text-gray-600 mb-3">Lecturer hints, rumors</p>
-            <div className="text-xs text-yellow-600 mb-3">
-              <Badge variant="outline" className="text-xs">Context boost</Badge>
-            </div>
-            <Button variant="outline" size="sm">
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Add Whisper
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {showMaterialsSelector && selectedType && (
-        <Card className="mb-6 border-purple-200 bg-purple-50">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-center mb-3">
-              <h4 className="font-semibold text-gray-800">
-                Select {selectedType === 'past-questions' ? 'Past Questions' : 'Assignment'} Materials
+      ) : (
+        <div className="space-y-6">
+          {/* Material Groups */}
+          {groups.length > 0 && (
+            <div className="space-y-4">
+              <h4 className="font-medium text-gray-800 flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Material Groups
               </h4>
-              <Button variant="ghost" size="sm" onClick={() => setShowMaterialsSelector(false)}>
-                <X className="w-4 h-4" />
-              </Button>
+              {groups.map((group) => {
+                const groupMaterialIds = group.materials.map(m => m.id);
+                const allSelected = groupMaterialIds.every(id => selectedMaterials.includes(id));
+                const someSelected = groupMaterialIds.some(id => selectedMaterials.includes(id));
+                
+                return (
+                  <Card key={group.group_id} className="border hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={allSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = someSelected && !allSelected;
+                          }}
+                          onCheckedChange={() => handleGroupToggle(group)}
+                        />
+                        <div className="flex-1">
+                          <CardTitle className="text-base">{group.group_name}</CardTitle>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <span>{group.total_count} files</span>
+                            <span>•</span>
+                            <span>{group.processed_count} processed</span>
+                          </div>
+                        </div>
+                        <Badge variant="secondary">Group</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {group.materials.map((material) => (
+                          <div key={material.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded">
+                            {getFileIcon(material.file_type)}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{material.name}</p>
+                              <p className="text-xs text-gray-600">
+                                {formatFileSize(material.file_size)}
+                              </p>
+                            </div>
+                            {material.processed && (
+                              <Badge variant="outline" className="text-xs">
+                                ✓ Processed
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
-            
-            {loading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
+          )}
+
+          {/* Individual Materials */}
+          {individualMaterials.length > 0 && (
+            <div className="space-y-4">
+              <h4 className="font-medium text-gray-800">Individual Materials</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {individualMaterials.map((material) => (
+                  <Card 
+                    key={material.id} 
+                    className={`cursor-pointer transition-all ${
+                      selectedMaterials.includes(material.id) 
+                        ? 'ring-2 ring-blue-500 bg-blue-50' 
+                        : 'hover:shadow-md'
+                    }`}
+                    onClick={() => handleMaterialToggle(material.id)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={selectedMaterials.includes(material.id)}
+                          onCheckedChange={() => handleMaterialToggle(material.id)}
+                        />
+                        {getFileIcon(material.file_type)}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-gray-800 truncate">{material.name}</h4>
+                          <p className="text-sm text-gray-600 mb-2">
+                            {material.course} • {material.material_type}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {formatFileSize(material.file_size)}
+                          </p>
+                        </div>
+                        {material.processed && (
+                          <Badge variant="outline" className="text-xs">
+                            ✓ Processed
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
-            ) : (
-              <div className="space-y-4 max-h-60 overflow-y-auto">
-                {/* Material Groups */}
-                {groups.length > 0 && (
-                  <div>
-                    <h5 className="text-sm font-medium text-gray-700 mb-2">Groups</h5>
-                    <div className="space-y-2">
-                      {groups.map((group) => (
-                        <div key={group.group_id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-purple-300 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <Users className="w-4 h-4 text-purple-600" />
-                            <div>
-                              <p className="font-medium">{group.group_name}</p>
-                              <p className="text-sm text-gray-500">
-                                {group.total_count} files • {group.processed_count} processed
-                              </p>
-                            </div>
-                          </div>
-                          <Button 
-                            size="sm"
-                            onClick={() => addMaterialClue(group, true)}
-                            disabled={clues.some(clue => clue.id === group.group_id)}
-                            className="bg-purple-600 hover:bg-purple-700"
-                          >
-                            {clues.some(clue => clue.id === group.group_id) ? (
-                              <Check className="w-4 h-4" />
-                            ) : (
-                              'Add Group'
-                            )}
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Individual Materials */}
-                {individualMaterials.length > 0 && (
-                  <div>
-                    <h5 className="text-sm font-medium text-gray-700 mb-2">Individual Files</h5>
-                    <div className="space-y-2">
-                      {individualMaterials.map((material) => (
-                        <div key={material.id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-purple-300 transition-colors">
-                          <div className="flex items-center gap-3">
-                            {getClueIcon(selectedType)}
-                            <div>
-                              <p className="font-medium">{material.name}</p>
-                              <p className="text-sm text-gray-500">
-                                {material.course} • {material.material_type} • {material.processed ? 'Processed' : 'Processing'}
-                              </p>
-                            </div>
-                          </div>
-                          <Button 
-                            size="sm"
-                            onClick={() => addMaterialClue(material)}
-                            disabled={clues.some(clue => clue.materialId === material.id)}
-                            className="bg-purple-600 hover:bg-purple-700"
-                          >
-                            {clues.some(clue => clue.materialId === material.id) ? (
-                              <Check className="w-4 h-4" />
-                            ) : (
-                              'Add'
-                            )}
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {individualMaterials.length === 0 && groups.length === 0 && (
-                  <p className="text-gray-500 text-center py-4">
-                    No materials found. Upload some materials first in the Upload section.
-                  </p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {showWhisperInput && (
-        <Card className="mb-6 border-orange-200 bg-orange-50">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-center mb-3">
-              <h4 className="font-semibold text-gray-800">Add a Whisper</h4>
-              <Button variant="ghost" size="sm" onClick={() => setShowWhisperInput(false)}>
-                <X className="w-4 h-4" />
-              </Button>
             </div>
-            <Textarea
-              placeholder="e.g., 'Professor said Chapter 6 is 80% likely to appear' or 'Focus on thermodynamic laws - he emphasized this 3 times'"
-              value={whisperText}
-              onChange={(e) => setWhisperText(e.target.value)}
-              className="mb-3"
-              rows={3}
-            />
-            <div className="flex gap-2">
-              <Button onClick={addWhisper} size="sm" className="bg-orange-600 hover:bg-orange-700">
-                Add Whisper
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowWhisperInput(false)}>
-                Cancel
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {clues.length > 0 && (
-        <div className="mb-8">
-          <h4 className="font-semibold text-gray-800 mb-4">
-            Uploaded Clues ({clues.length})
-            <Badge variant="secondary" className="ml-2">
-              {confidenceLevel} Prediction Quality
-            </Badge>
-          </h4>
-          <div className="space-y-3">
-            {clues.map((clue) => (
-              <div key={clue.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border hover:bg-gray-100 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    {clue.isGroup && <Users className="w-4 h-4 text-purple-600" />}
-                    {getClueIcon(clue.type)}
-                    <span className="font-medium">{clue.name}</span>
-                  </div>
-                  <TagChip 
-                    label={clue.isGroup ? 'Group' : clue.type.replace('-', ' ')} 
-                    color={clue.isGroup ? 'purple' : getClueColor(clue.type)}
-                  />
-                  {clue.type === 'past-questions' && (
-                    <Badge variant="outline" className="text-xs text-blue-600">High Impact</Badge>
-                  )}
-                  {clue.type === 'assignment' && (
-                    <Badge variant="outline" className="text-xs text-green-600">Exam Likely</Badge>
-                  )}
-                  {clue.isGroup && (
-                    <Badge variant="outline" className="text-xs text-purple-600">
-                      {clue.groupMaterials?.length} files
-                    </Badge>
-                  )}
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => removeClue(clue.id)} className="hover:bg-red-100 hover:text-red-700">
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
+          )}
         </div>
       )}
 
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>Back</Button>
+      <div className="flex justify-between pt-6">
+        <Button variant="outline" onClick={onBack}>
+          Back
+        </Button>
         <Button 
-          onClick={onNext} 
-          disabled={clues.length === 0}
-          className="bg-purple-600 hover:bg-purple-700"
+          onClick={onNext}
+          disabled={selectedMaterials.length === 0}
+          className="flex items-center gap-2"
         >
-          Continue to Context Tagging
+          Continue
+          <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
-    </div>
+    </motion.div>
   );
 }

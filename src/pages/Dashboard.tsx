@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SidebarProvider } from '@/components/ui/sidebar';
@@ -92,7 +91,7 @@ const Dashboard = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.5 }}
               >
-                <RecentUploads />
+                <RecentUploads onSectionChange={setActiveSection} />
               </motion.div>
             </div>
 
