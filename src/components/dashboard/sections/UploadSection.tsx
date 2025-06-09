@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Image, BookOpen, Zap } from 'lucide-react';
+import { Upload, FileText, Image, BookOpen, Zap, Cloud, Database } from 'lucide-react';
 
 export function UploadSection() {
   return (
@@ -28,7 +28,7 @@ export function UploadSection() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Zap className="w-5 h-5 text-blue-500" />
-              Enhanced File Processing
+              Advanced AWS Textract Processing
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -39,8 +39,12 @@ export function UploadSection() {
                   <span className="font-medium text-blue-800">PDF Documents</span>
                 </div>
                 <p className="text-sm text-blue-700">
-                  ✨ Now with AWS Textract async processing for multi-page PDFs and scanned documents
+                  ✨ S3-based async processing with AWS Textract for reliable multi-page extraction
                 </p>
+                <div className="flex items-center gap-2 mt-2 text-xs text-blue-600">
+                  <Cloud className="w-3 h-3" />
+                  <span>Automatic S3 upload & cleanup</span>
+                </div>
               </div>
               
               <div className="p-3 bg-green-50 rounded border border-green-200">
@@ -51,6 +55,10 @@ export function UploadSection() {
                 <p className="text-sm text-green-700">
                   High-speed sync processing with confidence scoring
                 </p>
+                <div className="flex items-center gap-2 mt-2 text-xs text-green-600">
+                  <Zap className="w-3 h-3" />
+                  <span>Instant processing</span>
+                </div>
               </div>
               
               <div className="flex items-center gap-3">
@@ -61,6 +69,40 @@ export function UploadSection() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Processing Features</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-gray-50 rounded">
+              <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                <Database className="w-4 h-4 text-blue-500" />
+                PDF Processing
+              </h4>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>• S3-based document storage</li>
+                <li>• Async processing for large files</li>
+                <li>• Multi-page pagination support</li>
+                <li>• Automatic cleanup</li>
+              </ul>
+            </div>
+            <div className="p-4 bg-gray-50 rounded">
+              <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-green-500" />
+                Image Processing
+              </h4>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>• Real-time sync processing</li>
+                <li>• High confidence scoring</li>
+                <li>• Optimized for quick results</li>
+                <li>• Support for all image formats</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

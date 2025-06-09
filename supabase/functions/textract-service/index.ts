@@ -2,6 +2,18 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
+import { 
+  TextractClient, 
+  DetectDocumentTextCommand, 
+  StartDocumentTextDetectionCommand,
+  GetDocumentTextDetectionCommand 
+} from 'https://esm.sh/@aws-sdk/client-textract@3.826.0';
+import { 
+  S3Client, 
+  PutObjectCommand, 
+  DeleteObjectCommand 
+} from 'https://esm.sh/@aws-sdk/client-s3@3.826.0';
+import { getSignedUrl } from 'https://esm.sh/@aws-sdk/s3-request-presigner@3.826.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,115 +23,8 @@ const corsHeaders = {
 interface TextractResponse {
   text: string;
   confidence: number;
-  method: 'textract-sync' | 'textract-async' | 'fallback';
+  method: 'textract-sync' | 'textract-async-s3' | 'fallback';
   metadata?: any;
-}
-
-// AWS Signature V4 implementation using Deno's native crypto
-class AWSSignatureV4 {
-  private accessKeyId: string;
-  private secretAccessKey: string;
-  private region: string;
-  private service: string;
-
-  constructor(accessKeyId: string, secretAccessKey: string, region: string, service: string) {
-    this.accessKeyId = accessKeyId;
-    this.secretAccessKey = secretAccessKey;
-    this.region = region;
-    this.service = service;
-  }
-
-  private async hash(data: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
-    return Array.from(new Uint8Array(hashBuffer))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-  }
-
-  private async hmac(key: Uint8Array, data: string): Promise<Uint8Array> {
-    const encoder = new TextEncoder();
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      key,
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
-    const signature = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(data));
-    return new Uint8Array(signature);
-  }
-
-  private async getSignatureKey(dateStamp: string): Promise<Uint8Array> {
-    const encoder = new TextEncoder();
-    const kDate = await this.hmac(encoder.encode(`AWS4${this.secretAccessKey}`), dateStamp);
-    const kRegion = await this.hmac(kDate, this.region);
-    const kService = await this.hmac(kRegion, this.service);
-    const kSigning = await this.hmac(kService, 'aws4_request');
-    return kSigning;
-  }
-
-  async signRequest(method: string, host: string, path: string, payload: string, headers: Record<string, string>): Promise<Record<string, string>> {
-    const now = new Date();
-    const amzDate = now.toISOString().replace(/[:\-]|\.\d{3}/g, '');
-    const dateStamp = amzDate.substr(0, 8);
-
-    // Canonical request
-    const payloadHash = await this.hash(payload);
-    const canonicalHeaders = Object.keys(headers)
-      .sort()
-      .map(key => `${key.toLowerCase()}:${headers[key]}\n`)
-      .join('');
-    const signedHeaders = Object.keys(headers)
-      .sort()
-      .map(key => key.toLowerCase())
-      .join(';');
-
-    const canonicalRequest = [
-      method,
-      path,
-      '', // query string
-      canonicalHeaders,
-      signedHeaders,
-      payloadHash
-    ].join('\n');
-
-    // String to sign
-    const algorithm = 'AWS4-HMAC-SHA256';
-    const credentialScope = `${dateStamp}/${this.region}/${this.service}/aws4_request`;
-    const stringToSign = [
-      algorithm,
-      amzDate,
-      credentialScope,
-      await this.hash(canonicalRequest)
-    ].join('\n');
-
-    // Calculate signature
-    const signingKey = await this.getSignatureKey(dateStamp);
-    const signature = await this.hmac(signingKey, stringToSign);
-    const signatureHex = Array.from(signature)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-
-    // Authorization header
-    const authorization = `${algorithm} Credential=${this.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signatureHex}`;
-
-    return {
-      ...headers,
-      'X-Amz-Date': amzDate,
-      'Authorization': authorization
-    };
-  }
-}
-
-// Helper function to convert Uint8Array to base64 string
-function uint8ArrayToBase64(uint8Array: Uint8Array): string {
-  let binary = '';
-  const len = uint8Array.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(uint8Array[i]);
-  }
-  return btoa(binary);
 }
 
 // Helper function to detect PDF files
@@ -190,11 +95,11 @@ serve(async (req) => {
 
     // Route based on file type
     if (isPdfFile(fileType)) {
-      console.log('Processing PDF with async Textract API');
-      extractionResult = await processTextractAsync(fileBuffer, filePath, awsAccessKeyId, awsSecretAccessKey, awsRegion, supabase);
+      console.log('Processing PDF with S3-based async Textract');
+      extractionResult = await processPdfWithS3(fileBuffer, filePath, awsAccessKeyId, awsSecretAccessKey, awsRegion, supabase);
     } else if (isImageFile(fileType)) {
       console.log('Processing image with sync Textract API');
-      extractionResult = await processTextractSync(fileBuffer, awsAccessKeyId, awsSecretAccessKey, awsRegion);
+      extractionResult = await processImageSync(fileBuffer, awsAccessKeyId, awsSecretAccessKey, awsRegion);
     } else {
       throw new Error(`Unsupported file type: ${fileType}`);
     }
@@ -231,61 +136,40 @@ serve(async (req) => {
   }
 });
 
-async function processTextractSync(
+async function processImageSync(
   fileBuffer: ArrayBuffer, 
   accessKeyId: string, 
   secretAccessKey: string, 
   region: string
 ): Promise<TextractResponse> {
-  const uint8Array = new Uint8Array(fileBuffer);
   
   try {
     console.log('Using sync Textract DetectDocumentText for image');
     
-    const base64Bytes = uint8ArrayToBase64(uint8Array);
-    console.log('Converted image to base64, length:', base64Bytes.length);
-    
-    const payload = {
-      Document: {
-        Bytes: base64Bytes
+    const textractClient = new TextractClient({
+      region,
+      credentials: {
+        accessKeyId,
+        secretAccessKey
       }
-    };
-
-    const body = JSON.stringify(payload);
-    const host = `textract.${region}.amazonaws.com`;
-    const path = '/';
-    const method = 'POST';
-
-    const headers = {
-      'Content-Type': 'application/x-amz-json-1.1',
-      'X-Amz-Target': 'Textract.DetectDocumentText',
-      'Host': host,
-      'Content-Length': body.length.toString()
-    };
-
-    const signer = new AWSSignatureV4(accessKeyId, secretAccessKey, region, 'textract');
-    const signedHeaders = await signer.signRequest(method, host, path, body, headers);
-
-    const response = await fetch(`https://${host}${path}`, {
-      method: method,
-      headers: signedHeaders,
-      body: body
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Textract sync API error:', response.status, errorText);
-      throw new Error(`Textract API returned ${response.status}: ${errorText}`);
-    }
+    const uint8Array = new Uint8Array(fileBuffer);
+    
+    const command = new DetectDocumentTextCommand({
+      Document: {
+        Bytes: uint8Array
+      }
+    });
 
-    const responseData = await response.json();
+    const response = await textractClient.send(command);
     
     let extractedText = '';
     let totalConfidence = 0;
     let blockCount = 0;
 
-    if (responseData.Blocks) {
-      for (const block of responseData.Blocks) {
+    if (response.Blocks) {
+      for (const block of response.Blocks) {
         if (block.BlockType === 'LINE' && block.Text) {
           extractedText += block.Text + '\n';
           if (block.Confidence) {
@@ -305,7 +189,7 @@ async function processTextractSync(
       confidence: averageConfidence,
       method: 'textract-sync',
       metadata: {
-        totalBlocks: responseData.Blocks?.length || 0,
+        totalBlocks: response.Blocks?.length || 0,
         textBlocks: blockCount,
         implementation: 'sync-api'
       }
@@ -316,97 +200,64 @@ async function processTextractSync(
   }
 }
 
-async function processTextractAsync(
+async function processPdfWithS3(
   fileBuffer: ArrayBuffer,
-  filePath: string,
+  originalPath: string,
   accessKeyId: string, 
   secretAccessKey: string, 
   region: string,
   supabase: any
 ): Promise<TextractResponse> {
-  try {
-    console.log('Starting async Textract processing for PDF');
-    
-    // Create a temporary public URL for the file that AWS can access
-    const { data: signedUrl, error: urlError } = await supabase.storage
-      .from('cramintel-materials')
-      .createSignedUrl(filePath, 3600); // 1 hour expiry
-
-    if (urlError || !signedUrl) {
-      throw new Error(`Failed to create signed URL: ${urlError?.message}`);
-    }
-
-    console.log('Created signed URL for Textract async processing');
-
-    // For now, we'll use the document upload approach since we need S3 bucket
-    // This is a simplified implementation that uploads the document directly
-    return await processTextractAsyncWithDocumentUpload(fileBuffer, accessKeyId, secretAccessKey, region);
-
-  } catch (error) {
-    console.error('Async Textract processing error:', error);
-    
-    // Fallback to sync processing for small PDFs (this will likely fail, but we'll try)
-    console.log('Attempting fallback to sync processing');
-    try {
-      return await processTextractSync(fileBuffer, accessKeyId, secretAccessKey, region);
-    } catch (fallbackError) {
-      console.error('Fallback also failed:', fallbackError);
-      throw new Error(`Async Textract processing failed: ${error.message}. Fallback also failed: ${fallbackError.message}`);
-    }
-  }
-}
-
-async function processTextractAsyncWithDocumentUpload(
-  fileBuffer: ArrayBuffer,
-  accessKeyId: string,
-  secretAccessKey: string,
-  region: string
-): Promise<TextractResponse> {
-  const uint8Array = new Uint8Array(fileBuffer);
   
+  const s3Client = new S3Client({
+    region,
+    credentials: {
+      accessKeyId,
+      secretAccessKey
+    }
+  });
+
+  const textractClient = new TextractClient({
+    region,
+    credentials: {
+      accessKeyId,
+      secretAccessKey
+    }
+  });
+
+  // Use a temporary bucket name - you might want to make this configurable
+  const bucketName = 'cramintel-textract-temp';
+  const key = `temp/${crypto.randomUUID()}_${originalPath.split('/').pop()}`;
+
   try {
-    console.log('Using async Textract StartDocumentTextDetection for PDF');
+    console.log('Uploading PDF to S3 for Textract processing...');
     
-    const base64Bytes = uint8ArrayToBase64(uint8Array);
-    console.log('Converted PDF to base64, length:', base64Bytes.length);
-    
-    // Step 1: Start the document text detection job
-    const startPayload = {
-      Document: {
-        Bytes: base64Bytes
-      }
-    };
-
-    const startBody = JSON.stringify(startPayload);
-    const host = `textract.${region}.amazonaws.com`;
-    const path = '/';
-    const method = 'POST';
-
-    const startHeaders = {
-      'Content-Type': 'application/x-amz-json-1.1',
-      'X-Amz-Target': 'Textract.StartDocumentTextDetection',
-      'Host': host,
-      'Content-Length': startBody.length.toString()
-    };
-
-    const signer = new AWSSignatureV4(accessKeyId, secretAccessKey, region, 'textract');
-    const signedStartHeaders = await signer.signRequest(method, host, path, startBody, startHeaders);
-
-    console.log('Starting async Textract job...');
-    const startResponse = await fetch(`https://${host}${path}`, {
-      method: method,
-      headers: signedStartHeaders,
-      body: startBody
+    // Upload file to S3
+    const putCommand = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      Body: new Uint8Array(fileBuffer),
+      ContentType: 'application/pdf'
     });
 
-    if (!startResponse.ok) {
-      const errorText = await startResponse.text();
-      console.error('Textract start job error:', startResponse.status, errorText);
-      throw new Error(`Textract start job failed: ${startResponse.status}: ${errorText}`);
-    }
+    await s3Client.send(putCommand);
+    console.log('PDF uploaded to S3:', `s3://${bucketName}/${key}`);
 
-    const startData = await startResponse.json();
-    const jobId = startData.JobId;
+    // Start Textract job
+    console.log('Starting async Textract job...');
+    const startCommand = new StartDocumentTextDetectionCommand({
+      DocumentLocation: {
+        S3Object: {
+          Bucket: bucketName,
+          Name: key
+        }
+      },
+      ClientRequestToken: crypto.randomUUID(),
+      JobTag: key
+    });
+
+    const startResponse = await textractClient.send(startCommand);
+    const jobId = startResponse.JobId;
     
     if (!jobId) {
       throw new Error('No JobId returned from StartDocumentTextDetection');
@@ -414,7 +265,7 @@ async function processTextractAsyncWithDocumentUpload(
 
     console.log('Async job started with ID:', jobId);
 
-    // Step 2: Poll for job completion
+    // Poll for completion
     let jobStatus = 'IN_PROGRESS';
     let attempts = 0;
     const maxAttempts = 30; // 5 minutes max
@@ -425,86 +276,43 @@ async function processTextractAsyncWithDocumentUpload(
       console.log(`Polling attempt ${attempts}, waiting 10 seconds...`);
       await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
 
-      const pollPayload = {
+      const getCommand = new GetDocumentTextDetectionCommand({
         JobId: jobId
-      };
-
-      const pollBody = JSON.stringify(pollPayload);
-      const pollHeaders = {
-        'Content-Type': 'application/x-amz-json-1.1',
-        'X-Amz-Target': 'Textract.GetDocumentTextDetection',
-        'Host': host,
-        'Content-Length': pollBody.length.toString()
-      };
-
-      const signedPollHeaders = await signer.signRequest(method, host, path, pollBody, pollHeaders);
-
-      const pollResponse = await fetch(`https://${host}${path}`, {
-        method: method,
-        headers: signedPollHeaders,
-        body: pollBody
       });
 
-      if (!pollResponse.ok) {
-        const errorText = await pollResponse.text();
-        console.error('Textract poll error:', pollResponse.status, errorText);
-        throw new Error(`Textract poll failed: ${pollResponse.status}: ${errorText}`);
-      }
-
-      const pollData = await pollResponse.json();
-      jobStatus = pollData.JobStatus;
+      const pollResponse = await textractClient.send(getCommand);
+      jobStatus = pollResponse.JobStatus || 'IN_PROGRESS';
       
       console.log('Job status:', jobStatus);
 
       if (jobStatus === 'SUCCEEDED') {
         console.log('Async job completed successfully');
         
-        // Collect all blocks (handle pagination if needed)
-        if (pollData.Blocks) {
-          allBlocks = [...allBlocks, ...pollData.Blocks];
+        // Collect all blocks (handle pagination)
+        if (pollResponse.Blocks) {
+          allBlocks = [...allBlocks, ...pollResponse.Blocks];
         }
 
         // Handle pagination
-        let nextToken = pollData.NextToken;
+        let nextToken = pollResponse.NextToken;
         while (nextToken) {
           console.log('Fetching next page of results...');
           
-          const nextPayload = {
+          const nextCommand = new GetDocumentTextDetectionCommand({
             JobId: jobId,
             NextToken: nextToken
-          };
-
-          const nextBody = JSON.stringify(nextPayload);
-          const nextHeaders = {
-            'Content-Type': 'application/x-amz-json-1.1',
-            'X-Amz-Target': 'Textract.GetDocumentTextDetection',
-            'Host': host,
-            'Content-Length': nextBody.length.toString()
-          };
-
-          const signedNextHeaders = await signer.signRequest(method, host, path, nextBody, nextHeaders);
-
-          const nextResponse = await fetch(`https://${host}${path}`, {
-            method: method,
-            headers: signedNextHeaders,
-            body: nextBody
           });
 
-          if (!nextResponse.ok) {
-            console.error('Error fetching next page');
-            break;
+          const nextResponse = await textractClient.send(nextCommand);
+          if (nextResponse.Blocks) {
+            allBlocks = [...allBlocks, ...nextResponse.Blocks];
           }
-
-          const nextData = await nextResponse.json();
-          if (nextData.Blocks) {
-            allBlocks = [...allBlocks, ...nextData.Blocks];
-          }
-          nextToken = nextData.NextToken;
+          nextToken = nextResponse.NextToken;
         }
 
         break;
       } else if (jobStatus === 'FAILED') {
-        throw new Error(`Async Textract job failed: ${pollData.StatusMessage || 'Unknown error'}`);
+        throw new Error(`Async Textract job failed: ${pollResponse.StatusMessage || 'Unknown error'}`);
       }
     }
 
@@ -512,7 +320,7 @@ async function processTextractAsyncWithDocumentUpload(
       throw new Error('Async job timed out after maximum polling attempts');
     }
 
-    // Step 3: Extract text from all blocks
+    // Extract text from all blocks
     let extractedText = '';
     let totalConfidence = 0;
     let lineCount = 0;
@@ -529,23 +337,38 @@ async function processTextractAsyncWithDocumentUpload(
 
     const averageConfidence = lineCount > 0 ? totalConfidence / lineCount : 0;
 
-    console.log(`Async Textract extraction successful: ${extractedText.length} characters from ${lineCount} lines with ${averageConfidence.toFixed(1)}% confidence`);
+    console.log(`S3-based async Textract extraction successful: ${extractedText.length} characters from ${lineCount} lines with ${averageConfidence.toFixed(1)}% confidence`);
 
     return {
       text: extractedText.trim(),
       confidence: averageConfidence,
-      method: 'textract-async',
+      method: 'textract-async-s3',
       metadata: {
         totalBlocks: allBlocks.length,
         lineBlocks: lineCount,
         jobId: jobId,
-        implementation: 'async-api',
+        s3Location: `s3://${bucketName}/${key}`,
+        implementation: 'async-s3-api',
         pollingAttempts: attempts
       }
     };
 
   } catch (error) {
-    console.error('Async Textract processing error:', error);
-    throw new Error(`Async Textract processing failed: ${error.message}`);
+    console.error('S3-based async Textract processing error:', error);
+    throw new Error(`S3-based async Textract processing failed: ${error.message}`);
+  } finally {
+    // Clean up temporary S3 object
+    try {
+      console.log('Cleaning up temporary S3 object...');
+      const deleteCommand = new DeleteObjectCommand({
+        Bucket: bucketName,
+        Key: key
+      });
+      await s3Client.send(deleteCommand);
+      console.log('Temporary S3 object cleaned up');
+    } catch (cleanupError) {
+      console.error('Failed to clean up S3 object:', cleanupError);
+      // Don't throw here, as the main operation succeeded
+    }
   }
 }
