@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { FileText, Image, Video, Music, Archive, Brain, Play, Trash2, Eye, Zap } from 'lucide-react';
+import { FileText, Image, Video, Music, Archive, Brain, Play, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { EnhancedPdfViewer } from '@/components/ui/EnhancedPdfViewer';
@@ -27,9 +27,6 @@ interface Material {
   flashcard_count?: number;
   deck_name?: string;
   deck_id?: string;
-  extraction_method?: string;
-  extraction_confidence?: number;
-  extraction_metadata?: any;
 }
 
 interface UploadedMaterialsListProps {
@@ -52,15 +49,10 @@ export function UploadedMaterialsList({ key }: UploadedMaterialsListProps) {
 
   const fetchMaterials = async () => {
     try {
-      // First get materials with extraction info
+      // First get materials
       const { data: materialsData, error: materialsError } = await supabase
         .from('cramintel_materials')
-        .select(`
-          *,
-          extraction_method,
-          extraction_confidence,
-          extraction_metadata
-        `)
+        .select('*')
         .eq('user_id', user?.id)
         .order('upload_date', { ascending: false });
 
@@ -121,44 +113,6 @@ export function UploadedMaterialsList({ key }: UploadedMaterialsListProps) {
     if (fileType?.includes('video')) return <Video className="w-8 h-8 text-blue-500" />;
     if (fileType?.includes('audio')) return <Music className="w-8 h-8 text-purple-500" />;
     return <Archive className="w-8 h-8 text-gray-500" />;
-  };
-
-  const getExtractionMethodBadge = (method?: string, confidence?: number) => {
-    if (!method) return null;
-
-    const getMethodInfo = (method: string) => {
-      switch (method) {
-        case 'textract-sync':
-        case 'textract-async':
-          return { label: 'AWS Textract', color: 'bg-blue-100 text-blue-800', icon: <Zap className="w-3 h-3" /> };
-        case 'unpdf-fallback':
-          return { label: 'PDF Parser', color: 'bg-orange-100 text-orange-800', icon: <FileText className="w-3 h-3" /> };
-        case 'direct-text':
-          return { label: 'Direct Text', color: 'bg-green-100 text-green-800', icon: <FileText className="w-3 h-3" /> };
-        case 'generic-template':
-          return { label: 'Template', color: 'bg-gray-100 text-gray-800', icon: <Archive className="w-3 h-3" /> };
-        default:
-          return { label: method, color: 'bg-gray-100 text-gray-800', icon: <Eye className="w-3 h-3" /> };
-      }
-    };
-
-    const methodInfo = getMethodInfo(method);
-    const confidenceColor = confidence && confidence > 80 ? 'text-green-600' : 
-                           confidence && confidence > 50 ? 'text-yellow-600' : 'text-red-600';
-
-    return (
-      <div className="flex items-center gap-2">
-        <Badge className={`${methodInfo.color} flex items-center gap-1 text-xs`}>
-          {methodInfo.icon}
-          {methodInfo.label}
-        </Badge>
-        {confidence !== undefined && (
-          <span className={`text-xs font-medium ${confidenceColor}`}>
-            {confidence.toFixed(1)}%
-          </span>
-        )}
-      </div>
-    );
   };
 
   const formatFileSize = (bytes: number) => {
@@ -301,13 +255,6 @@ export function UploadedMaterialsList({ key }: UploadedMaterialsListProps) {
                             </Badge>
                           ))}
                         </div>
-
-                        {/* Extraction Method Info */}
-                        {material.extraction_method && (
-                          <div className="mb-2">
-                            {getExtractionMethodBadge(material.extraction_method, material.extraction_confidence)}
-                          </div>
-                        )}
 
                         {material.processed ? (
                           <div className="flex items-center gap-2 text-sm text-green-600 mb-3">

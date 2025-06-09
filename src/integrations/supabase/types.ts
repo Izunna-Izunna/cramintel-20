@@ -339,9 +339,6 @@ export type Database = {
       cramintel_materials: {
         Row: {
           course: string | null
-          extraction_confidence: number | null
-          extraction_metadata: Json | null
-          extraction_method: string | null
           file_name: string
           file_path: string | null
           file_size: number | null
@@ -358,9 +355,6 @@ export type Database = {
         }
         Insert: {
           course?: string | null
-          extraction_confidence?: number | null
-          extraction_metadata?: Json | null
-          extraction_method?: string | null
           file_name: string
           file_path?: string | null
           file_size?: number | null
@@ -377,9 +371,6 @@ export type Database = {
         }
         Update: {
           course?: string | null
-          extraction_confidence?: number | null
-          extraction_metadata?: Json | null
-          extraction_method?: string | null
           file_name?: string
           file_path?: string | null
           file_size?: number | null

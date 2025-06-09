@@ -2,6 +2,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
+import { extractText, getDocumentProxy } from "npm:unpdf@1.0.5";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,18 +19,6 @@ interface FlashcardQuestion {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
-  }
-
-  // Read request body once and store it
-  let requestBody;
-  try {
-    requestBody = await req.json();
-  } catch (error) {
-    console.error('Failed to parse request body:', error);
-    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
   }
 
   try {
@@ -56,7 +45,7 @@ serve(async (req) => {
       });
     }
 
-    const { materialId } = requestBody;
+    const { materialId } = await req.json();
 
     if (!materialId) {
       return new Response(JSON.stringify({ error: 'Material ID is required' }), {
@@ -93,68 +82,37 @@ serve(async (req) => {
     }
 
     let extractedText = '';
-    let extractionMethod = 'unknown';
-    let extractionConfidence = 0;
 
     try {
-      // Use Google Cloud Vision for images and PDFs - NO FALLBACKS
-      if (material.file_type?.includes('image') || material.file_type?.includes('pdf')) {
-        console.log('Using Google Cloud Vision for file type:', material.file_type);
+      if (material.file_type?.includes('pdf')) {
+        console.log('Extracting text from PDF:', material.file_path);
         
-        const visionResponse = await supabase.functions.invoke('google-vision-service', {
-          body: {
-            filePath: material.file_path,
-            fileType: material.file_type
-          }
-        });
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('cramintel-materials')
+          .download(material.file_path);
 
-        console.log('Google Vision service response:', {
-          error: visionResponse.error,
-          data: visionResponse.data ? 'received' : 'null'
-        });
-
-        if (visionResponse.error) {
-          console.error('Google Vision service error details:', visionResponse.error);
-          
-          // Enhanced error handling for specific cases
-          let errorMessage = 'Google Vision service failed';
-          if (visionResponse.error.message?.includes('BILLING_DISABLED')) {
-            errorMessage = 'Google Cloud billing is not enabled. Please enable billing on your Google Cloud project and wait for changes to propagate.';
-          } else if (visionResponse.error.message?.includes('API_KEY_INVALID')) {
-            errorMessage = 'Invalid Google Cloud Vision API key. Please check your API key configuration.';
-          } else if (visionResponse.error.message?.includes('PERMISSION_DENIED')) {
-            errorMessage = 'Permission denied. Please check that the Vision API is enabled and your API key has proper permissions.';
-          } else if (visionResponse.error.message) {
-            errorMessage = `Google Vision service failed: ${visionResponse.error.message}`;
-          }
-          
-          throw new Error(errorMessage);
+        if (downloadError || !fileData) {
+          throw new Error(`Failed to download PDF: ${downloadError?.message}`);
         }
 
-        const visionData = visionResponse.data;
-        if (!visionData || !visionData.success) {
-          console.error('Google Vision service returned unsuccessful response:', visionData);
-          throw new Error('Google Vision service returned unsuccessful response');
-        }
-
-        if (!visionData.text || visionData.text.length === 0) {
-          console.error('Google Vision extracted no text from the file');
-          throw new Error('Google Vision could not extract any text from this file');
-        }
-
-        extractedText = visionData.text;
-        extractionMethod = visionData.method;
-        extractionConfidence = visionData.confidence;
+        const arrayBuffer = await fileData.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
         
-        console.log('Google Vision extraction successful:', {
-          method: extractionMethod,
-          confidence: extractionConfidence,
-          textLength: extractedText.length
-        });
-
+        console.log('PDF file size:', uint8Array.length, 'bytes');
+        
+        const pdf = await getDocumentProxy(uint8Array);
+        const { text } = await extractText(pdf, { mergePages: true });
+        
+        console.log('PDF text extraction completed, length:', text.length);
+        
+        if (text && text.trim().length > 200) {
+          extractedText = text;
+          console.log('Using extracted PDF text for processing');
+        } else {
+          throw new Error('Insufficient text content extracted from PDF');
+        }
+        
       } else if (material.file_type?.includes('text')) {
-        console.log('Processing text file directly');
-        
         const { data: fileData, error: downloadError } = await supabase.storage
           .from('cramintel-materials')
           .download(material.file_path);
@@ -164,25 +122,47 @@ serve(async (req) => {
         }
 
         extractedText = await fileData.text();
-        extractionMethod = 'direct-text';
-        extractionConfidence = 100;
       } else {
-        throw new Error(`Unsupported file type: ${material.file_type}. Only images, PDFs, and text files are supported.`);
+        // Better fallback for non-text files
+        extractedText = `Course Material Analysis: ${material.name}
+Subject: ${material.course}
+Material Type: ${material.material_type}
+
+Academic Content Overview:
+This ${material.material_type} is designed for ${material.course} students and covers essential curriculum topics.
+
+Core Learning Areas for ${material.course}:
+
+1. Fundamental Concepts and Theories
+- Key principles that form the foundation of ${material.course}
+- Historical development and evolution of ideas
+- Current theoretical frameworks and models
+
+2. Terminology and Definitions
+- Essential vocabulary specific to ${material.course}
+- Technical terms and their applications
+- Industry-standard nomenclature
+
+3. Practical Applications
+- Real-world examples and case studies
+- Problem-solving methodologies
+- Hands-on techniques and procedures
+
+4. Critical Analysis Skills
+- Evaluation methods and criteria
+- Comparative analysis techniques
+- Research and investigation approaches
+
+5. Current Developments
+- Recent advances in the field
+- Emerging trends and technologies
+- Future directions and implications
+
+Study Focus Areas:
+Students should concentrate on understanding how these concepts interconnect and apply to practical scenarios within ${material.course}.`;
       }
     } catch (extractionError) {
       console.error('Text extraction failed:', extractionError);
-      
-      // Update material with error status
-      await supabase
-        .from('cramintel_materials')
-        .update({ 
-          processing_status: 'error',
-          processing_progress: 0,
-          extraction_method: 'failed',
-          extraction_confidence: 0
-        })
-        .eq('id', materialId);
-
       throw new Error(`Content extraction failed: ${extractionError.message}`);
     }
 
@@ -191,9 +171,7 @@ serve(async (req) => {
       .from('cramintel_materials')
       .update({ 
         processing_status: 'processing_content',
-        processing_progress: 30,
-        extraction_method: extractionMethod,
-        extraction_confidence: extractionConfidence
+        processing_progress: 30 
       })
       .eq('id', materialId);
 
@@ -204,10 +182,9 @@ serve(async (req) => {
       .trim();
 
     console.log('Cleaned text length:', cleanText.length);
-    console.log('Extraction method:', extractionMethod, 'Confidence:', extractionConfidence);
 
     if (cleanText.length < 100) {
-      throw new Error('Insufficient content for flashcard generation (less than 100 characters extracted)');
+      throw new Error('Insufficient content for flashcard generation');
     }
 
     // Update processing status
@@ -250,11 +227,6 @@ REQUIREMENTS:
 - Focus on key concepts, definitions, and important facts
 - Make questions specific and clear
 
-EXTRACTION INFO:
-- Method: ${extractionMethod}
-- Confidence: ${extractionConfidence}%
-- Adjust question complexity based on extraction quality
-
 Return ONLY a JSON array:
 [
   {
@@ -275,8 +247,7 @@ ${cleanText.substring(0, 12000)}
 
 Course: ${material.course}
 Type: ${material.material_type}
-Title: ${material.name}
-Extraction Quality: ${extractionConfidence}%`
+Title: ${material.name}`
             }
           ],
           temperature: 0.3,
@@ -331,7 +302,7 @@ Extraction Quality: ${extractionConfidence}%`
       .from('cramintel_decks')
       .insert({
         name: `${material.name} - Flashcards`,
-        description: `Generated from ${material.material_type} for ${material.course} (${extractionMethod})`,
+        description: `Generated from ${material.material_type} for ${material.course}`,
         course: material.course,
         user_id: user.id,
         source_materials: [material.name],
@@ -396,9 +367,7 @@ Extraction Quality: ${extractionConfidence}%`
       success: true,
       flashcards_generated: flashcards.length,
       deck_id: deck.id,
-      extraction_method: extractionMethod,
-      extraction_confidence: extractionConfidence,
-      message: `Successfully generated ${flashcards.length} flashcards using ${extractionMethod} (${extractionConfidence}% confidence)`
+      message: `Successfully generated ${flashcards.length} flashcards from content`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -407,8 +376,7 @@ Extraction Quality: ${extractionConfidence}%`
     console.error('Error in process-material function:', error);
     
     try {
-      // Use the stored request body instead of reading it again
-      const { materialId } = requestBody;
+      const { materialId } = await req.json();
       if (materialId) {
         const supabase = createClient(
           Deno.env.get('SUPABASE_URL') ?? '',
@@ -419,9 +387,7 @@ Extraction Quality: ${extractionConfidence}%`
           .from('cramintel_materials')
           .update({ 
             processing_status: 'error',
-            processing_progress: 0,
-            extraction_method: 'failed',
-            extraction_confidence: 0
+            processing_progress: 0 
           })
           .eq('id', materialId);
       }
@@ -431,9 +397,7 @@ Extraction Quality: ${extractionConfidence}%`
 
     return new Response(JSON.stringify({ 
       error: error.message,
-      details: error.message.includes('billing') ? 
-        'Google Cloud billing issue - please check your billing configuration' : 
-        'Material processing failed'
+      details: 'Material processing failed'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

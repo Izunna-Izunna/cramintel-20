@@ -1,10 +1,11 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaterials } from '@/hooks/useMaterials';
-import { FileText, Brain, Eye, EyeOff, Download, Search, Zap, CheckCircle, XCircle, AlertTriangle, Clock, FileX } from 'lucide-react';
+import { AlertCircle, FileText, Brain, Eye, EyeOff, Download, Search, Zap } from 'lucide-react';
 
 export default function TestPredictions() {
   const { user } = useAuth();
@@ -15,88 +16,116 @@ export default function TestPredictions() {
   const [loading, setLoading] = useState(false);
   const [predictionLoading, setPredictionLoading] = useState(false);
   const [showFullContent, setShowFullContent] = useState(false);
-  const [detailedError, setDetailedError] = useState<any>(null);
 
   const extractTextFromFile = async (material: any) => {
     try {
-      console.log(`Starting text extraction for: ${material.name} (${material.file_type})`);
-      setDetailedError(null);
+      console.log(`Extracting text from: ${material.name} (${material.file_type})`);
       
-      const { data: visionData, error: visionError } = await supabase.functions.invoke('google-vision-service', {
-        body: {
-          filePath: material.file_path,
-          fileType: material.file_type
-        }
-      });
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('cramintel-materials')
+        .download(material.file_path);
 
-      if (visionError) {
-        console.error('Google Vision service error:', visionError);
-        setDetailedError({
-          type: 'SUPABASE_ERROR',
-          message: visionError.message || 'Unknown Supabase error',
-          context: visionError.context || 'Supabase function invocation failed'
-        });
-        throw new Error(`Google Vision service failed: ${visionError.message || 'Unknown error'}`);
-      }
-
-      // Ensure visionData is properly parsed and not a Response object
-      let parsedVisionData = visionData;
-      if (visionData instanceof Response) {
-        console.error('Received Response object instead of parsed data');
-        parsedVisionData = await visionData.json();
-      }
-
-      // Check if the response contains detailed error information
-      if (parsedVisionData && parsedVisionData.errorCode && !parsedVisionData.success) {
-        console.error('Detailed Vision service error:', parsedVisionData);
-        setDetailedError({
-          type: 'VISION_API_ERROR',
-          ...parsedVisionData
-        });
-        throw new Error(`${parsedVisionData.error || 'Vision API error'}: ${parsedVisionData.details || 'No details available'}`);
-      }
-
-      if (!parsedVisionData || !parsedVisionData.success) {
-        console.error('Google Vision service returned unsuccessful response:', parsedVisionData);
-        setDetailedError({
-          type: 'VISION_RESPONSE_ERROR',
-          message: 'Google Vision service returned unsuccessful response',
-          data: parsedVisionData
-        });
-        throw new Error('Google Vision service returned unsuccessful response');
-      }
-
-      if (!parsedVisionData.text || parsedVisionData.text.length === 0) {
-        console.log('Google Vision extracted no text from the file');
+      if (downloadError || !fileData) {
+        console.error('Failed to download file:', downloadError);
         return {
           materialName: material.name,
-          materialId: material.id,
-          course: material.course,
-          materialType: material.material_type,
-          fileName: material.file_name,
-          fileType: material.file_type,
-          fileSize: material.file_size,
-          uploadDate: material.upload_date,
-          processed: true,
+          error: `Failed to download: ${downloadError?.message || 'Unknown error'}`,
           content: '',
           contentLength: 0,
-          wordCount: 0,
-          characterCount: 0,
-          extractionMethod: parsedVisionData.method || 'unknown',
-          extractionConfidence: parsedVisionData.confidence || 0,
-          error: 'No text could be extracted from this file',
-          extractionTimestamp: new Date().toISOString(),
-          isContentValid: false,
-          processingUsed: true,
-          processingTime: parsedVisionData.processingTime || 0,
-          debugInfo: parsedVisionData.debugInfo || {}
+          fileSize: material.file_size,
+          fileType: material.file_type
         };
       }
 
-      const wordCount = parsedVisionData.text.split(/\s+/).filter(word => word.length > 0).length;
+      let textContent = '';
       
-      console.log(`Extraction successful: ${parsedVisionData.method}, confidence: ${parsedVisionData.confidence}%`);
+      if (material.file_type?.includes('text') || material.file_type?.includes('plain')) {
+        textContent = await fileData.text();
+      } else if (material.file_type?.includes('pdf')) {
+        try {
+          // For PDF files, we need better handling
+          const arrayBuffer = await fileData.arrayBuffer();
+          
+          // Try to extract text - if it fails, provide a helpful fallback
+          try {
+            textContent = await fileData.text();
+            
+            // Check if the content looks corrupted (contains many special characters)
+            const corruptedPattern = /[^\x20-\x7E\s]/g;
+            const corruptedCharCount = (textContent.match(corruptedPattern) || []).length;
+            const totalChars = textContent.length;
+            
+            if (totalChars === 0 || (corruptedCharCount / totalChars) > 0.3) {
+              throw new Error('PDF contains mostly binary/corrupted content');
+            }
+            
+            console.log('PDF text extracted successfully');
+          } catch (pdfError) {
+            console.error('PDF text extraction failed:', pdfError);
+            textContent = `PDF Text Extraction Issue: This PDF file contains images, scanned content, or encoded text that cannot be directly extracted as plain text.
+
+For testing purposes, here is sample ${material.course || 'course'} content:
+
+SAMPLE ACADEMIC CONTENT FOR ${material.course || 'COURSE'}
+
+Introduction to ${material.course || 'the subject'}:
+This material covers fundamental concepts and principles that are essential for understanding the core topics in ${material.course || 'this field'}.
+
+Key Learning Objectives:
+1. Understand the basic principles and theories
+2. Apply knowledge to practical problems
+3. Analyze and evaluate different approaches
+4. Synthesize information from multiple sources
+
+Important Topics Covered:
+- Theoretical foundations and background
+- Methodology and practical applications  
+- Case studies and real-world examples
+- Current trends and future developments
+
+Assessment Methods:
+Students will be evaluated through examinations that test both theoretical knowledge and practical application of concepts learned throughout the course.
+
+Note: This is sample content generated because the original PDF could not be properly extracted. For accurate predictions, please use text-based files or PDFs with selectable text.`;
+          }
+        } catch (error) {
+          textContent = `PDF processing failed: ${error.message}. Please ensure the PDF contains selectable text, not just images.`;
+        }
+      } else {
+        try {
+          textContent = await fileData.text();
+          if (!textContent) {
+            textContent = `File content could not be extracted as text. File type: ${material.file_type}`;
+          }
+        } catch (error) {
+          textContent = `File reading failed: ${error.message}`;
+        }
+      }
+
+      // Clean and validate content
+      const cleanedContent = textContent
+        .replace(/\s+/g, ' ')
+        .replace(/[^\w\s.,!?;:()\-\[\]"']/g, ' ')
+        .trim();
+
+      const wordCount = textContent.split(/\s+/).filter(word => word.length > 0).length;
+      const characterCount = textContent.length;
+      const lineCount = textContent.split('\n').length;
+      const paragraphCount = textContent.split(/\n\s*\n/).filter(p => p.trim().length > 0).length;
+
+      // Course-specific keyword detection
+      const courseKeywords = [
+        'entrepreneurship', 'business', 'startup', 'venture', 'innovation', 
+        'business plan', 'market', 'revenue', 'profit', 'customer', 'strategy',
+        'competition', 'funding', 'investment', 'pitch', 'marketing', 'engineering',
+        'thermodynamics', 'mechanics', 'physics', 'mathematics', 'calculus',
+        'biology', 'chemistry', 'science', 'research', 'analysis', 'theory'
+      ];
       
+      const foundKeywords = courseKeywords.filter(keyword => 
+        textContent.toLowerCase().includes(keyword.toLowerCase())
+      );
+
       return {
         materialName: material.name,
         materialId: material.id,
@@ -106,41 +135,30 @@ export default function TestPredictions() {
         fileType: material.file_type,
         fileSize: material.file_size,
         uploadDate: material.upload_date,
-        processed: true,
-        content: parsedVisionData.text,
-        contentLength: parsedVisionData.text.length,
+        processed: material.processed,
+        content: textContent,
+        cleanedContent: cleanedContent,
+        contentLength: textContent.length,
+        cleanedContentLength: cleanedContent.length,
         wordCount: wordCount,
-        characterCount: parsedVisionData.text.length,
-        extractionMethod: parsedVisionData.method || 'unknown',
-        extractionConfidence: parsedVisionData.confidence || 0,
+        characterCount: characterCount,
+        lineCount: lineCount,
+        paragraphCount: paragraphCount,
+        foundKeywords: foundKeywords,
         error: null,
         extractionTimestamp: new Date().toISOString(),
-        isContentValid: parsedVisionData.text.length >= 50,
-        processingUsed: true,
-        boundingBoxes: parsedVisionData.boundingBoxes || [],
-        metadata: parsedVisionData.metadata || {},
-        processingTime: parsedVisionData.processingTime || 0,
-        debugInfo: parsedVisionData.debugInfo || {}
+        isContentValid: cleanedContent.length > 100 && !textContent.includes('PDF Text Extraction Issue')
       };
 
     } catch (error) {
-      console.error('Text extraction failed:', error);
+      console.error('Error extracting text:', error);
       return {
         materialName: material.name,
-        materialId: material.id,
-        error: error.message || 'Unknown extraction error',
+        error: error.message,
         content: '',
         contentLength: 0,
-        wordCount: 0,
-        characterCount: 0,
         fileSize: material.file_size,
-        fileType: material.file_type,
-        extractionMethod: 'failed',
-        extractionConfidence: 0,
-        processingUsed: false,
-        isContentValid: false,
-        extractionTimestamp: new Date().toISOString(),
-        debugInfo: {}
+        fileType: material.file_type
       };
     }
   };
@@ -151,8 +169,7 @@ export default function TestPredictions() {
         materialName: material.name,
         error: 'No file path available',
         content: '',
-        contentLength: 0,
-        isContentValid: false
+        contentLength: 0
       });
       return;
     }
@@ -161,7 +178,6 @@ export default function TestPredictions() {
     setExtractedContent(null);
     setPredictions(null);
     setShowFullContent(false);
-    setDetailedError(null);
 
     try {
       const result = await extractTextFromFile(material);
@@ -172,8 +188,7 @@ export default function TestPredictions() {
         materialName: material.name,
         error: error.message,
         content: '',
-        contentLength: 0,
-        isContentValid: false
+        contentLength: 0
       });
     } finally {
       setLoading(false);
@@ -182,7 +197,7 @@ export default function TestPredictions() {
 
   const generatePredictions = async () => {
     if (!extractedContent || !extractedContent.content || extractedContent.error) {
-      alert('Please process content first and ensure there are no errors');
+      alert('Please extract content first and ensure there are no errors');
       return;
     }
 
@@ -191,7 +206,10 @@ export default function TestPredictions() {
 
     try {
       console.log('Generating predictions for material:', extractedContent.materialName);
+      console.log('Using course:', extractedContent.course);
+      console.log('Content length:', extractedContent.content.length);
       
+      // Call the generate-predictions function with the extracted content and correct course info
       const { data, error } = await supabase.functions.invoke('generate-predictions', {
         body: {
           clues: [{
@@ -247,45 +265,15 @@ export default function TestPredictions() {
     URL.revokeObjectURL(url);
   };
 
-  const getErrorIcon = (errorType: string) => {
-    switch (errorType) {
-      case 'SUPABASE_ERROR':
-        return <XCircle className="w-5 h-5 text-red-600" />;
-      case 'VISION_API_ERROR':
-        return <AlertTriangle className="w-5 h-5 text-orange-600" />;
-      case 'VISION_RESPONSE_ERROR':
-        return <FileX className="w-5 h-5 text-red-600" />;
-      default:
-        return <XCircle className="w-5 h-5 text-red-600" />;
-    }
-  };
-
-  // Safe render helper for complex objects
-  const safeRenderObject = (obj: any, fallback: string = 'N/A') => {
-    if (!obj || typeof obj !== 'object') return fallback;
-    try {
-      return JSON.stringify(obj, null, 2);
-    } catch (error) {
-      return fallback;
-    }
-  };
-
-  // Safe render helper for simple values
-  const safeRenderValue = (value: any, fallback: string = 'N/A') => {
-    if (value === null || value === undefined) return fallback;
-    if (typeof value === 'object') return safeRenderObject(value, fallback);
-    return String(value);
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Material Testing & Prediction Engine</h1>
-          <p className="text-gray-600">Test material processing and generate intelligent exam predictions</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Material Content Analyzer & Predictor</h1>
+          <p className="text-gray-600">Select a material to extract content and generate quality exam predictions</p>
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
             <p className="text-blue-800 text-sm">
-              <strong>🔍 Enhanced Debugging:</strong> Now with comprehensive error logging, detailed processing information, and improved PDF extraction!
+              <strong>Note:</strong> This tool works best with text-based files. PDF files with images or scanned content may not extract properly.
             </p>
           </div>
         </div>
@@ -296,7 +284,7 @@ export default function TestPredictions() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="w-5 h-5" />
-                Test Materials ({materials.length})
+                Available Materials ({materials.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -321,11 +309,6 @@ export default function TestPredictions() {
                       <div className="text-xs text-gray-500">
                         {material.file_type} | {material.file_size ? `${Math.round(material.file_size / 1024)}KB` : 'Size unknown'}
                       </div>
-                      {material.extraction_method && (
-                        <div className="text-xs text-blue-600 mt-1">
-                          ✓ {material.extraction_method} ({material.extraction_confidence || 0}%)
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -340,7 +323,7 @@ export default function TestPredictions() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Search className="w-5 h-5" />
-                  Enhanced Text Extraction Testing
+                  Analysis Controls
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -349,16 +332,10 @@ export default function TestPredictions() {
                     <div className="p-4 bg-blue-50 rounded border">
                       <h3 className="font-semibold text-blue-800 mb-2">Selected Material:</h3>
                       <div className="text-sm text-blue-700">
-                        <div><strong>Name:</strong> {safeRenderValue(selectedMaterial.name)}</div>
-                        <div><strong>Course:</strong> {safeRenderValue(selectedMaterial.course)}</div>
-                        <div><strong>Type:</strong> {safeRenderValue(selectedMaterial.material_type)}</div>
-                        <div><strong>File:</strong> {safeRenderValue(selectedMaterial.file_type)}</div>
-                        {selectedMaterial.extraction_method && (
-                          <div className="mt-2 p-2 bg-green-100 rounded">
-                            <div><strong>Previous Extraction:</strong> {safeRenderValue(selectedMaterial.extraction_method)}</div>
-                            <div><strong>Confidence:</strong> {safeRenderValue(selectedMaterial.extraction_confidence, '0')}%</div>
-                          </div>
-                        )}
+                        <div><strong>Name:</strong> {selectedMaterial.name}</div>
+                        <div><strong>Course:</strong> {selectedMaterial.course}</div>
+                        <div><strong>Type:</strong> {selectedMaterial.material_type}</div>
+                        <div><strong>File:</strong> {selectedMaterial.file_type}</div>
                       </div>
                     </div>
                     
@@ -368,7 +345,7 @@ export default function TestPredictions() {
                         disabled={loading}
                         className="flex-1"
                       >
-                        {loading ? 'Extracting Text...' : 'Extract Full Text Content'}
+                        {loading ? 'Analyzing Content...' : 'Extract & Analyze All Content'}
                       </Button>
                       
                       {extractedContent && !extractedContent.error && extractedContent.isContentValid && (
@@ -387,68 +364,11 @@ export default function TestPredictions() {
                 ) : (
                   <div className="text-center py-8">
                     <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">Select a material from the list to test enhanced text extraction</p>
+                    <p className="text-gray-500">Select a material from the list to analyze its content</p>
                   </div>
                 )}
               </CardContent>
             </Card>
-
-            {/* Detailed Error Display */}
-            {detailedError && (
-              <Card className="border-red-200">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-red-700">
-                    {getErrorIcon(detailedError.type)}
-                    Detailed Error Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 p-4 bg-red-50 rounded">
-                      <div>
-                        <div className="text-sm font-medium text-red-600">Error Type</div>
-                        <div className="text-red-800">{safeRenderValue(detailedError.type)}</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-red-600">Error Code</div>
-                        <div className="text-red-800">{safeRenderValue(detailedError.errorCode)}</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-red-600">Timestamp</div>
-                        <div className="text-red-800">{safeRenderValue(detailedError.timestamp, new Date().toISOString())}</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-red-600">Context</div>
-                        <div className="text-red-800">{safeRenderValue(detailedError.context, 'General error')}</div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="text-sm font-medium text-red-600 mb-2">Error Message:</div>
-                      <div className="p-3 bg-red-100 rounded text-red-800 text-sm">
-                        {safeRenderValue(detailedError.message || detailedError.error)}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="text-sm font-medium text-red-600 mb-2">Details:</div>
-                      <div className="p-3 bg-red-100 rounded text-red-800 text-sm">
-                        {safeRenderValue(detailedError.details, 'No additional details available')}
-                      </div>
-                    </div>
-
-                    {detailedError.debugInfo && (
-                      <div>
-                        <div className="text-sm font-medium text-red-600 mb-2">Debug Information:</div>
-                        <div className="p-3 bg-gray-100 rounded text-gray-800 text-xs font-mono">
-                          <pre>{safeRenderObject(detailedError.debugInfo, 'No debug info available')}</pre>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             {/* Analysis Results */}
             {extractedContent && (
@@ -457,7 +377,7 @@ export default function TestPredictions() {
                   <CardTitle className="flex items-center justify-between">
                     <span className="flex items-center gap-2">
                       <Brain className="w-5 h-5" />
-                      Enhanced Text Extraction Results
+                      Content Analysis Results
                     </span>
                     {extractedContent.content && (
                       <Button
@@ -467,78 +387,51 @@ export default function TestPredictions() {
                         className="flex items-center gap-2"
                       >
                         <Download className="w-4 h-4" />
-                        Download
+                        Download Content
                       </Button>
                     )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    {/* Processing Performance Metrics */}
+                    {/* Material Info */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded">
                       <div>
-                        <div className="text-sm font-medium text-gray-600">Extraction Method</div>
-                        <div className="text-lg font-semibold flex items-center gap-2">
-                          {extractedContent.processingUsed ? (
-                            <>
-                              <CheckCircle className="w-5 h-5 text-green-600" />
-                              {safeRenderValue(extractedContent.extractionMethod)}
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="w-5 h-5 text-orange-600" />
-                              {safeRenderValue(extractedContent.extractionMethod, 'Failed')}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-600">Confidence</div>
-                        <div className={`text-lg font-semibold ${
-                          (extractedContent.extractionConfidence || 0) >= 90 ? 'text-green-600' :
-                          (extractedContent.extractionConfidence || 0) >= 70 ? 'text-yellow-600' :
-                          'text-red-600'
-                        }`}>
-                          {safeRenderValue(extractedContent.extractionConfidence, '0')}%
+                        <div className="text-sm font-medium text-gray-600">File Size</div>
+                        <div className="text-lg font-semibold">
+                          {extractedContent.fileSize ? `${Math.round(extractedContent.fileSize / 1024)}KB` : 'Unknown'}
                         </div>
                       </div>
                       <div>
                         <div className="text-sm font-medium text-gray-600">Word Count</div>
                         <div className="text-lg font-semibold">
-                          {extractedContent.wordCount ? extractedContent.wordCount.toLocaleString() : 'N/A'}
+                          {extractedContent.wordCount?.toLocaleString() || 'N/A'}
                         </div>
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-gray-600 flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          Processing Time
+                        <div className="text-sm font-medium text-gray-600">Characters</div>
+                        <div className="text-lg font-semibold">
+                          {extractedContent.characterCount?.toLocaleString() || 'N/A'}
                         </div>
-                        <div className="text-lg font-semibold text-blue-600">
-                          {extractedContent.processingTime ? `${extractedContent.processingTime}ms` : 'N/A'}
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-600">Content Quality</div>
+                        <div className={`text-lg font-semibold ${extractedContent.isContentValid ? 'text-green-600' : 'text-red-600'}`}>
+                          {extractedContent.isContentValid ? 'Good' : 'Poor'}
                         </div>
                       </div>
                     </div>
 
-                    {/* Debug Information */}
-                    {extractedContent.debugInfo && Object.keys(extractedContent.debugInfo).length > 0 && (
-                      <div className="p-4 bg-blue-50 border border-blue-200 rounded">
-                        <h3 className="font-semibold text-blue-800 mb-2">Debug Information:</h3>
-                        <div className="text-sm text-blue-700 space-y-1">
-                          {extractedContent.debugInfo.apiTime && (
-                            <div><strong>API Response Time:</strong> {safeRenderValue(extractedContent.debugInfo.apiTime)}ms</div>
-                          )}
-                          {extractedContent.debugInfo.method && (
-                            <div><strong>Detection Method:</strong> {safeRenderValue(extractedContent.debugInfo.method)}</div>
-                          )}
-                          {extractedContent.debugInfo.blockCount && (
-                            <div><strong>Text Blocks Detected:</strong> {safeRenderValue(extractedContent.debugInfo.blockCount)}</div>
-                          )}
-                          <div className="mt-2">
-                            <strong>Full Debug Data:</strong>
-                            <pre className="text-xs mt-1 p-2 bg-white rounded overflow-x-auto">
-                              {safeRenderObject(extractedContent.debugInfo)}
-                            </pre>
-                          </div>
+                    {/* Course Keywords Found */}
+                    {extractedContent.foundKeywords && extractedContent.foundKeywords.length > 0 && (
+                      <div className="p-4 bg-green-50 rounded border border-green-200">
+                        <h3 className="font-semibold text-green-800 mb-2">Course-Related Keywords Found:</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {extractedContent.foundKeywords.map((keyword, index) => (
+                            <span key={index} className="px-2 py-1 bg-green-100 text-green-700 rounded text-sm">
+                              {keyword}
+                            </span>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -546,37 +439,34 @@ export default function TestPredictions() {
                     {/* Error Display */}
                     {extractedContent.error ? (
                       <div className="bg-red-50 border border-red-200 p-4 rounded">
-                        <p className="text-red-700">❌ Extraction Error: {safeRenderValue(extractedContent.error)}</p>
-                        <p className="text-red-600 text-sm mt-2">
-                          This indicates an issue with the text extraction process. Check the detailed error information above for more specific debugging details.
-                        </p>
+                        <p className="text-red-700">❌ Error: {extractedContent.error}</p>
                       </div>
                     ) : (
                       <div>
-                        {(extractedContent.contentLength || 0) === 0 ? (
+                        {extractedContent.contentLength === 0 ? (
                           <div className="bg-amber-50 border border-amber-200 p-4 rounded">
                             <p className="text-amber-700">⚠️ No content extracted</p>
-                            <p className="text-amber-600 text-sm mt-2">
-                              Processing completed but no text was detected. This could be a valid result for image-based files.
-                            </p>
                           </div>
                         ) : (
                           <div className="space-y-4">
-                            <div className="bg-green-50 border border-green-200 p-4 rounded">
-                              <p className="text-green-700 mb-2">
-                                ✅ Enhanced text extraction successful!
+                            <div className={`border p-4 rounded ${extractedContent.isContentValid ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                              <p className={`mb-2 ${extractedContent.isContentValid ? 'text-green-700' : 'text-amber-700'}`}>
+                                {extractedContent.isContentValid ? '✅ Content extracted successfully' : '⚠️ Content extracted but may have quality issues'}
                               </p>
-                              <div className="text-sm text-green-600">
-                                Extracted: {(extractedContent.contentLength || 0).toLocaleString()} characters | 
-                                {(extractedContent.wordCount || 0).toLocaleString()} words | 
-                                Confidence: {safeRenderValue(extractedContent.extractionConfidence, '0')}%
-                                {extractedContent.processingTime && ` | Processing: ${extractedContent.processingTime}ms`}
+                              <div className={`text-sm ${extractedContent.isContentValid ? 'text-green-600' : 'text-amber-600'}`}>
+                                Original: {extractedContent.contentLength.toLocaleString()} characters | 
+                                Cleaned: {extractedContent.cleanedContentLength?.toLocaleString() || 'N/A'} characters
                               </div>
+                              {!extractedContent.isContentValid && (
+                                <div className="mt-2 text-sm text-amber-700">
+                                  <strong>Recommendation:</strong> For better predictions, use text files or PDFs with selectable text.
+                                </div>
+                              )}
                             </div>
 
                             {/* Content Display Controls */}
                             <div className="flex items-center justify-between">
-                              <h3 className="font-semibold text-lg">Extracted Text Content:</h3>
+                              <h3 className="font-semibold text-lg">Extracted Content:</h3>
                               <Button
                                 onClick={() => setShowFullContent(!showFullContent)}
                                 variant="outline"
@@ -586,7 +476,7 @@ export default function TestPredictions() {
                                 {showFullContent ? (
                                   <>
                                     <EyeOff className="w-4 h-4" />
-                                    Show Preview
+                                    Show Preview Only
                                   </>
                                 ) : (
                                   <>
@@ -600,16 +490,26 @@ export default function TestPredictions() {
                             {/* Content Preview */}
                             <div className="bg-white border rounded p-4">
                               <div className="font-medium mb-2 text-gray-700">
-                                {showFullContent ? 'Complete Extracted Text:' : 'Preview (first 2000 characters):'}
+                                {showFullContent ? 'Complete Content:' : 'Preview (first 1000 characters):'}
                               </div>
-                              <div className="text-sm text-gray-800 font-mono bg-gray-50 p-4 rounded max-h-96 overflow-auto whitespace-pre-wrap border leading-relaxed">
-                                {extractedContent.content ? (
-                                  showFullContent 
-                                    ? extractedContent.content 
-                                    : extractedContent.content.substring(0, 2000) + (extractedContent.content.length > 2000 ? '\n\n... (content truncated - click "Show Full Content" to see all)' : '')
-                                ) : 'No content available'}
+                              <div className="text-sm text-gray-800 font-mono bg-gray-50 p-4 rounded max-h-96 overflow-auto whitespace-pre-wrap border">
+                                {showFullContent 
+                                  ? extractedContent.content 
+                                  : extractedContent.content.substring(0, 1000) + (extractedContent.content.length > 1000 ? '\n\n... (content truncated - click "Show Full Content" to see everything)' : '')
+                                }
                               </div>
                             </div>
+
+                            {/* Cleaned Content (if different) */}
+                            {extractedContent.cleanedContent && extractedContent.cleanedContent !== extractedContent.content && (
+                              <div className="bg-blue-50 border border-blue-200 rounded p-4">
+                                <div className="font-medium mb-2 text-blue-700">Cleaned Content (for AI processing):</div>
+                                <div className="text-sm text-blue-800 font-mono bg-white p-3 rounded max-h-48 overflow-auto whitespace-pre-wrap">
+                                  {extractedContent.cleanedContent.substring(0, 500)}
+                                  {extractedContent.cleanedContent.length > 500 && '... (truncated)'}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -632,7 +532,7 @@ export default function TestPredictions() {
                   <div className="space-y-6">
                     {predictions.error ? (
                       <div className="bg-red-50 border border-red-200 p-4 rounded">
-                        <p className="text-red-700">❌ Prediction Error: {safeRenderValue(predictions.error)}</p>
+                        <p className="text-red-700">❌ Prediction Error: {predictions.error}</p>
                       </div>
                     ) : (
                       <div>
@@ -641,10 +541,10 @@ export default function TestPredictions() {
                           <div className="bg-blue-50 border border-blue-200 p-4 rounded mb-6">
                             <h3 className="font-semibold text-blue-800 mb-2">Prediction Summary:</h3>
                             <div className="text-sm text-blue-700 grid grid-cols-2 gap-4">
-                              <div><strong>Confidence Score:</strong> {safeRenderValue(predictions.prediction.confidence_score, '0')}%</div>
-                              <div><strong>Course:</strong> {safeRenderValue(predictions.prediction.course)}</div>
-                              <div><strong>Generated:</strong> {predictions.prediction.generated_at ? new Date(predictions.prediction.generated_at).toLocaleString() : 'N/A'}</div>
-                              <div><strong>Status:</strong> {safeRenderValue(predictions.prediction.status)}</div>
+                              <div><strong>Confidence Score:</strong> {predictions.prediction.confidence_score}%</div>
+                              <div><strong>Course:</strong> {predictions.prediction.course}</div>
+                              <div><strong>Generated:</strong> {new Date(predictions.prediction.generated_at).toLocaleString()}</div>
+                              <div><strong>Status:</strong> {predictions.prediction.status}</div>
                             </div>
                           </div>
                         )}
@@ -654,19 +554,19 @@ export default function TestPredictions() {
                           <div className="bg-green-50 border border-green-200 p-4 rounded mb-6">
                             <h3 className="font-semibold text-green-800 mb-2">Content Analysis:</h3>
                             <div className="text-sm text-green-700">
-                              <div><strong>Materials Processed:</strong> {safeRenderValue(predictions.content_analysis.materials_processed, '0')}</div>
-                              <div><strong>Total Content Length:</strong> {predictions.content_analysis.total_content_length ? predictions.content_analysis.total_content_length.toLocaleString() : 'N/A'} characters</div>
-                              <div><strong>Whispers Count:</strong> {safeRenderValue(predictions.content_analysis.whispers_count, '0')}</div>
+                              <div><strong>Materials Processed:</strong> {predictions.content_analysis.materials_processed}</div>
+                              <div><strong>Total Content Length:</strong> {predictions.content_analysis.total_content_length?.toLocaleString()} characters</div>
+                              <div><strong>Whispers Count:</strong> {predictions.content_analysis.whispers_count}</div>
                             </div>
                           </div>
                         )}
 
                         {/* Generated Predictions */}
-                        {predictions.generated_content?.predictions && Array.isArray(predictions.generated_content.predictions) && (
+                        {predictions.generated_content?.predictions && (
                           <div>
                             <h3 className="font-semibold text-lg mb-4">Quality Exam Predictions ({predictions.generated_content.predictions.length}):</h3>
                             <div className="space-y-4">
-                              {predictions.generated_content.predictions.slice(0, 10).map((prediction, index) => (
+                              {predictions.generated_content.predictions.slice(0, 20).map((prediction, index) => (
                                 <div key={index} className="bg-white border rounded p-4 shadow-sm">
                                   <div className="flex items-start justify-between mb-3">
                                     <div className="text-sm font-medium text-gray-600">
@@ -675,21 +575,21 @@ export default function TestPredictions() {
                                     <div className="flex items-center gap-2">
                                       {prediction.confidence && (
                                         <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                          (prediction.confidence || 0) >= 85 ? 'bg-green-100 text-green-700' :
-                                          (prediction.confidence || 0) >= 70 ? 'bg-yellow-100 text-yellow-700' :
+                                          prediction.confidence >= 85 ? 'bg-green-100 text-green-700' :
+                                          prediction.confidence >= 70 ? 'bg-yellow-100 text-yellow-700' :
                                           'bg-red-100 text-red-700'
                                         }`}>
-                                          {safeRenderValue(prediction.confidence, '0')}% confidence
+                                          {prediction.confidence}% confidence
                                         </span>
                                       )}
                                       {prediction.type && (
                                         <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                                          {safeRenderValue(prediction.type)}
+                                          {prediction.type}
                                         </span>
                                       )}
                                       {prediction.difficulty && (
                                         <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium">
-                                          {safeRenderValue(prediction.difficulty)}
+                                          {prediction.difficulty}
                                         </span>
                                       )}
                                     </div>
@@ -698,7 +598,7 @@ export default function TestPredictions() {
                                   <div className="mb-3">
                                     <div className="font-medium text-gray-800 mb-2">Question:</div>
                                     <div className="text-gray-700 bg-gray-50 p-3 rounded">
-                                      {safeRenderValue(prediction.question, 'No question available')}
+                                      {prediction.question}
                                     </div>
                                   </div>
 
@@ -706,18 +606,18 @@ export default function TestPredictions() {
                                     <div className="mb-3">
                                       <div className="text-sm font-medium text-gray-600 mb-1">Reasoning:</div>
                                       <div className="text-sm text-gray-600">
-                                        {safeRenderValue(prediction.reasoning)}
+                                        {prediction.reasoning}
                                       </div>
                                     </div>
                                   )}
 
-                                  {prediction.sources && Array.isArray(prediction.sources) && prediction.sources.length > 0 && (
+                                  {prediction.sources && prediction.sources.length > 0 && (
                                     <div>
                                       <div className="text-sm font-medium text-gray-600 mb-1">Sources:</div>
                                       <div className="flex flex-wrap gap-1">
                                         {prediction.sources.map((source, srcIndex) => (
                                           <span key={srcIndex} className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
-                                            {safeRenderValue(source)}
+                                            {source}
                                           </span>
                                         ))}
                                       </div>
@@ -727,9 +627,9 @@ export default function TestPredictions() {
                               ))}
                             </div>
 
-                            {predictions.generated_content.predictions.length > 10 && (
+                            {predictions.generated_content.predictions.length > 20 && (
                               <div className="mt-4 text-center text-gray-500">
-                                Showing first 10 predictions out of {predictions.generated_content.predictions.length} total
+                                Showing first 20 predictions out of {predictions.generated_content.predictions.length} total
                               </div>
                             )}
                           </div>
@@ -740,9 +640,9 @@ export default function TestPredictions() {
                           <div className="mt-6 bg-gray-50 border border-gray-200 p-4 rounded">
                             <h3 className="font-semibold text-gray-800 mb-2">Overall Analysis:</h3>
                             <div className="text-sm text-gray-700">
-                              <div><strong>Overall Confidence:</strong> {safeRenderValue(predictions.generated_content.overall_confidence, '0')}%</div>
+                              <div><strong>Overall Confidence:</strong> {predictions.generated_content.overall_confidence}%</div>
                               {predictions.generated_content.analysis_summary && (
-                                <div className="mt-2"><strong>Summary:</strong> {safeRenderValue(predictions.generated_content.analysis_summary)}</div>
+                                <div className="mt-2"><strong>Summary:</strong> {predictions.generated_content.analysis_summary}</div>
                               )}
                             </div>
                           </div>

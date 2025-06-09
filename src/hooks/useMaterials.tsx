@@ -14,11 +14,6 @@ export interface Material {
   processed: boolean;
   upload_date: string;
   file_path?: string;
-  extraction_method?: string;
-  extraction_confidence?: number;
-  extraction_metadata?: any;
-  processing_status?: string;
-  processing_progress?: number;
 }
 
 export function useMaterials() {
@@ -32,14 +27,7 @@ export function useMaterials() {
     try {
       const { data, error } = await supabase
         .from('cramintel_materials')
-        .select(`
-          *,
-          extraction_method,
-          extraction_confidence,
-          extraction_metadata,
-          processing_status,
-          processing_progress
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .eq('processed', true)
         .order('upload_date', { ascending: false });

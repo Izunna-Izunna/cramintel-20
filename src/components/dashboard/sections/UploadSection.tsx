@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Image, BookOpen, Zap, CheckCircle, Eye } from 'lucide-react';
+import { Upload, FileText, Image, BookOpen } from 'lucide-react';
 
 export function UploadSection() {
   return (
@@ -27,82 +27,28 @@ export function UploadSection() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Eye className="w-5 h-5 text-blue-500" />
-              Google Cloud Vision OCR
+              <FileText className="w-5 h-5" />
+              Supported Formats
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="p-3 bg-blue-50 rounded border border-blue-200">
-                <div className="flex items-center gap-3 mb-2">
-                  <Image className="w-4 h-4 text-blue-600" />
-                  <span className="font-medium text-blue-800">Images (JPG, PNG, TIFF)</span>
-                </div>
-                <p className="text-sm text-blue-700">
-                  ✅ Premium OCR with Google Cloud Vision
-                </p>
-                <div className="flex items-center gap-2 mt-2 text-xs text-blue-600">
-                  <Zap className="w-3 h-3" />
-                  <span>Up to 20MB • 95%+ accuracy • Real-time processing</span>
-                </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <FileText className="w-4 h-4 text-blue-500" />
+                <span>PDF Documents</span>
               </div>
-              
-              <div className="p-3 bg-green-50 rounded border border-green-200">
-                <div className="flex items-center gap-3 mb-2">
-                  <FileText className="w-4 h-4 text-green-600" />
-                  <span className="font-medium text-green-800">PDF Documents</span>
-                </div>
-                <p className="text-sm text-green-700">
-                  ✅ Advanced text extraction with Google Vision
-                </p>
-                <div className="flex items-center gap-2 mt-2 text-xs text-green-600">
-                  <Zap className="w-3 h-3" />
-                  <span>Smart OCR • Auto fallback • Up to 1GB support</span>
-                </div>
+              <div className="flex items-center gap-3">
+                <Image className="w-4 h-4 text-green-500" />
+                <span>Images (JPG, PNG)</span>
               </div>
-              
               <div className="flex items-center gap-3">
                 <BookOpen className="w-4 h-4 text-purple-500" />
-                <span>Text Files (TXT)</span>
+                <span>Text Files</span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Enhanced Processing Architecture</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 bg-blue-50 rounded">
-              <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                <Eye className="w-4 h-4 text-blue-500" />
-                Google Cloud Vision OCR
-              </h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li>• Premium OCR technology</li>
-                <li>• 95%+ text recognition accuracy</li>
-                <li>• Multi-language support</li>
-                <li>• Confidence scoring</li>
-              </ul>
-            </div>
-            <div className="p-4 bg-green-50 rounded">
-              <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                Smart Fallback System
-              </h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li>• Automatic method selection</li>
-                <li>• PDF fallback processing</li>
-                <li>• Quality assurance checks</li>
-                <li>• Optimized for accuracy</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

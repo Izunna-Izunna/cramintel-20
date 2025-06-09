@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Upload, FileText, MessageSquare, BookOpen, X, Check, Brain, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';

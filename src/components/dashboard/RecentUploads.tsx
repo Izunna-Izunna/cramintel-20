@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,8 +14,6 @@ interface Upload {
   upload_date: string;
   processed: boolean;
   file_type: string;
-  extraction_method?: string;
-  extraction_confidence?: number;
 }
 
 export function RecentUploads() {
@@ -32,7 +31,7 @@ export function RecentUploads() {
     try {
       const { data, error } = await supabase
         .from('cramintel_materials')
-        .select('id, name, material_type, course, upload_date, processed, file_type, extraction_method, extraction_confidence')
+        .select('id, name, material_type, course, upload_date, processed, file_type')
         .eq('user_id', user?.id)
         .order('upload_date', { ascending: false })
         .limit(3);
@@ -63,54 +62,6 @@ export function RecentUploads() {
       default:
         return '📄';
     }
-  };
-
-  const getProcessingBadge = (upload: Upload) => {
-    if (!upload.processed) {
-      return (
-        <span className="text-[10px] sm:text-xs text-gray-600 px-2 md:px-3 py-1 md:py-2 bg-gray-100 rounded-lg">
-          Processing...
-        </span>
-      );
-    }
-
-    if (upload.extraction_method) {
-      const method = upload.extraction_method;
-      const confidence = upload.extraction_confidence || 0;
-      
-      let badgeColor = 'bg-green-100 text-green-700';
-      let badgeText = method;
-      
-      // Special handling for Google Vision methods
-      if (method.includes('google-vision')) {
-        badgeColor = 'bg-blue-100 text-blue-700';
-        if (method === 'google-vision-sync') {
-          badgeText = 'Vision OCR';
-        } else if (method === 'google-vision-pdf-sync') {
-          badgeText = 'Vision PDF';
-        }
-      } else if (method === 'unpdf-fallback') {
-        badgeText = 'PDF Fallback';
-        badgeColor = 'bg-yellow-100 text-yellow-700';
-      } else if (method === 'unpdf') {
-        badgeText = 'PDF Extract';
-      }
-      
-      if (confidence < 70) badgeColor = 'bg-yellow-100 text-yellow-700';
-      if (confidence < 50) badgeColor = 'bg-red-100 text-red-700';
-
-      return (
-        <span className={`text-[10px] sm:text-xs px-2 md:px-3 py-1 md:py-2 rounded-lg ${badgeColor}`}>
-          {badgeText} ({confidence}%)
-        </span>
-      );
-    }
-
-    return (
-      <span className="text-[10px] sm:text-xs text-green-600 px-2 md:px-3 py-1 md:py-2 bg-green-100 rounded-lg">
-        Processed
-      </span>
-    );
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -175,7 +126,7 @@ export function RecentUploads() {
                   </div>
                 </div>
                 
-                <div className="flex gap-2 w-full sm:w-auto items-center">
+                <div className="flex gap-2 w-full sm:w-auto">
                   {upload.processed ? (
                     <>
                       <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-xs flex-1 sm:flex-none">
@@ -185,8 +136,11 @@ export function RecentUploads() {
                         View Flashcards
                       </Button>
                     </>
-                  ) : null}
-                  {getProcessingBadge(upload)}
+                  ) : (
+                    <span className="text-[10px] sm:text-xs text-gray-600 px-2 md:px-3 py-1 md:py-2 bg-gray-100 rounded-lg">
+                      Processing...
+                    </span>
+                  )}
                 </div>
               </div>
             ))
