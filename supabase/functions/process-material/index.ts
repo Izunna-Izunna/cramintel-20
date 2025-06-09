@@ -15,15 +15,38 @@ interface FlashcardQuestion {
   topic?: string;
 }
 
-// OCR function using Google Vision API
+// Chunked base64 conversion to prevent stack overflow for large files
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 8192; // 8KB chunks
+  let binary = '';
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.slice(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  
+  return btoa(binary);
+}
+
+// OCR function using Google Vision API with chunked base64 conversion
 async function extractTextFromImage(imageBuffer: ArrayBuffer): Promise<string> {
   const googleVisionApiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY');
   if (!googleVisionApiKey) {
     throw new Error('Google Vision API key not configured');
   }
 
+  // File size validation (20MB limit)
+  const maxFileSize = 20 * 1024 * 1024; // 20MB
+  if (imageBuffer.byteLength > maxFileSize) {
+    throw new Error(`Image file too large: ${(imageBuffer.byteLength / 1024 / 1024).toFixed(1)}MB. Maximum allowed: 20MB`);
+  }
+
   try {
-    const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+    console.log(`Processing image of size: ${(imageBuffer.byteLength / 1024 / 1024).toFixed(2)}MB`);
+    
+    // Use chunked base64 conversion to prevent stack overflow
+    const base64Image = arrayBufferToBase64(imageBuffer);
     
     const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${googleVisionApiKey}`, {
       method: 'POST',
@@ -48,16 +71,30 @@ async function extractTextFromImage(imageBuffer: ArrayBuffer): Promise<string> {
     });
 
     if (!response.ok) {
-      throw new Error(`Google Vision API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Google Vision API error response:', errorText);
+      throw new Error(`Google Vision API error: ${response.status} - ${errorText}`);
     }
 
     const result = await response.json();
-    const textAnnotations = result.responses[0]?.textAnnotations;
+    console.log('Google Vision API response received');
     
-    if (textAnnotations && textAnnotations.length > 0) {
-      return textAnnotations[0].description || '';
+    if (result.responses && result.responses[0]) {
+      const responseData = result.responses[0];
+      
+      if (responseData.error) {
+        throw new Error(`Google Vision API error: ${responseData.error.message}`);
+      }
+      
+      const textAnnotations = responseData.textAnnotations;
+      if (textAnnotations && textAnnotations.length > 0) {
+        const extractedText = textAnnotations[0].description || '';
+        console.log(`OCR extracted ${extractedText.length} characters from image`);
+        return extractedText;
+      }
     }
     
+    console.log('No text detected in image');
     return '';
   } catch (error) {
     console.error('OCR extraction failed:', error);
@@ -68,6 +105,16 @@ async function extractTextFromImage(imageBuffer: ArrayBuffer): Promise<string> {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  let requestBody: any;
+  try {
+    requestBody = await req.json();
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -94,7 +141,7 @@ serve(async (req) => {
       });
     }
 
-    const { materialId } = await req.json();
+    const { materialId } = requestBody;
 
     if (!materialId) {
       return new Response(JSON.stringify({ error: 'Material ID is required' }), {
@@ -259,13 +306,11 @@ Students should concentrate on understanding how these concepts interconnect and
       })
       .eq('id', materialId);
 
-    // Clean text with special handling for OCR text
     let cleanText = extractedText
       .replace(/\s+/g, ' ')
       .replace(/[^\w\s.,!?;:()\-\[\]]/g, '')
       .trim();
 
-    // For OCR text, add some context about the source
     if (requiresOCR) {
       cleanText = `Past Question Analysis from ${material.course}:\n\n${cleanText}`;
     }
@@ -276,7 +321,6 @@ Students should concentrate on understanding how these concepts interconnect and
       throw new Error('Insufficient content for flashcard generation');
     }
 
-    // Update processing status
     await supabase
       .from('cramintel_materials')
       .update({ 
@@ -285,7 +329,6 @@ Students should concentrate on understanding how these concepts interconnect and
       })
       .eq('id', materialId);
 
-    // Generate flashcards using OpenAI
     let flashcards: FlashcardQuestion[] = [];
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -402,7 +445,6 @@ Title: ${material.name}`
       throw new Error(`Flashcard generation failed: ${openaiError.message}`);
     }
 
-    // Update processing status
     await supabase
       .from('cramintel_materials')
       .update({ 
@@ -411,7 +453,6 @@ Title: ${material.name}`
       })
       .eq('id', materialId);
 
-    // Create deck and save flashcards
     const deckName = isPastQuestionImages 
       ? `${material.name} - Past Questions Flashcards`
       : `${material.name} - Flashcards`;
@@ -439,7 +480,6 @@ Title: ${material.name}`
       throw new Error('Failed to create flashcard deck');
     }
 
-    // Save flashcards
     const flashcardInserts = flashcards.map(card => ({
       question: card.question,
       answer: card.answer,
@@ -459,7 +499,6 @@ Title: ${material.name}`
       throw new Error('Failed to save flashcards');
     }
 
-    // Link flashcards to deck
     const deckFlashcardInserts = savedFlashcards.map(flashcard => ({
       deck_id: deck.id,
       flashcard_id: flashcard.id
@@ -473,7 +512,6 @@ Title: ${material.name}`
       console.error('Error linking flashcards:', linkError);
     }
 
-    // Mark as completed
     await supabase
       .from('cramintel_materials')
       .update({ 
@@ -503,7 +541,7 @@ Title: ${material.name}`
     console.error('Error in process-material function:', error);
     
     try {
-      const { materialId } = await req.json();
+      const { materialId } = requestBody;
       if (materialId) {
         const supabase = createClient(
           Deno.env.get('SUPABASE_URL') ?? '',
