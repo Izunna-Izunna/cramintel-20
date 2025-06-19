@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Brain, RotateCcw, CheckCircle, Formula } from 'lucide-react';
+import { Brain, RotateCcw, CheckCircle, Calculator } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { MathText } from '@/components/ui/MathText';
@@ -135,7 +134,7 @@ export function FlashcardOfTheDay() {
           </Badge>
           {flashcard.math_category && (
             <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-              <Formula className="w-3 h-3 mr-1" />
+              <Calculator className="w-3 h-3 mr-1" />
               {flashcard.math_category}
             </Badge>
           )}

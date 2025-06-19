@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, RotateCcw, CheckCircle, XCircle, Brain, Formula } from 'lucide-react';
+import { ArrowLeft, RotateCcw, CheckCircle, XCircle, Brain, Calculator } from 'lucide-react';
 import { FlashcardDeck } from '@/hooks/useFlashcardDecks';
 import { useFlashcards } from '@/hooks/useFlashcardDecks';
 import { useStudyAnalytics } from '@/hooks/useStudyAnalytics';
@@ -201,7 +201,7 @@ export function StudyInterface({ deck, onExit, onComplete }: StudyInterfaceProps
         {currentCard.math_category && (
           <div className="mb-4 flex justify-center">
             <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-              <Formula className="w-3 h-3 mr-1" />
+              <Calculator className="w-3 h-3 mr-1" />
               {currentCard.math_category}
             </Badge>
           </div>
@@ -328,7 +328,7 @@ export function StudyInterface({ deck, onExit, onComplete }: StudyInterfaceProps
               <>
                 <span>•</span>
                 <span className="flex items-center">
-                  <Formula className="w-3 h-3 mr-1" />
+                  <Calculator className="w-3 h-3 mr-1" />
                   Mathematical
                 </span>
               </>
