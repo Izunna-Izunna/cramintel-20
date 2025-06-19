@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, RotateCcw, CheckCircle, XCircle, Brain } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, RotateCcw, CheckCircle, XCircle, Brain, Formula } from 'lucide-react';
 import { FlashcardDeck } from '@/hooks/useFlashcardDecks';
 import { useFlashcards } from '@/hooks/useFlashcardDecks';
 import { useStudyAnalytics } from '@/hooks/useStudyAnalytics';
@@ -195,10 +197,15 @@ export function StudyInterface({ deck, onExit, onComplete }: StudyInterfaceProps
           </div>
         </div>
 
-        {/* Debug Info (remove in production) */}
-        <div className="mb-4 p-2 bg-yellow-100 rounded text-xs">
-          <strong>Debug:</strong> Card ID: {currentCard.id}, Question: {currentCard.question ? 'Present' : 'Missing'}, Answer: {currentCard.answer ? 'Present' : 'Missing'}
-        </div>
+        {/* Math Category Badge */}
+        {currentCard.math_category && (
+          <div className="mb-4 flex justify-center">
+            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+              <Formula className="w-3 h-3 mr-1" />
+              {currentCard.math_category}
+            </Badge>
+          </div>
+        )}
 
         {/* Flashcard */}
         <div className="mb-8">
@@ -209,7 +216,7 @@ export function StudyInterface({ deck, onExit, onComplete }: StudyInterfaceProps
             transition={{ duration: 0.2 }}
           >
             <Card className="absolute inset-0 shadow-lg">
-              <CardContent className="h-full flex items-center justify-center p-8">
+              <CardContent className="h-full flex flex-col justify-center p-8">
                 <motion.div
                   className="text-center w-full"
                   animate={{ rotateY: isFlipped ? 180 : 0 }}
@@ -225,11 +232,35 @@ export function StudyInterface({ deck, onExit, onComplete }: StudyInterfaceProps
                       <p className="text-sm text-gray-500">Click to reveal answer</p>
                     </div>
                   ) : (
-                    <div style={{ transform: 'rotateY(180deg)', backfaceVisibility: 'hidden' }}>
+                    <div style={{ transform: 'rotateY(180deg)', backfaceVisibility: 'hidden' }} className="space-y-4">
                       <h3 className="text-lg font-semibold mb-4 text-gray-800">Answer:</h3>
                       <MathText className="text-xl text-gray-700 leading-relaxed">
                         {currentCard.answer || 'No answer available'}
                       </MathText>
+                      
+                      {/* Formula Display */}
+                      {currentCard.formula && (
+                        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                          <h4 className="text-sm font-semibold text-blue-800 mb-2">Formula:</h4>
+                          <MathText className="text-lg text-center text-blue-900">
+                            {currentCard.formula}
+                          </MathText>
+                        </div>
+                      )}
+                      
+                      {/* Variables Display */}
+                      {currentCard.variables && (
+                        <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                          <h4 className="text-sm font-semibold text-green-800 mb-2">Where:</h4>
+                          <div className="text-sm text-green-700">
+                            {currentCard.variables.split('; ').map((variable, index) => (
+                              <div key={index} className="mb-1">
+                                <MathText>{variable}</MathText>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </motion.div>
@@ -293,6 +324,15 @@ export function StudyInterface({ deck, onExit, onComplete }: StudyInterfaceProps
             <span>Mastery: {currentCard.mastery_level || 0}/5</span>
             <span>•</span>
             <span>Reviewed: {currentCard.times_reviewed || 0} times</span>
+            {currentCard.formula && (
+              <>
+                <span>•</span>
+                <span className="flex items-center">
+                  <Formula className="w-3 h-3 mr-1" />
+                  Mathematical
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>

@@ -12,6 +12,150 @@ interface FlashcardQuestion {
   answer: string;
   difficulty: 'easy' | 'medium' | 'hard';
   topic?: string;
+  formula?: string;
+  variables?: string;
+  math_category?: string;
+}
+
+interface MathematicalVariable {
+  symbol: string;
+  definition: string;
+  unit?: string;
+}
+
+// Enhanced Mathematical Formula Processor
+class MathFormulaProcessor {
+  // Detect mathematical expressions in text
+  static detectMathExpressions(text: string): boolean {
+    const mathPatterns = [
+      /[=+\-*/^()]/g,                    // Basic math operators  
+      /\b\d+\.\d+\b/g,                   // Decimal numbers
+      /\b[a-zA-Z]\s*[=+\-*/^]\s*\b/g,    // Variables with operators
+      /\b(sin|cos|tan|log|ln|sqrt)\b/g,   // Math functions
+      /\b(sigma|pi|delta|alpha|beta|gamma|theta|omega)\b/gi, // Greek letters
+      /\b(force|stress|strain|moment|frequency|pressure)\b/gi, // Engineering terms
+    ];
+
+    return mathPatterns.some(pattern => pattern.test(text));
+  }
+
+  // Convert common mathematical notation to LaTeX
+  static convertToLatex(text: string): string {
+    let latex = text;
+
+    // Common substitutions
+    const conversions = [
+      // Greek letters
+      { pattern: /\bsigma\b/gi, replacement: '\\sigma' },
+      { pattern: /\bpi\b/gi, replacement: '\\pi' },
+      { pattern: /\bdelta\b/gi, replacement: '\\Delta' },
+      { pattern: /\balpha\b/gi, replacement: '\\alpha' },
+      { pattern: /\bbeta\b/gi, replacement: '\\beta' },
+      { pattern: /\bgamma\b/gi, replacement: '\\gamma' },
+      { pattern: /\btheta\b/gi, replacement: '\\theta' },
+      { pattern: /\bomega\b/gi, replacement: '\\omega' },
+      { pattern: /\bmu\b/gi, replacement: '\\mu' },
+      { pattern: /\brho\b/gi, replacement: '\\rho' },
+      
+      // Mathematical operations
+      { pattern: /\*\*/g, replacement: '^' },           // ** to ^
+      { pattern: /sqrt\((.*?)\)/g, replacement: '\\sqrt{$1}' },
+      { pattern: /(\w+)\^(\w+)/g, replacement: '$1^{$2}' },
+      { pattern: /(\w+)_(\w+)/g, replacement: '$1_{$2}' },
+      
+      // Fractions - simple pattern
+      { pattern: /\(([^)]+)\)\s*\/\s*\(([^)]+)\)/g, replacement: '\\frac{$1}{$2}' },
+      { pattern: /(\w+)\s*\/\s*(\w+)/g, replacement: '\\frac{$1}{$2}' },
+      
+      // Common engineering formulas
+      { pattern: /\b(\w+)\s*=\s*\(([^)]+)\)\s*\/\s*\(([^)]+)\)/g, replacement: '$1 = \\frac{$2}{$3}' },
+    ];
+
+    conversions.forEach(({ pattern, replacement }) => {
+      latex = latex.replace(pattern, replacement);
+    });
+
+    return latex;
+  }
+
+  // Extract variables and their definitions from text
+  static extractVariables(text: string): MathematicalVariable[] {
+    const variables: MathematicalVariable[] = [];
+    
+    // Pattern to match variable definitions
+    const variablePatterns = [
+      /(\w+|\\?\w+)\s+is\s+the\s+([^,\n.]+)(?:\s*\(([^)]+)\))?/gi,
+      /(\w+|\\?\w+)\s*=\s*([^,\n.]+?)(?:\s*\(([^)]+)\))?/gi,
+      /where\s+(\w+|\\?\w+)\s+is\s+([^,\n.]+)(?:\s*\(([^)]+)\))?/gi,
+    ];
+
+    variablePatterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const symbol = match[1].trim();
+        const definition = match[2].trim();
+        const unit = match[3]?.trim();
+        
+        if (symbol && definition) {
+          variables.push({
+            symbol: symbol.startsWith('\\') ? symbol : symbol,
+            definition,
+            unit
+          });
+        }
+      }
+    });
+
+    return variables;
+  }
+
+  // Categorize engineering content
+  static categorizeContent(text: string): string {
+    const categories = {
+      'Mechanics': ['stress', 'strain', 'force', 'moment', 'torque'],
+      'Vibrations': ['frequency', 'amplitude', 'resonance', 'damping'],
+      'Materials': ['modulus', 'strength', 'fatigue', 'fracture'],
+      'Thermodynamics': ['heat', 'temperature', 'energy', 'entropy'],
+      'Fluid Mechanics': ['pressure', 'flow', 'velocity', 'viscosity']
+    };
+
+    for (const [category, keywords] of Object.entries(categories)) {
+      if (keywords.some(keyword => text.toLowerCase().includes(keyword))) {
+        return category;
+      }
+    }
+
+    return 'General Engineering';
+  }
+
+  // Enhanced flashcard processing
+  static processTextForFlashcards(text: string): { 
+    hasFormulas: boolean; 
+    formulas: string[]; 
+    variables: MathematicalVariable[];
+    category: string;
+  } {
+    const hasFormulas = this.detectMathExpressions(text);
+    const formulas: string[] = [];
+    
+    if (hasFormulas) {
+      // Extract formulas (equations with = sign)
+      const formulaMatches = text.match(/[^=]*=[^.\n]+/g);
+      if (formulaMatches) {
+        formulas.push(...formulaMatches.map(formula => this.convertToLatex(formula.trim())));
+      }
+    }
+
+    const variables = this.extractVariables(text);
+    const category = this.categorizeContent(text);
+
+    return {
+      hasFormulas,
+      formulas,
+      variables,
+      category
+    };
+  }
 }
 
 // Enhanced PDF-to-image conversion using pdf-lib
@@ -490,7 +634,6 @@ serve(async (req) => {
         extractedText = await fileData.text()
         extractionConfidence = 95
       } else {
-        // ... keep existing code (fallback content generation) the same
         extractedText = `Course Material Analysis: ${material.name}
 Subject: ${material.course}
 Material Type: ${material.material_type}
@@ -574,7 +717,7 @@ Students should concentrate on understanding how these concepts interconnect and
       })
       .eq('id', materialId)
 
-    // ... keep existing code (flashcard generation with OpenAI) the same
+    // Enhanced flashcard generation with mathematical processing
     let flashcards: FlashcardQuestion[] = []
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
@@ -583,6 +726,9 @@ Students should concentrate on understanding how these concepts interconnect and
     }
 
     try {
+      // Process text for mathematical content
+      const mathProcessing = MathFormulaProcessor.processTextForFlashcards(cleanText);
+      
       const systemPrompt = isPastQuestionImages 
         ? `You are an expert educator creating study flashcards from past exam questions that were extracted via OCR.
 
@@ -590,10 +736,12 @@ REQUIREMENTS:
 - Generate EXACTLY 20 flashcards from the provided past question content
 - Focus on the types of questions that appeared in past exams
 - Create questions that help students prepare for similar exam formats
+- For mathematical content, preserve formulas and equations exactly as they appear
 - Base flashcards on the actual question patterns and topics found
 - Provide complete, accurate answers that would help in exam preparation
 - Distribute difficulty: 6 easy, 8 medium, 6 hard
 - Make questions specific to the exam style and content discovered
+- For engineering/mathematical content, include variable definitions when relevant
 
 Return ONLY a JSON array:
 [
@@ -612,10 +760,12 @@ REQUIREMENTS:
 - Generate EXACTLY 20 flashcards from the provided content
 - Base questions on specific information from the text
 - Create meaningful, educational questions that test understanding
+- For mathematical content, preserve formulas and equations exactly as they appear
 - Provide complete, accurate answers
 - Distribute difficulty: 6 easy, 8 medium, 6 hard
 - Focus on key concepts, definitions, and important facts
 - Make questions specific and clear
+- For engineering/mathematical content, include variable definitions when relevant
 
 Return ONLY a JSON array:
 [
@@ -650,7 +800,8 @@ ${cleanText.substring(0, 12000)}
 
 Course: ${material.course}
 Type: ${material.material_type}
-Title: ${material.name}`
+Title: ${material.name}
+${mathProcessing.hasFormulas ? `\nMathematical content detected with ${mathProcessing.formulas.length} formulas in category: ${mathProcessing.category}` : ''}`
             }
           ],
           temperature: 0.3,
@@ -673,6 +824,29 @@ Title: ${material.name}`
 
       flashcards = JSON.parse(flashcardsContent)
       
+      // Enhance flashcards with mathematical processing
+      if (mathProcessing.hasFormulas) {
+        flashcards = flashcards.map((card, index) => {
+          // Check if this flashcard contains mathematical content
+          const cardMathProcessing = MathFormulaProcessor.processTextForFlashcards(card.question + ' ' + card.answer);
+          
+          if (cardMathProcessing.hasFormulas) {
+            const variables = cardMathProcessing.variables.map(v => 
+              `${v.symbol} = ${v.definition}${v.unit ? ` (${v.unit})` : ''}`
+            ).join('; ');
+            
+            return {
+              ...card,
+              formula: cardMathProcessing.formulas[0] || null,
+              variables: variables || null,
+              math_category: cardMathProcessing.category
+            };
+          }
+          
+          return card;
+        });
+      }
+      
       if (!Array.isArray(flashcards) || flashcards.length !== 20) {
         console.warn(`Expected 20 flashcards, got ${flashcards.length}`)
         if (flashcards.length < 20) {
@@ -685,13 +859,13 @@ Title: ${material.name}`
         }
       }
 
-      console.log(`Successfully generated ${flashcards.length} flashcards using OpenAI`)
+      console.log(`Successfully generated ${flashcards.length} flashcards using OpenAI with enhanced mathematical processing`)
     } catch (openaiError) {
       console.error('OpenAI processing failed:', openaiError)
       throw new Error(`Flashcard generation failed: ${openaiError.message}`)
     }
 
-    // ... keep existing code (deck creation and flashcard saving) the same
+    // Deck creation and flashcard saving
     await supabase
       .from('cramintel_materials')
       .update({ 
@@ -733,7 +907,10 @@ Title: ${material.name}`
       course: material.course,
       difficulty_level: card.difficulty || 'medium',
       material_id: materialId,
-      user_id: user.id
+      user_id: user.id,
+      formula: card.formula || null,
+      variables: card.variables || null,
+      math_category: card.math_category || null
     }))
 
     const { data: savedFlashcards, error: flashcardError } = await supabase
@@ -771,14 +948,17 @@ Title: ${material.name}`
     console.log('Material processing completed successfully')
 
     const resultMessage = isPastQuestionImages
-      ? `Successfully generated ${flashcards.length} flashcards from past question image via enhanced OCR`
+      ? `Successfully generated ${flashcards.length} flashcards from past question image via enhanced OCR with mathematical processing`
       : material.file_type?.includes('pdf')
-      ? `Successfully generated ${flashcards.length} flashcards from PDF using enhanced processing`
-      : `Successfully generated ${flashcards.length} flashcards from content`
+      ? `Successfully generated ${flashcards.length} flashcards from PDF using enhanced processing with mathematical formatting`
+      : `Successfully generated ${flashcards.length} flashcards from content with mathematical formatting`
+
+    const mathFlashcardsCount = flashcards.filter(card => card.formula).length;
 
     return new Response(JSON.stringify({
       success: true,
       flashcards_generated: flashcards.length,
+      math_flashcards_generated: mathFlashcardsCount,
       deck_id: deck.id,
       ocr_processed: requiresOCR,
       enhanced_pdf_processed: material.file_type?.includes('pdf'),

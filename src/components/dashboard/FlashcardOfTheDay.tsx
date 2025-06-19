@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Brain, RotateCcw, CheckCircle } from 'lucide-react';
+import { Brain, RotateCcw, CheckCircle, Formula } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { MathText } from '@/components/ui/MathText';
 
 interface Flashcard {
   id: string;
@@ -13,6 +14,9 @@ interface Flashcard {
   answer: string;
   course: string;
   difficulty_level: string;
+  formula?: string | null;
+  variables?: string | null;
+  math_category?: string | null;
 }
 
 export function FlashcardOfTheDay() {
@@ -28,10 +32,10 @@ export function FlashcardOfTheDay() {
     }
 
     try {
-      // Get a random flashcard that's due for review
+      // Get a random flashcard that's due for review, including mathematical fields
       const { data: flashcards, error } = await supabase
         .from('cramintel_flashcards')
-        .select('id, question, answer, course, difficulty_level')
+        .select('id, question, answer, course, difficulty_level, formula, variables, math_category')
         .eq('user_id', user.id)
         .order('last_reviewed', { ascending: true, nullsFirst: true })
         .limit(5);
@@ -129,17 +133,49 @@ export function FlashcardOfTheDay() {
           <Badge variant="secondary" className="text-xs">
             {flashcard.difficulty_level}
           </Badge>
+          {flashcard.math_category && (
+            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+              <Formula className="w-3 h-3 mr-1" />
+              {flashcard.math_category}
+            </Badge>
+          )}
         </div>
 
         <div className="bg-gray-50 p-4 rounded-lg">
           <h4 className="font-medium text-gray-800 mb-2">Question:</h4>
-          <p className="text-gray-700">{flashcard.question}</p>
+          <MathText className="text-gray-700">{flashcard.question}</MathText>
         </div>
 
         {showAnswer && (
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-            <h4 className="font-medium text-blue-800 mb-2">Answer:</h4>
-            <p className="text-blue-700">{flashcard.answer}</p>
+          <div className="space-y-4">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <h4 className="font-medium text-blue-800 mb-2">Answer:</h4>
+              <MathText className="text-blue-700">{flashcard.answer}</MathText>
+            </div>
+            
+            {/* Formula Display */}
+            {flashcard.formula && (
+              <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                <h4 className="font-medium text-indigo-800 mb-2">Formula:</h4>
+                <MathText className="text-lg text-center text-indigo-900">
+                  {flashcard.formula}
+                </MathText>
+              </div>
+            )}
+            
+            {/* Variables Display */}
+            {flashcard.variables && (
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <h4 className="font-medium text-green-800 mb-2">Where:</h4>
+                <div className="text-sm text-green-700">
+                  {flashcard.variables.split('; ').map((variable, index) => (
+                    <div key={index} className="mb-1">
+                      <MathText>{variable}</MathText>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -30,6 +30,9 @@ export interface Flashcard {
   last_reviewed: string | null;
   next_review: string | null;
   created_at: string;
+  formula?: string | null;
+  variables?: string | null;
+  math_category?: string | null;
 }
 
 export const useFlashcardDecks = () => {
@@ -274,31 +277,7 @@ export const useFlashcards = (deckId: string) => {
     try {
       console.log('🔍 Fetching flashcards for deck:', deckId);
       
-      // First, let's try a direct query to see what's in the flashcards table
-      const { data: directFlashcards, error: directError } = await supabase
-        .from('cramintel_flashcards')
-        .select('*')
-        .eq('user_id', user.id);
-
-      console.log('📊 Direct flashcards query result:', {
-        count: directFlashcards?.length || 0,
-        sample: directFlashcards?.[0],
-        error: directError
-      });
-
-      // Now let's check the deck_flashcards junction table
-      const { data: deckFlashcards, error: deckError } = await supabase
-        .from('cramintel_deck_flashcards')
-        .select('*')
-        .eq('deck_id', deckId);
-
-      console.log('🔗 Deck flashcards junction table:', {
-        count: deckFlashcards?.length || 0,
-        data: deckFlashcards,
-        error: deckError
-      });
-
-      // Now the proper join query
+      // Updated query to include mathematical fields
       const { data, error } = await supabase
         .from('cramintel_deck_flashcards')
         .select(`
@@ -313,7 +292,10 @@ export const useFlashcards = (deckId: string) => {
             times_reviewed,
             last_reviewed,
             next_review,
-            created_at
+            created_at,
+            formula,
+            variables,
+            math_category
           )
         `)
         .eq('deck_id', deckId);
@@ -343,7 +325,7 @@ export const useFlashcards = (deckId: string) => {
       console.log('✅ Processed flashcards data:', {
         count: flashcardsData.length,
         sample: flashcardsData[0],
-        allCards: flashcardsData
+        mathFlashcards: flashcardsData.filter((card: Flashcard) => card.formula).length
       });
 
       setFlashcards(flashcardsData as Flashcard[]);

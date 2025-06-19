@@ -333,42 +333,51 @@ export type Database = {
           course: string | null
           created_at: string | null
           difficulty_level: string | null
+          formula: string | null
           id: string
           last_reviewed: string | null
           mastery_level: number | null
           material_id: string | null
+          math_category: string | null
           next_review: string | null
           question: string
           times_reviewed: number | null
           user_id: string | null
+          variables: string | null
         }
         Insert: {
           answer: string
           course?: string | null
           created_at?: string | null
           difficulty_level?: string | null
+          formula?: string | null
           id?: string
           last_reviewed?: string | null
           mastery_level?: number | null
           material_id?: string | null
+          math_category?: string | null
           next_review?: string | null
           question: string
           times_reviewed?: number | null
           user_id?: string | null
+          variables?: string | null
         }
         Update: {
           answer?: string
           course?: string | null
           created_at?: string | null
           difficulty_level?: string | null
+          formula?: string | null
           id?: string
           last_reviewed?: string | null
           mastery_level?: number | null
           material_id?: string | null
+          math_category?: string | null
           next_review?: string | null
           question?: string
           times_reviewed?: number | null
           user_id?: string | null
+          variables?: string | null
         }
         Relationships: [
           {
