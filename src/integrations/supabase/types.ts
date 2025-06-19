@@ -686,6 +686,288 @@ export type Database = {
         }
         Relationships: []
       }
+      mcm_ad_units: {
+        Row: {
+          ad_unit_id: string
+          ad_unit_name: string
+          clicks: number | null
+          created_at: string
+          ctr: number | null
+          date_range: string
+          end_date: string
+          id: string
+          impressions: number | null
+          network_code: string
+          revenue: number | null
+          start_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ad_unit_id: string
+          ad_unit_name: string
+          clicks?: number | null
+          created_at?: string
+          ctr?: number | null
+          date_range: string
+          end_date: string
+          id?: string
+          impressions?: number | null
+          network_code: string
+          revenue?: number | null
+          start_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ad_unit_id?: string
+          ad_unit_name?: string
+          clicks?: number | null
+          created_at?: string
+          ctr?: number | null
+          date_range?: string
+          end_date?: string
+          id?: string
+          impressions?: number | null
+          network_code?: string
+          revenue?: number | null
+          start_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mcm_analytics: {
+        Row: {
+          chart_data: Json | null
+          created_at: string
+          ctr: number | null
+          date_range: string
+          end_date: string
+          fetched_at: string
+          id: string
+          network_code: string
+          start_date: string
+          total_clicks: number | null
+          total_impressions: number | null
+          total_revenue: number | null
+          user_id: string
+        }
+        Insert: {
+          chart_data?: Json | null
+          created_at?: string
+          ctr?: number | null
+          date_range: string
+          end_date: string
+          fetched_at?: string
+          id?: string
+          network_code: string
+          start_date: string
+          total_clicks?: number | null
+          total_impressions?: number | null
+          total_revenue?: number | null
+          user_id: string
+        }
+        Update: {
+          chart_data?: Json | null
+          created_at?: string
+          ctr?: number | null
+          date_range?: string
+          end_date?: string
+          fetched_at?: string
+          id?: string
+          network_code?: string
+          start_date?: string
+          total_clicks?: number | null
+          total_impressions?: number | null
+          total_revenue?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mcm_analytics_reports: {
+        Row: {
+          created_at: string | null
+          data: Json
+          end_date: string
+          fetched_at: string | null
+          id: string
+          network_code: string
+          report_type: string
+          start_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data: Json
+          end_date: string
+          fetched_at?: string | null
+          id?: string
+          network_code: string
+          report_type: string
+          start_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json
+          end_date?: string
+          fetched_at?: string | null
+          id?: string
+          network_code?: string
+          report_type?: string
+          start_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mcm_auth_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          is_active: boolean | null
+          last_activity: string
+          session_token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_activity?: string
+          session_token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_activity?: string
+          session_token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mcm_fetch_errors: {
+        Row: {
+          attempted_at: string | null
+          error_message: string | null
+          error_type: string
+          id: string
+          network_code: string
+          resolved: boolean | null
+          user_id: string
+        }
+        Insert: {
+          attempted_at?: string | null
+          error_message?: string | null
+          error_type: string
+          id?: string
+          network_code: string
+          resolved?: boolean | null
+          user_id: string
+        }
+        Update: {
+          attempted_at?: string | null
+          error_message?: string | null
+          error_type?: string
+          id?: string
+          network_code?: string
+          resolved?: boolean | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mcm_networks: {
+        Row: {
+          account_type: string | null
+          capabilities: Json | null
+          created_at: string
+          currency_code: string | null
+          id: string
+          is_mcm: boolean | null
+          last_capability_check: string | null
+          mcm_parent_code: string | null
+          network_code: string
+          network_name: string
+          parent_network_code: string | null
+          timezone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_type?: string | null
+          capabilities?: Json | null
+          created_at?: string
+          currency_code?: string | null
+          id?: string
+          is_mcm?: boolean | null
+          last_capability_check?: string | null
+          mcm_parent_code?: string | null
+          network_code: string
+          network_name: string
+          parent_network_code?: string | null
+          timezone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_type?: string | null
+          capabilities?: Json | null
+          created_at?: string
+          currency_code?: string | null
+          id?: string
+          is_mcm?: boolean | null
+          last_capability_check?: string | null
+          mcm_parent_code?: string | null
+          network_code?: string
+          network_name?: string
+          parent_network_code?: string | null
+          timezone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mcm_users: {
+        Row: {
+          created_at: string
+          email: string
+          google_access_token: string | null
+          google_refresh_token: string | null
+          id: string
+          name: string | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          google_access_token?: string | null
+          google_refresh_token?: string | null
+          id?: string
+          name?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          google_access_token?: string | null
+          google_refresh_token?: string | null
+          id?: string
+          name?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
