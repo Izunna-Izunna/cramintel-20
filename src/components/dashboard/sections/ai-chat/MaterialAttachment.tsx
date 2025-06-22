@@ -34,8 +34,9 @@ interface SimpleExtractedText {
   extraction_confidence: number | null;
 }
 
-interface SimplePrediction {
-  questions: string;
+// Simple prediction data type to bypass complex JSON inference
+interface PredictionData {
+  questions: any; // Use 'any' to bypass complex JSON type inference
 }
 
 export function MaterialAttachment({ attachedMaterials, onAttach, onDetach }: MaterialAttachmentProps) {
@@ -148,16 +149,19 @@ The student can ask me about ANY topic covered in this material and I'll provide
           }
         }
 
-        // Check if there are any predictions or other processed content - using basic query
-        const { data: predictionsData } = await supabase
+        // Check if there are any predictions or other processed content - FIXED LINE 152
+        const predictionsResponse = await supabase
           .from('cramintel_predictions')
           .select('questions')
           .eq('material_id', material.id)
           .limit(3);
 
+        // Cast to any to bypass complex type inference
+        const predictionsData = predictionsResponse.data as PredictionData[] | null;
+
         if (predictionsData && predictionsData.length > 0) {
           content += `🎯 SAMPLE QUESTIONS FROM THIS MATERIAL:\n`;
-          predictionsData.forEach((pred: any, index) => {
+          predictionsData.forEach((pred, index) => {
             if (pred.questions) {
               // Convert questions to string safely
               const questionsText = jsonToString(pred.questions);
