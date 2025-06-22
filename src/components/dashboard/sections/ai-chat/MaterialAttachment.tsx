@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -34,11 +35,6 @@ interface SimpleExtractedText {
   extraction_confidence: number | null;
 }
 
-// Simple prediction data type to bypass complex JSON inference
-interface PredictionData {
-  questions: any; // Use 'any' to bypass complex JSON type inference
-}
-
 export function MaterialAttachment({ attachedMaterials, onAttach, onDetach }: MaterialAttachmentProps) {
   const [showMaterialBrowser, setShowMaterialBrowser] = useState(false);
   const [loadingMaterials, setLoadingMaterials] = useState<Set<string>>(new Set());
@@ -48,12 +44,17 @@ export function MaterialAttachment({ attachedMaterials, onAttach, onDetach }: Ma
     try {
       console.log(`Extracting content for material: ${material.name}`);
       
-      // Get ALL flashcards for this material - using basic query to avoid deep types
-      const { data: flashcardsData, error: flashcardError } = await supabase
+      // FIXED: Completely bypass Supabase type inference by using the client directly
+      const flashcardQuery = supabase
         .from('cramintel_flashcards')
         .select('question, answer, difficulty_level, course')
         .eq('material_id', material.id)
         .order('created_at', { ascending: true });
+
+      // Execute query and cast result to bypass type inference
+      const flashcardResult: any = await flashcardQuery;
+      const flashcardsData = flashcardResult.data;
+      const flashcardError = flashcardResult.error;
 
       let content = `📚 STUDY MATERIAL: ${material.name}
 🎓 Course: ${material.course || 'General Studies'}  
@@ -127,12 +128,15 @@ The student can ask me about ANY topic covered in this material and I'll provide
         // Try to get any other available content
         console.log('No flashcards found or error occurred:', flashcardError);
         
-        // Check for extracted text content - using basic query
-        const { data: extractedTextsData } = await supabase
+        // FIXED: Use the same approach for extracted texts
+        const extractedTextQuery = supabase
           .from('cramintel_extracted_texts')
           .select('extracted_text, word_count, extraction_confidence')
           .eq('material_id', material.id)
           .limit(1);
+
+        const extractedTextResult: any = await extractedTextQuery;
+        const extractedTextsData = extractedTextResult.data;
 
         if (extractedTextsData && extractedTextsData.length > 0) {
           const textContent = extractedTextsData[0] as SimpleExtractedText;
@@ -149,25 +153,31 @@ The student can ask me about ANY topic covered in this material and I'll provide
           }
         }
 
-        // Check if there are any predictions or other processed content - FIXED LINE 152
-        const predictionsResponse = await supabase
-          .from('cramintel_predictions')
-          .select('questions')
-          .eq('material_id', material.id)
-          .limit(3);
+        // FIXED: Complete bypass of type inference for predictions query
+        try {
+          const predictionsQuery = supabase
+            .from('cramintel_predictions')
+            .select('questions')
+            .eq('material_id', material.id)
+            .limit(3);
 
-        // Cast to any to bypass complex type inference
-        const predictionsData = predictionsResponse.data as PredictionData[] | null;
+          // Execute and cast to completely bypass type inference
+          const predictionsResult: any = await predictionsQuery;
+          const predictionsData = predictionsResult.data;
 
-        if (predictionsData && predictionsData.length > 0) {
-          content += `🎯 SAMPLE QUESTIONS FROM THIS MATERIAL:\n`;
-          predictionsData.forEach((pred, index) => {
-            if (pred.questions) {
-              // Convert questions to string safely
-              const questionsText = jsonToString(pred.questions);
-              content += `\nPrediction Set ${index + 1}:\n${questionsText}\n`;
-            }
-          });
+          if (predictionsData && predictionsData.length > 0) {
+            content += `🎯 SAMPLE QUESTIONS FROM THIS MATERIAL:\n`;
+            predictionsData.forEach((pred: any, index: number) => {
+              if (pred.questions) {
+                // Convert questions to string safely
+                const questionsText = jsonToString(pred.questions);
+                content += `\nPrediction Set ${index + 1}:\n${questionsText}\n`;
+              }
+            });
+          }
+        } catch (predictionError) {
+          console.log('Error fetching predictions:', predictionError);
+          // Continue without predictions
         }
         
         content += `
