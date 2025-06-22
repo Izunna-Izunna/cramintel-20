@@ -5,6 +5,7 @@ import { CheckCircle, XCircle, Clock, Target, Award, RotateCcw } from 'lucide-re
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { GeneratedQuestion } from '@/types/predictions';
+import CramIntelLogo from '@/components/CramIntelLogo';
 
 interface CBTResultsViewProps {
   questions: GeneratedQuestion[];
@@ -62,18 +63,21 @@ export function CBTResultsView({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-wrlds-light">
       {/* Header */}
-      <header className="bg-gradient-to-r from-teal-600 to-blue-600 text-white px-6 py-8">
+      <header className="bg-gradient-to-r from-wrlds-dark to-gray-800 text-white px-6 py-8 border-b border-wrlds-accent/20">
         <div className="max-w-4xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             className="mb-4"
           >
+            <div className="flex justify-center mb-4">
+              <CramIntelLogo variant="light" size="md" />
+            </div>
             <Award className="w-16 h-16 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold font-space-grotesk">Exam Complete!</h1>
-            <p className="text-xl opacity-90 mt-2">{examTitle}</p>
+            <h1 className="text-3xl font-bold font-space">Exam Complete!</h1>
+            <p className="text-xl opacity-90 mt-2 font-space">{examTitle}</p>
           </motion.div>
         </div>
       </header>
@@ -85,33 +89,33 @@ export function CBTResultsView({
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <Card className={`border-2 ${getGradeBg(percentage)}`}>
+          <Card className={`border-2 ${getGradeBg(percentage)} shadow-lg`}>
             <CardHeader className="text-center pb-4">
-              <CardTitle className="text-2xl font-space-grotesk">Your Score</CardTitle>
+              <CardTitle className="text-2xl font-space">Your Score</CardTitle>
             </CardHeader>
             <CardContent className="text-center">
-              <div className={`text-6xl font-bold ${getGradeColor(percentage)} mb-4`}>
+              <div className={`text-6xl font-bold ${getGradeColor(percentage)} mb-4 font-space`}>
                 {percentage}%
               </div>
-              <p className="text-lg text-gray-600 mb-6">
+              <p className="text-lg text-wrlds-accent mb-6 font-space">
                 {correctAnswers} out of {totalQuestions} questions correct
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <Target className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-gray-800">{correctAnswers}</p>
-                  <p className="text-sm text-gray-600">Correct</p>
+                <div className="bg-white rounded-lg p-4 shadow-sm border border-wrlds-accent/20">
+                  <Target className="w-8 h-8 text-wrlds-dark mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-wrlds-dark font-space">{correctAnswers}</p>
+                  <p className="text-sm text-wrlds-accent font-space">Correct</p>
                 </div>
-                <div className="bg-white rounded-lg p-4 shadow-sm">
+                <div className="bg-white rounded-lg p-4 shadow-sm border border-wrlds-accent/20">
                   <XCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-gray-800">{totalQuestions - correctAnswers}</p>
-                  <p className="text-sm text-gray-600">Incorrect</p>
+                  <p className="text-2xl font-bold text-wrlds-dark font-space">{totalQuestions - correctAnswers}</p>
+                  <p className="text-sm text-wrlds-accent font-space">Incorrect</p>
                 </div>
-                <div className="bg-white rounded-lg p-4 shadow-sm">
+                <div className="bg-white rounded-lg p-4 shadow-sm border border-wrlds-accent/20">
                   <Clock className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-gray-800">{formatTime(timeSpent)}</p>
-                  <p className="text-sm text-gray-600">Total Time</p>
+                  <p className="text-2xl font-bold text-wrlds-dark font-space">{formatTime(timeSpent)}</p>
+                  <p className="text-sm text-wrlds-accent font-space">Total Time</p>
                 </div>
               </div>
             </CardContent>
@@ -125,9 +129,9 @@ export function CBTResultsView({
           transition={{ delay: 0.2 }}
           className="mb-8"
         >
-          <Card>
+          <Card className="shadow-lg border-wrlds-accent/20">
             <CardHeader>
-              <CardTitle className="font-space-grotesk">Question Review</CardTitle>
+              <CardTitle className="font-space text-wrlds-dark">Question Review</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -144,19 +148,19 @@ export function CBTResultsView({
                       key={index}
                       className={`p-4 rounded-lg border ${
                         !wasAnswered 
-                          ? 'border-gray-200 bg-gray-50'
+                          ? 'border-wrlds-accent/30 bg-wrlds-light'
                           : isCorrect 
                             ? 'border-green-200 bg-green-50' 
                             : 'border-red-200 bg-red-50'
                       }`}
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-medium text-gray-800 flex-1 pr-4">
+                        <h4 className="font-medium text-wrlds-dark flex-1 pr-4 font-space">
                           {questionNumber}. {question.question}
                         </h4>
                         <div className="flex items-center">
                           {!wasAnswered ? (
-                            <span className="text-gray-500 text-sm">Not answered</span>
+                            <span className="text-wrlds-accent text-sm font-space">Not answered</span>
                           ) : isCorrect ? (
                             <CheckCircle className="w-5 h-5 text-green-600" />
                           ) : (
@@ -166,8 +170,8 @@ export function CBTResultsView({
                       </div>
                       
                       {wasAnswered && (
-                        <div className="text-sm space-y-1">
-                          <p className="text-gray-600">
+                        <div className="text-sm space-y-1 font-space">
+                          <p className="text-wrlds-accent">
                             <span className="font-medium">Your answer:</span> {userAnswer}
                           </p>
                           {!isCorrect && correctAnswer && (
@@ -196,7 +200,7 @@ export function CBTResultsView({
         >
           <Button
             onClick={onRetakeExam}
-            className="flex items-center px-6 py-3 bg-teal-600 hover:bg-teal-700"
+            className="flex items-center px-6 py-3 bg-wrlds-dark hover:bg-gray-800 font-space"
           >
             <RotateCcw className="w-4 h-4 mr-2" />
             Retake Exam
@@ -204,7 +208,7 @@ export function CBTResultsView({
           <Button
             onClick={onBackToQuestions}
             variant="outline"
-            className="flex items-center px-6 py-3"
+            className="flex items-center px-6 py-3 font-space border-wrlds-accent/40 hover:bg-wrlds-light"
           >
             Back to Questions
           </Button>
