@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Paperclip, X, FileText, Image, Upload, Search, Loader2 } from 'lucide-react';
 import { Material, useMaterials } from '@/hooks/useMaterials';
 import { supabase } from '@/integrations/supabase/client';
+import { jsonToString } from '@/services/materialService';
 
 interface AttachedMaterial {
   id: string;
@@ -34,7 +35,7 @@ interface SimpleExtractedText {
 }
 
 interface SimplePrediction {
-  questions: string | null;
+  questions: string;
 }
 
 export function MaterialAttachment({ attachedMaterials, onAttach, onDetach }: MaterialAttachmentProps) {
@@ -46,15 +47,12 @@ export function MaterialAttachment({ attachedMaterials, onAttach, onDetach }: Ma
     try {
       console.log(`Extracting content for material: ${material.name}`);
       
-      // Get ALL flashcards for this material - simplified query
+      // Get ALL flashcards for this material - using basic query to avoid deep types
       const { data: flashcardsData, error: flashcardError } = await supabase
         .from('cramintel_flashcards')
         .select('question, answer, difficulty_level, course')
         .eq('material_id', material.id)
         .order('created_at', { ascending: true });
-
-      // Use simple type assertion to avoid deep instantiation
-      const flashcards: SimpleFlashcard[] = flashcardsData || [];
 
       let content = `📚 STUDY MATERIAL: ${material.name}
 🎓 Course: ${material.course || 'General Studies'}  
@@ -65,7 +63,10 @@ export function MaterialAttachment({ attachedMaterials, onAttach, onDetach }: Ma
 
 `;
 
-      if (!flashcardError && flashcards && flashcards.length > 0) {
+      if (!flashcardError && flashcardsData && flashcardsData.length > 0) {
+        // Cast to simple types to avoid deep instantiation
+        const flashcards = flashcardsData as SimpleFlashcard[];
+        
         content += `🎯 COMPREHENSIVE CONTENT FROM THIS MATERIAL:
 This material contains ${flashcards.length} key concepts and study points:
 
@@ -125,18 +126,15 @@ The student can ask me about ANY topic covered in this material and I'll provide
         // Try to get any other available content
         console.log('No flashcards found or error occurred:', flashcardError);
         
-        // Check for extracted text content - simplified query
+        // Check for extracted text content - using basic query
         const { data: extractedTextsData } = await supabase
           .from('cramintel_extracted_texts')
           .select('extracted_text, word_count, extraction_confidence')
           .eq('material_id', material.id)
           .limit(1);
 
-        // Use simple type assertion
-        const extractedTexts: SimpleExtractedText[] = extractedTextsData || [];
-
-        if (extractedTexts && extractedTexts.length > 0) {
-          const textContent = extractedTexts[0];
+        if (extractedTextsData && extractedTextsData.length > 0) {
+          const textContent = extractedTextsData[0] as SimpleExtractedText;
           content += `📖 EXTRACTED CONTENT:\n`;
           content += `Word Count: ${textContent.word_count || 'Unknown'}\n`;
           content += `Extraction Confidence: ${textContent.extraction_confidence ? `${(textContent.extraction_confidence * 100).toFixed(1)}%` : 'Unknown'}\n\n`;
@@ -150,21 +148,20 @@ The student can ask me about ANY topic covered in this material and I'll provide
           }
         }
 
-        // Check if there are any predictions or other processed content - simplified query
+        // Check if there are any predictions or other processed content - using basic query
         const { data: predictionsData } = await supabase
           .from('cramintel_predictions')
           .select('questions')
           .eq('material_id', material.id)
           .limit(3);
 
-        // Use simple type assertion
-        const predictions: SimplePrediction[] = predictionsData || [];
-
-        if (predictions && predictions.length > 0) {
+        if (predictionsData && predictionsData.length > 0) {
           content += `🎯 SAMPLE QUESTIONS FROM THIS MATERIAL:\n`;
-          predictions.forEach((pred, index) => {
+          predictionsData.forEach((pred: any, index) => {
             if (pred.questions) {
-              content += `\nPrediction Set ${index + 1}:\n${pred.questions}\n`;
+              // Convert questions to string safely
+              const questionsText = jsonToString(pred.questions);
+              content += `\nPrediction Set ${index + 1}:\n${questionsText}\n`;
             }
           });
         }

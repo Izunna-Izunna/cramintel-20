@@ -1,9 +1,27 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
+// Updated MaterialData interface to match actual database schema
 export interface MaterialData {
   id: string;
   name: string;
+  course: string;
+  material_type: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  processed: boolean;
+  upload_date: string;
+  file_path?: string;
+  group_id?: string;
+  group_name?: string;
+  user_id: string;
+}
+
+// Separate interface for extracted text data
+export interface ExtractedTextData {
+  id: string;
+  material_id: string;
   extracted_text: string;
   extraction_method: string;
   extraction_confidence: number;
@@ -16,6 +34,17 @@ export interface Chapter {
   title: string;
   startPage?: number;
   content?: string;
+}
+
+// Utility function to safely convert Json to string
+export function jsonToString(value: any): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return JSON.stringify(value);
 }
 
 export class MaterialService {
@@ -34,10 +63,32 @@ export class MaterialService {
         return null;
       }
 
-      return data as MaterialData;
+      // Convert to unknown first, then to MaterialData to avoid type errors
+      return data as unknown as MaterialData;
     } catch (error) {
       console.error('Error in getMaterialById:', error);
       return null;
+    }
+  }
+
+  // Fetch extracted text for a material
+  static async getExtractedText(materialId: string): Promise<string> {
+    try {
+      const { data, error } = await supabase
+        .from('cramintel_extracted_texts')
+        .select('extracted_text')
+        .eq('material_id', materialId)
+        .single();
+
+      if (error || !data) {
+        console.error('Error fetching extracted text:', error);
+        return '';
+      }
+
+      return data.extracted_text || '';
+    } catch (error) {
+      console.error('Error in getExtractedText:', error);
+      return '';
     }
   }
 

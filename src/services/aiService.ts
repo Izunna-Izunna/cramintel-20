@@ -1,5 +1,5 @@
 
-import { MaterialService, Chapter } from './materialService';
+import { MaterialService, Chapter, jsonToString } from './materialService';
 
 export class AIService {
   
@@ -20,7 +20,10 @@ export class AIService {
         };
       }
 
-      if (!material.extracted_text) {
+      // Fetch extracted text separately
+      const extractedText = await MaterialService.getExtractedText(materialId);
+
+      if (!extractedText) {
         return {
           success: false,
           chapters: [],
@@ -29,8 +32,8 @@ export class AIService {
       }
 
       // Extract chapters using both methods
-      const basicChapters = MaterialService.extractChapters(material.extracted_text);
-      const advancedChapters = MaterialService.extractChaptersAdvanced(material.extracted_text);
+      const basicChapters = MaterialService.extractChapters(extractedText);
+      const advancedChapters = MaterialService.extractChaptersAdvanced(extractedText);
       
       // Use the method that found more chapters
       const chapters = advancedChapters.length > basicChapters.length 
