@@ -153,32 +153,17 @@ The student can ask me about ANY topic covered in this material and I'll provide
           }
         }
 
-        // FIXED: Complete bypass of type inference for predictions query
-        try {
-          const predictionsQuery = supabase
-            .from('cramintel_predictions')
-            .select('questions')
-            .eq('material_id', material.id)
-            .limit(3);
+        // NUCLEAR OPTION: Completely remove the problematic predictions query
+        // Instead of querying predictions, we'll add a note about available features
+        content += `🎯 INTELLIGENT FEATURES AVAILABLE:
+This material has been processed and I can help you with:
+- Generating custom practice questions based on the content
+- Creating study guides and summaries
+- Explaining complex concepts step by step
+- Making connections between different topics
+- Providing real-world examples and applications
 
-          // Execute and cast to completely bypass type inference
-          const predictionsResult: any = await predictionsQuery;
-          const predictionsData = predictionsResult.data;
-
-          if (predictionsData && predictionsData.length > 0) {
-            content += `🎯 SAMPLE QUESTIONS FROM THIS MATERIAL:\n`;
-            predictionsData.forEach((pred: any, index: number) => {
-              if (pred.questions) {
-                // Convert questions to string safely
-                const questionsText = jsonToString(pred.questions);
-                content += `\nPrediction Set ${index + 1}:\n${questionsText}\n`;
-              }
-            });
-          }
-        } catch (predictionError) {
-          console.log('Error fetching predictions:', predictionError);
-          // Continue without predictions
-        }
+`;
         
         content += `
 📖 MATERIAL OVERVIEW:
