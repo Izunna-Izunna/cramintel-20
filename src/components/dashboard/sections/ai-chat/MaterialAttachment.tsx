@@ -45,13 +45,14 @@ export function MaterialAttachment({ attachedMaterials, onAttach, onDetach }: Ma
     try {
       console.log(`Extracting content for material: ${material.name}`);
       
-      // Get ALL flashcards for this material with explicit typing
-      const { data: flashcards, error: flashcardError } = await supabase
+      // Get ALL flashcards for this material - using type assertion instead of .returns()
+      const { data: flashcardsData, error: flashcardError } = await supabase
         .from('cramintel_flashcards')
         .select('question, answer, difficulty_level, course')
         .eq('material_id', material.id)
-        .order('created_at', { ascending: true })
-        .returns<FlashcardData[]>();
+        .order('created_at', { ascending: true });
+
+      const flashcards = flashcardsData as FlashcardData[] | null;
 
       let content = `📚 STUDY MATERIAL: ${material.name}
 🎓 Course: ${material.course || 'General Studies'}  
@@ -122,13 +123,14 @@ The student can ask me about ANY topic covered in this material and I'll provide
         // Try to get any other available content
         console.log('No flashcards found or error occurred:', flashcardError);
         
-        // Check for extracted text content with explicit typing
-        const { data: extractedTexts } = await supabase
+        // Check for extracted text content - using type assertion instead of .returns()
+        const { data: extractedTextsData } = await supabase
           .from('cramintel_extracted_texts')
           .select('extracted_text, word_count, extraction_confidence')
           .eq('material_id', material.id)
-          .limit(1)
-          .returns<ExtractedTextData[]>();
+          .limit(1);
+
+        const extractedTexts = extractedTextsData as ExtractedTextData[] | null;
 
         if (extractedTexts && extractedTexts.length > 0) {
           const textContent = extractedTexts[0];
@@ -145,13 +147,14 @@ The student can ask me about ANY topic covered in this material and I'll provide
           }
         }
 
-        // Check if there are any predictions or other processed content with explicit typing
-        const { data: predictions } = await supabase
+        // Check if there are any predictions or other processed content - using type assertion instead of .returns()
+        const { data: predictionsData } = await supabase
           .from('cramintel_predictions')
           .select('questions')
           .eq('material_id', material.id)
-          .limit(3)
-          .returns<PredictionData[]>();
+          .limit(3);
+
+        const predictions = predictionsData as PredictionData[] | null;
 
         if (predictions && predictions.length > 0) {
           content += `🎯 SAMPLE QUESTIONS FROM THIS MATERIAL:\n`;
