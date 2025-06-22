@@ -4,23 +4,23 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { 
   RefreshCw, 
   Search, 
-  Filter, 
   Download, 
   BookOpen, 
   Target,
-  CheckCircle2,
-  Clock,
   ArrowLeft,
-  X
+  X,
+  PlayCircle,
+  Clock
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { PredictionResponse, GeneratedQuestion } from '@/types/predictions';
+import { CBTExamInterface } from './CBTExamInterface';
+import { CBTResultsView } from './CBTResultsView';
 
 // Helper function to check if a question is a valid objective question
 const isObjectiveQuestion = (question: GeneratedQuestion): question is GeneratedQuestion & {
@@ -51,6 +51,8 @@ interface ObjectiveQuestionsViewProps {
   onClose: () => void;
 }
 
+type ViewMode = 'questions' | 'exam' | 'results';
+
 export function ObjectiveQuestionsView({ predictionData, onBack, onClose }: ObjectiveQuestionsViewProps) {
   // Filter and validate objective questions
   const validObjectiveQuestions = React.useMemo(() => {
@@ -63,6 +65,9 @@ export function ObjectiveQuestionsView({ predictionData, onBack, onClose }: Obje
   const [selectedTopic, setSelectedTopic] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('questions');
+  const [examAnswers, setExamAnswers] = useState<Record<number, string>>({});
+  const [examTimeSpent, setExamTimeSpent] = useState(0);
   const { toast } = useToast();
 
   // Get unique topics for filtering
@@ -145,6 +150,28 @@ export function ObjectiveQuestionsView({ predictionData, onBack, onClose }: Obje
     });
   };
 
+  const startExam = () => {
+    setViewMode('exam');
+    setExamAnswers({});
+    setExamTimeSpent(0);
+  };
+
+  const handleExamComplete = (answers: Record<number, string>, timeSpent: number) => {
+    setExamAnswers(answers);
+    setExamTimeSpent(timeSpent);
+    setViewMode('results');
+  };
+
+  const handleRetakeExam = () => {
+    setExamAnswers({});
+    setExamTimeSpent(0);
+    setViewMode('exam');
+  };
+
+  const handleBackToQuestions = () => {
+    setViewMode('questions');
+  };
+
   const getConfidenceColor = (level?: string) => {
     switch (level) {
       case 'high': return 'bg-green-100 text-green-800';
@@ -163,6 +190,33 @@ export function ObjectiveQuestionsView({ predictionData, onBack, onClose }: Obje
     }
   };
 
+  // Render different views based on current mode
+  if (viewMode === 'exam') {
+    return (
+      <CBTExamInterface
+        questions={questions}
+        examTitle={`${predictionData.context.course} - Practice Exam`}
+        timeLimit={Math.max(30, questions.length * 2)} // 2 minutes per question, minimum 30 minutes
+        onComplete={handleExamComplete}
+        onExit={handleBackToQuestions}
+      />
+    );
+  }
+
+  if (viewMode === 'results') {
+    return (
+      <CBTResultsView
+        questions={questions}
+        answers={examAnswers}
+        timeSpent={examTimeSpent}
+        examTitle={`${predictionData.context.course} - Practice Exam`}
+        onRetakeExam={handleRetakeExam}
+        onBackToQuestions={handleBackToQuestions}
+      />
+    );
+  }
+
+  // Default questions view
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -172,13 +226,70 @@ export function ObjectiveQuestionsView({ predictionData, onBack, onClose }: Obje
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">Objective Questions</h2>
+            <h2 className="text-2xl font-bold text-gray-800 font-space-grotesk">Objective Questions</h2>
             <p className="text-gray-600">{questions.length} questions for {predictionData.context.course}</p>
           </div>
         </div>
         <Button variant="ghost" size="sm" onClick={onClose}>
           <X className="w-4 h-4" />
         </Button>
+      </div>
+
+      {/* Action Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <Card className="border-2 border-teal-200 bg-teal-50">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-teal-800 mb-2">Take Practice Exam</h3>
+                <p className="text-teal-600 text-sm mb-4">
+                  Simulate a real exam experience with timer and scoring
+                </p>
+                <div className="flex items-center text-sm text-teal-600 space-x-4">
+                  <span className="flex items-center">
+                    <Target className="w-4 h-4 mr-1" />
+                    {questions.length} Questions
+                  </span>
+                  <span className="flex items-center">
+                    <Clock className="w-4 h-4 mr-1" />
+                    {Math.max(30, questions.length * 2)} minutes
+                  </span>
+                </div>
+              </div>
+              <Button 
+                onClick={startExam}
+                className="bg-teal-600 hover:bg-teal-700"
+              >
+                <PlayCircle className="w-4 h-4 mr-2" />
+                Start Exam
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-blue-200 bg-blue-50">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-blue-800 mb-2">Study Mode</h3>
+                <p className="text-blue-600 text-sm mb-4">
+                  Browse questions, search by topic, and review at your pace
+                </p>
+                <div className="flex items-center text-sm text-blue-600 space-x-4">
+                  <span className="flex items-center">
+                    <BookOpen className="w-4 h-4 mr-1" />
+                    Browse & Search
+                  </span>
+                  <span className="flex items-center">
+                    <Download className="w-4 h-4 mr-1" />
+                    Export Options
+                  </span>
+                </div>
+              </div>
+              <div className="text-2xl font-bold text-blue-600">📚</div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Controls */}
