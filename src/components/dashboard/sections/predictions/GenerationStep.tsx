@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { PredictionResponse } from '@/types/predictions';
+import { PredictionResponse, PredictionStyle } from '@/types/predictions';
 
 interface PredictionData {
   clues: Array<{
@@ -21,7 +21,7 @@ interface PredictionData {
     topics: string[];
     lecturer?: string;
   };
-  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper' | 'ranked' | 'practice_exam' | 'topic_based';
+  style: PredictionStyle;
 }
 
 interface GenerationStepProps {
