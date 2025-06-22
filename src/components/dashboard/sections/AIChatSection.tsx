@@ -262,21 +262,22 @@ export function AIChatSection() {
     setError(null);
 
     try {
-      const materialsWithContent = await Promise.all(
-        attachedMaterials.map(async (material) => {
-          if (material.type === 'material') {
-            const content = await fetchMaterialContent(material.id);
-            return { ...material, content };
-          }
-          return material;
-        })
-      );
+      // Debug logging to verify material content
+      console.log('Attached materials being sent to AI:', attachedMaterials);
+      console.log('Material content preview:', attachedMaterials.map(m => ({
+        name: m.name,
+        hasContent: !!m.content,
+        contentLength: m.content?.length || 0,
+        contentPreview: m.content?.slice(0, 200) + '...'
+      })));
 
+      // Use the already-extracted content from attached materials
+      // No need to re-fetch since MaterialAttachment already extracted rich content
       const { data, error } = await supabase.functions.invoke('ai-chat', {
         body: {
           message: userMessage.content,
           mode: selectedMode,
-          attachedMaterials: materialsWithContent
+          attachedMaterials: attachedMaterials // Use materials with already-extracted content
         }
       });
 
@@ -327,6 +328,11 @@ export function AIChatSection() {
   };
 
   const handleAttachMaterials = (materials: AttachedMaterial[]) => {
+    console.log('Materials attached with content:', materials.map(m => ({
+      name: m.name,
+      hasContent: !!m.content,
+      contentLength: m.content?.length || 0
+    })));
     setAttachedMaterials(materials);
   };
 
