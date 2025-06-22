@@ -1,18 +1,21 @@
 
 import React, { useState } from 'react';
-import { Clock, Target, Settings, AlertCircle } from 'lucide-react';
+import { Clock, Target, Settings, AlertCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
 
 interface CBTConfigurationDialogProps {
   courses: string[];
   availableQuestions: Record<string, number>;
   onStartExam: (config: ExamConfiguration) => void;
   isGenerating: boolean;
+  onGenerateQuestions?: (course: string) => Promise<void>;
+  materialCounts?: Record<string, number>;
 }
 
 export interface ExamConfiguration {
@@ -25,15 +28,20 @@ export function CBTConfigurationDialog({
   courses, 
   availableQuestions, 
   onStartExam, 
-  isGenerating 
+  isGenerating,
+  onGenerateQuestions,
+  materialCounts = {}
 }: CBTConfigurationDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   const [timeLimit, setTimeLimit] = useState([25]); // Default 25 minutes
   const [questionCount, setQuestionCount] = useState([20]); // Default 20 questions
+  const [generatingForCourse, setGeneratingForCourse] = useState<string>('');
 
   const maxQuestions = selectedCourse ? Math.min(availableQuestions[selectedCourse] || 0, 70) : 70;
   const estimatedMinPerQuestion = timeLimit[0] / questionCount[0];
+  const materialCount = selectedCourse ? materialCounts[selectedCourse] || 0 : 0;
+  const currentQuestionCount = selectedCourse ? availableQuestions[selectedCourse] || 0 : 0;
 
   const handleStartExam = () => {
     if (!selectedCourse) return;
@@ -55,6 +63,28 @@ export function CBTConfigurationDialog({
       setQuestionCount([Math.max(5, maxAvailable)]);
     }
   };
+
+  const handleGenerateQuestions = async () => {
+    if (!selectedCourse || !onGenerateQuestions) return;
+    
+    if (materialCount === 0) {
+      toast.error('No materials found for this course. Upload some materials first.');
+      return;
+    }
+
+    setGeneratingForCourse(selectedCourse);
+    try {
+      await onGenerateQuestions(selectedCourse);
+      toast.success(`Generated new questions for ${selectedCourse}!`);
+    } catch (error) {
+      toast.error('Failed to generate questions. Please try again.');
+    } finally {
+      setGeneratingForCourse('');
+    }
+  };
+
+  const canGenerateQuestions = selectedCourse && materialCount > 0 && onGenerateQuestions;
+  const isGeneratingForThisCourse = generatingForCourse === selectedCourse;
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -93,6 +123,47 @@ export function CBTConfigurationDialog({
 
           {selectedCourse && (
             <>
+              {/* Course Info & Generate Questions */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-wrlds-light/30 rounded-lg border border-wrlds-accent/20">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-wrlds-dark font-space">
+                      {currentQuestionCount} questions available
+                    </p>
+                    <p className="text-xs text-wrlds-accent font-space">
+                      {materialCount} study materials • Can generate ~25-30 new questions
+                    </p>
+                  </div>
+                  {canGenerateQuestions && (
+                    <Button
+                      onClick={handleGenerateQuestions}
+                      disabled={isGeneratingForThisCourse || isGenerating}
+                      size="sm"
+                      className="ml-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 font-space"
+                    >
+                      {isGeneratingForThisCourse ? (
+                        <>
+                          <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          Generate
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+                
+                {materialCount === 0 && (
+                  <div className="flex items-center p-2 text-amber-600 bg-amber-50 rounded-lg border border-amber-200">
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    <span className="text-xs font-space">Upload materials to generate questions</span>
+                  </div>
+                )}
+              </div>
+
               {/* Time Limit */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -173,10 +244,10 @@ export function CBTConfigurationDialog({
               {/* Start Button */}
               <Button
                 onClick={handleStartExam}
-                disabled={!selectedCourse || isGenerating}
+                disabled={!selectedCourse || isGenerating || isGeneratingForThisCourse}
                 className="w-full bg-gradient-to-r from-wrlds-dark to-gray-800 hover:from-gray-800 hover:to-black font-space"
               >
-                {isGenerating ? (
+                {isGenerating || isGeneratingForThisCourse ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                     Preparing Questions...

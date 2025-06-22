@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Book, Clock, Target, Play, BarChart3, Users, Award, Loader2 } from 'lucide-react';
@@ -17,7 +16,7 @@ import CramIntelLogo from '@/components/CramIntelLogo';
 
 export function CBTSection() {
   const { materialGroups, loading } = useMaterials();
-  const { predictions } = usePredictions();
+  const { predictions, fetchPredictions } = usePredictions();
   const { user } = useAuth();
   const [examMode, setExamMode] = useState<'selection' | 'exam' | 'results'>('selection');
   const [examQuestions, setExamQuestions] = useState<GeneratedQuestion[]>([]);
@@ -66,16 +65,26 @@ export function CBTSection() {
     return acc;
   }, {} as Record<string, number>);
 
+  // Get material counts for each course
+  const materialCounts = courses.reduce((acc, course) => {
+    acc[course] = materialGroups
+      .flatMap(group => group.materials)
+      .filter(material => material.course === course).length;
+    return acc;
+  }, {} as Record<string, number>);
+
   // Generate new questions using OpenAI
-  const generateNewQuestions = async (course: string): Promise<GeneratedQuestion[]> => {
+  const generateNewQuestions = async (course: string): Promise<void> => {
     if (!user) {
       toast.error('Please log in to generate questions');
-      return [];
+      return;
     }
 
     try {
       setGeneratingQuestions(true);
-      toast.info('Generating CBT questions from your materials...');
+      toast.info('Generating CBT questions from your materials...', {
+        description: 'This may take 30-60 seconds depending on your materials'
+      });
 
       // Get materials for this course
       const courseMaterials = materialGroups
@@ -84,7 +93,7 @@ export function CBTSection() {
 
       if (courseMaterials.length === 0) {
         toast.error('No materials found for this course');
-        return [];
+        return;
       }
 
       // Prepare clues for generation
@@ -100,6 +109,7 @@ export function CBTSection() {
         context: {
           course,
           materials: courseMaterials.map(m => ({ name: m.name, type: m.material_type })),
+          targetCount: 25 // Generate about 25 questions per batch
         },
         style: 'objective_bulk' as const
       };
@@ -111,22 +121,25 @@ export function CBTSection() {
       if (error) {
         console.error('Error generating questions:', error);
         toast.error('Failed to generate questions. Please try again.');
-        return [];
+        return;
       }
 
       const questions = data?.data?.predictions || [];
       
       if (questions.length === 0) {
         toast.error('No questions could be generated from your materials');
-        return [];
+        return;
       }
 
-      toast.success(`Generated ${questions.length} CBT questions!`);
-      return questions;
+      // Refresh predictions to update the UI
+      await fetchPredictions();
+      
+      toast.success(`Generated ${questions.length} new CBT questions!`, {
+        description: `Total questions for ${course}: ${availableQuestions[course] + questions.length}`
+      });
     } catch (error) {
       console.error('Error in question generation:', error);
       toast.error('Failed to generate questions. Please try again.');
-      return [];
     } finally {
       setGeneratingQuestions(false);
     }
@@ -140,8 +153,13 @@ export function CBTSection() {
     
     // If we have fewer questions than requested, generate new ones
     if (questions.length < config.questionCount) {
-      const newQuestions = await generateNewQuestions(config.course);
-      questions = [...questions, ...newQuestions];
+      try {
+        await generateNewQuestions(config.course);
+        // Re-fetch questions after generation
+        questions = getExistingQuestions(config.course);
+      } catch (error) {
+        console.error('Failed to generate additional questions:', error);
+      }
     }
     
     // Take the requested number of questions
@@ -320,8 +338,10 @@ export function CBTSection() {
                 <CBTConfigurationDialog
                   courses={courses}
                   availableQuestions={availableQuestions}
+                  materialCounts={materialCounts}
                   onStartExam={handleStartExam}
                   isGenerating={generatingQuestions}
+                  onGenerateQuestions={generateNewQuestions}
                 />
               </div>
 
@@ -331,6 +351,7 @@ export function CBTSection() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {courses.map((course) => {
                     const questionCount = availableQuestions[course] || 0;
+                    const materialCount = materialCounts[course] || 0;
                     return (
                       <div
                         key={course}
@@ -338,7 +359,12 @@ export function CBTSection() {
                       >
                         <div className="flex items-center space-x-2">
                           <Book className="w-4 h-4 text-wrlds-dark" />
-                          <span className="text-sm font-medium text-wrlds-dark font-space">{course}</span>
+                          <div>
+                            <span className="text-sm font-medium text-wrlds-dark font-space block">{course}</span>
+                            <span className="text-xs text-wrlds-accent font-space">
+                              {materialCount} materials
+                            </span>
+                          </div>
                         </div>
                         <span className="text-xs text-wrlds-accent font-space">
                           {questionCount} questions
