@@ -1,476 +1,316 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, Download, RotateCcw, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { 
-  RefreshCw, 
-  Search, 
-  Download, 
-  BookOpen, 
-  Target,
-  ArrowLeft,
-  X,
-  PlayCircle,
-  Clock
-} from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { PredictionResponse, GeneratedQuestion } from '@/types/predictions';
-import { CBTExamInterface } from './CBTExamInterface';
-import { CBTResultsView } from './CBTResultsView';
+import { Separator } from '@/components/ui/separator';
+import { GeneratedQuestion, PredictionStyle } from '@/types/predictions';
 
-// Helper function to check if a question is a valid objective question
-const isObjectiveQuestion = (question: GeneratedQuestion): question is GeneratedQuestion & {
-  options: string[];
-  correct_answer: string;
-} => {
-  return !!(question.options && question.options.length > 0 && question.correct_answer);
-};
+interface PredictionData {
+  clues: Array<{
+    id: string;
+    name: string;
+    type: 'past-questions' | 'assignment' | 'whisper';
+    content?: string;
+    materialId?: string;
+  }>;
+  context: {
+    course: string;
+    topics: string[];
+    lecturer?: string;
+  };
+  style: PredictionStyle;
+  generatedContent?: {
+    predictions?: GeneratedQuestion[];
+    overall_confidence?: number;
+    analysis_summary?: string;
+    material_coverage?: {
+      topics_covered: string[];
+      sections_analyzed: string[];
+    };
+  };
+}
 
 interface ObjectiveQuestionsViewProps {
-  predictionData: {
-    clues: Array<{
-      id: string;
-      name: string;
-      type: 'past-questions' | 'assignment' | 'whisper';
-      content?: string;
-      materialId?: string;
-    }>;
-    context: {
-      course: string;
-      topics: string[];
-      lecturer?: string;
-    };
-    style: string;
-    generatedContent?: PredictionResponse;
-  };
+  predictionData: PredictionData;
   onBack: () => void;
   onClose: () => void;
 }
 
-type ViewMode = 'questions' | 'exam' | 'results';
-
 export function ObjectiveQuestionsView({ predictionData, onBack, onClose }: ObjectiveQuestionsViewProps) {
-  // Filter and validate objective questions
-  const validObjectiveQuestions = React.useMemo(() => {
-    if (!predictionData.generatedContent?.predictions) return [];
-    return predictionData.generatedContent.predictions.filter(isObjectiveQuestion);
-  }, [predictionData.generatedContent?.predictions]);
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
+  const [showAnswers, setShowAnswers] = useState(false);
+  const [quizMode, setQuizMode] = useState(false);
 
-  const [questions, setQuestions] = useState<GeneratedQuestion[]>(validObjectiveQuestions);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTopic, setSelectedTopic] = useState<string>('all');
-  const [selectedPriority, setSelectedPriority] = useState<string>('all');
-  const [isRegenerating, setIsRegenerating] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('questions');
-  const [examAnswers, setExamAnswers] = useState<Record<number, string>>({});
-  const [examTimeSpent, setExamTimeSpent] = useState(0);
-  const { toast } = useToast();
+  const questions = predictionData.generatedContent?.predictions || [];
 
-  // Get unique topics for filtering
-  const uniqueTopics = Array.from(new Set(questions.map(q => q.topic).filter(Boolean)));
-
-  // Filter questions based on search and filters
-  const filteredQuestions = questions.filter(question => {
-    const matchesSearch = question.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         question.topic?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesTopic = selectedTopic === 'all' || question.topic === selectedTopic;
-    const matchesPriority = selectedPriority === 'all' || question.study_priority?.toString() === selectedPriority;
-    
-    return matchesSearch && matchesTopic && matchesPriority;
-  });
-
-  const handleRegenerate = async () => {
-    setIsRegenerating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-predictions', {
-        body: {
-          clues: predictionData.clues,
-          context: predictionData.context,
-          style: 'objective_bulk'
-        }
-      });
-
-      if (error) throw error;
-
-      if (data?.success && data.data?.predictions) {
-        const newObjectiveQuestions = data.data.predictions.filter(isObjectiveQuestion);
-        setQuestions(newObjectiveQuestions);
-        toast({
-          title: "Success!",
-          description: `Generated ${newObjectiveQuestions.length} new objective questions.`,
-        });
-      } else {
-        throw new Error(data?.error || 'Failed to generate new questions');
-      }
-    } catch (error) {
-      console.error('Error regenerating questions:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate new questions. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRegenerating(false);
+  const handleAnswerSelect = (questionIndex: number, answer: string) => {
+    if (!showAnswers) {
+      setSelectedAnswers(prev => ({
+        ...prev,
+        [questionIndex]: answer
+      }));
     }
   };
 
+  const calculateScore = () => {
+    let correct = 0;
+    questions.forEach((question, index) => {
+      if (selectedAnswers[index] === question.correct_answer) {
+        correct++;
+      }
+    });
+    return Math.round((correct / questions.length) * 100);
+  };
+
   const exportQuestions = () => {
-    const exportData = filteredQuestions.map((q, index) => ({
-      number: index + 1,
-      question: q.question,
-      options: q.options?.join(', ') || '',
-      correct_answer: q.correct_answer || '',
-      topic: q.topic || 'General',
-      confidence: q.confidence || 0,
-      sources: q.sources?.join(', ') || ''
-    }));
+    const content = questions.map((q, index) => {
+      return `Question ${index + 1}: ${q.question}\n\n${q.options?.join('\n') || ''}\n\nCorrect Answer: ${q.correct_answer}\n\n${'-'.repeat(50)}\n\n`;
+    }).join('');
 
-    const csvContent = [
-      Object.keys(exportData[0]).join(','),
-      ...exportData.map(row => Object.values(row).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${predictionData.context.course}_objective_questions.csv`;
+    a.download = `${predictionData.context.course}_Objective_Questions.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
-    toast({
-      title: "Exported!",
-      description: "Questions exported to CSV file.",
-    });
   };
 
-  const startExam = () => {
-    setViewMode('exam');
-    setExamAnswers({});
-    setExamTimeSpent(0);
+  const resetQuiz = () => {
+    setSelectedAnswers({});
+    setShowAnswers(false);
+    setQuizMode(false);
   };
 
-  const handleExamComplete = (answers: Record<number, string>, timeSpent: number) => {
-    setExamAnswers(answers);
-    setExamTimeSpent(timeSpent);
-    setViewMode('results');
+  const startQuizMode = () => {
+    setQuizMode(true);
+    resetQuiz();
   };
 
-  const handleRetakeExam = () => {
-    setExamAnswers({});
-    setExamTimeSpent(0);
-    setViewMode('exam');
-  };
-
-  const handleBackToQuestions = () => {
-    setViewMode('questions');
-  };
-
-  const getConfidenceColor = (level?: string) => {
-    switch (level) {
-      case 'high': return 'bg-green-100 text-green-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'low': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getPriorityColor = (priority?: number) => {
-    switch (priority) {
-      case 1: return 'bg-red-100 text-red-800';
-      case 2: return 'bg-orange-100 text-orange-800';
-      case 3: return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  // Render different views based on current mode
-  if (viewMode === 'exam') {
+  if (questions.length === 0) {
     return (
-      <CBTExamInterface
-        questions={questions}
-        examTitle={`${predictionData.context.course} - Practice Exam`}
-        timeLimit={Math.max(30, questions.length * 2)} // 2 minutes per question, minimum 30 minutes
-        onComplete={handleExamComplete}
-        onExit={handleBackToQuestions}
-      />
-    );
-  }
-
-  if (viewMode === 'results') {
-    return (
-      <CBTResultsView
-        questions={questions}
-        answers={examAnswers}
-        timeSpent={examTimeSpent}
-        examTitle={`${predictionData.context.course} - Practice Exam`}
-        onRetakeExam={handleRetakeExam}
-        onBackToQuestions={handleBackToQuestions}
-      />
-    );
-  }
-
-  // Default questions view
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={onBack}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 font-space-grotesk">Objective Questions</h2>
-            <p className="text-gray-600">{questions.length} questions for {predictionData.context.course}</p>
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center py-12">
+          <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">No Questions Generated</h3>
+          <p className="text-gray-600 mb-6">
+            We couldn't generate objective questions from your materials. Try uploading different materials or adjusting your selection.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button variant="outline" onClick={onBack}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Go Back
+            </Button>
+            <Button onClick={onClose}>Close</Button>
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          <X className="w-4 h-4" />
-        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            Objective Questions - {predictionData.context.course}
+          </h2>
+          <p className="text-gray-600">
+            {questions.length} questions generated • 
+            Avg confidence: {Math.round(predictionData.generatedContent?.overall_confidence || 0)}%
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {!quizMode && (
+            <Button
+              onClick={startQuizMode}
+              className="bg-teal-600 hover:bg-teal-700 text-white"
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              Quiz Mode
+            </Button>
+          )}
+          <Button variant="outline" onClick={exportQuestions}>
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
+        </div>
       </div>
 
-      {/* Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <Card className="border-2 border-teal-200 bg-teal-50">
-          <CardContent className="p-6">
+      {/* Quiz Controls */}
+      {quizMode && (
+        <Card className="mb-6">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-teal-800 mb-2">Take Practice Exam</h3>
-                <p className="text-teal-600 text-sm mb-4">
-                  Simulate a real exam experience with timer and scoring
-                </p>
-                <div className="flex items-center text-sm text-teal-600 space-x-4">
-                  <span className="flex items-center">
-                    <Target className="w-4 h-4 mr-1" />
-                    {questions.length} Questions
-                  </span>
-                  <span className="flex items-center">
-                    <Clock className="w-4 h-4 mr-1" />
-                    {Math.max(30, questions.length * 2)} minutes
-                  </span>
-                </div>
+              <div className="flex items-center gap-4">
+                <Badge variant="secondary">
+                  Quiz Mode Active
+                </Badge>
+                <span className="text-sm text-gray-600">
+                  {Object.keys(selectedAnswers).length} of {questions.length} answered
+                </span>
               </div>
-              <Button 
-                onClick={startExam}
-                className="bg-teal-600 hover:bg-teal-700"
-              >
-                <PlayCircle className="w-4 h-4 mr-2" />
-                Start Exam
-              </Button>
+              <div className="flex gap-2">
+                {Object.keys(selectedAnswers).length === questions.length && !showAnswers && (
+                  <Button
+                    onClick={() => setShowAnswers(true)}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Show Results ({calculateScore()}%)
+                  </Button>
+                )}
+                <Button variant="outline" onClick={resetQuiz}>
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Reset
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
+      )}
 
-        <Card className="border-2 border-blue-200 bg-blue-50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-blue-800 mb-2">Study Mode</h3>
-                <p className="text-blue-600 text-sm mb-4">
-                  Browse questions, search by topic, and review at your pace
-                </p>
-                <div className="flex items-center text-sm text-blue-600 space-x-4">
-                  <span className="flex items-center">
-                    <BookOpen className="w-4 h-4 mr-1" />
-                    Browse & Search
-                  </span>
-                  <span className="flex items-center">
-                    <Download className="w-4 h-4 mr-1" />
-                    Export Options
-                  </span>
-                </div>
-              </div>
-              <div className="text-2xl font-bold text-blue-600">📚</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Controls */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4 items-center justify-between">
-            <div className="flex gap-4 items-center flex-1">
-              <div className="relative flex-1 max-w-md">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <Input
-                  placeholder="Search questions or topics..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              
-              <select
-                value={selectedTopic}
-                onChange={(e) => setSelectedTopic(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-              >
-                <option value="all">All Topics</option>
-                {uniqueTopics.map(topic => (
-                  <option key={topic} value={topic}>{topic}</option>
-                ))}
-              </select>
-
-              <select
-                value={selectedPriority}
-                onChange={(e) => setSelectedPriority(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-              >
-                <option value="all">All Priorities</option>
-                <option value="1">High Priority</option>
-                <option value="2">Medium Priority</option>
-                <option value="3">Low Priority</option>
-              </select>
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                onClick={handleRegenerate}
-                disabled={isRegenerating}
-                variant="outline"
-                size="sm"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isRegenerating ? 'animate-spin' : ''}`} />
-                {isRegenerating ? 'Generating...' : 'New Set'}
-              </Button>
-              
-              <Button onClick={exportQuestions} variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Questions Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {filteredQuestions.map((question, index) => (
+      {/* Questions */}
+      <div className="space-y-6">
+        {questions.map((question, questionIndex) => (
           <motion.div
-            key={index}
+            key={questionIndex}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
+            transition={{ delay: questionIndex * 0.1 }}
           >
-            <Card className="h-full">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="outline" className="text-xs">
-                        Q{index + 1}
+            <Card className="overflow-hidden">
+              <CardHeader className="bg-gray-50">
+                <div className="flex items-start justify-between">
+                  <CardTitle className="text-lg">
+                    Question {questionIndex + 1}
+                  </CardTitle>
+                  <div className="flex gap-2">
+                    {question.confidence && (
+                      <Badge variant="secondary">
+                        {Math.round(question.confidence)}% confidence
                       </Badge>
-                      {question.topic && (
-                        <Badge variant="secondary" className="text-xs">
-                          {question.topic}
-                        </Badge>
-                      )}
-                      <Badge className={`text-xs ${getConfidenceColor(question.confidence_level)}`}>
-                        {question.confidence || 0}%
+                    )}
+                    {question.difficulty && (
+                      <Badge variant={
+                        question.difficulty === 'easy' ? 'default' :
+                        question.difficulty === 'medium' ? 'secondary' : 'destructive'
+                      }>
+                        {question.difficulty}
                       </Badge>
-                      <Badge className={`text-xs ${getPriorityColor(question.study_priority)}`}>
-                        P{question.study_priority || 0}
-                      </Badge>
-                    </div>
-                    <CardTitle className="text-base leading-relaxed">
-                      {question.question}
-                    </CardTitle>
+                    )}
                   </div>
                 </div>
               </CardHeader>
-              
-              <CardContent className="pt-0">
-                <div className="space-y-3">
-                  {/* Options */}
-                  <div className="space-y-2">
-                    {question.options?.map((option, optionIndex) => (
-                      <div
-                        key={optionIndex}
-                        className={`p-2 rounded text-sm ${
-                          option.charAt(0) === question.correct_answer
-                            ? 'bg-green-50 border border-green-200 text-green-800'
-                            : 'bg-gray-50 border border-gray-200'
-                        }`}
-                      >
-                        {option}
-                      </div>
-                    ))}
-                  </div>
+              <CardContent className="p-6">
+                <p className="text-gray-800 mb-4 leading-relaxed">
+                  {question.question}
+                </p>
 
-                  {/* Rationale */}
-                  {question.rationale && question.rationale.length > 0 && (
-                    <div className="text-xs text-gray-600 space-y-1">
-                      <div className="font-medium flex items-center gap-1">
-                        <Target className="w-3 h-3" />
-                        Rationale:
-                      </div>
-                      {question.rationale.map((reason, idx) => (
-                        <div key={idx} className="pl-4">• {reason}</div>
+                {question.options && (
+                  <div className="space-y-3">
+                    {question.options.map((option, optionIndex) => {
+                      const isSelected = selectedAnswers[questionIndex] === option;
+                      const isCorrect = option === question.correct_answer;
+                      const showCorrectness = showAnswers && quizMode;
+                      
+                      let buttonClass = "w-full text-left p-4 rounded-lg border transition-all ";
+                      
+                      if (showCorrectness) {
+                        if (isCorrect) {
+                          buttonClass += "border-green-500 bg-green-50 text-green-800";
+                        } else if (isSelected && !isCorrect) {
+                          buttonClass += "border-red-500 bg-red-50 text-red-800";
+                        } else {
+                          buttonClass += "border-gray-200 bg-gray-50 text-gray-600";
+                        }
+                      } else if (isSelected) {
+                        buttonClass += "border-teal-500 bg-teal-50 text-teal-800";
+                      } else {
+                        buttonClass += "border-gray-200 hover:border-gray-300 hover:bg-gray-50";
+                      }
+
+                      return (
+                        <button
+                          key={optionIndex}
+                          onClick={() => handleAnswerSelect(questionIndex, option)}
+                          className={buttonClass}
+                          disabled={showAnswers && quizMode}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex-shrink-0">
+                              {showCorrectness && isCorrect && (
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                              )}
+                              {showCorrectness && isSelected && !isCorrect && (
+                                <XCircle className="w-5 h-5 text-red-600" />
+                              )}
+                              {!showCorrectness && (
+                                <div className={`w-4 h-4 rounded-full border-2 ${
+                                  isSelected ? 'border-teal-500 bg-teal-500' : 'border-gray-300'
+                                }`} />
+                              )}
+                            </div>
+                            <span className="flex-1">{option}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {!quizMode && question.correct_answer && (
+                  <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <p className="text-sm font-medium text-green-800 mb-1">Correct Answer:</p>
+                    <p className="text-green-700">{question.correct_answer}</p>
+                  </div>
+                )}
+
+                {question.rationale && question.rationale.length > 0 && !quizMode && (
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-sm font-medium text-blue-800 mb-2">Explanation:</p>
+                    <div className="text-blue-700 text-sm space-y-1">
+                      {question.rationale.map((point, idx) => (
+                        <p key={idx}>• {point}</p>
                       ))}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Sources */}
-                  {question.sources && question.sources.length > 0 && (
-                    <div className="text-xs text-gray-500">
-                      <div className="font-medium flex items-center gap-1 mb-1">
-                        <BookOpen className="w-3 h-3" />
-                        Sources:
-                      </div>
-                      <div className="pl-4">{question.sources.join(', ')}</div>
-                    </div>
-                  )}
-                </div>
+                {question.topic && (
+                  <div className="mt-4 flex items-center gap-2">
+                    <span className="text-xs text-gray-500">Topic:</span>
+                    <Badge variant="outline" className="text-xs">
+                      {question.topic}
+                    </Badge>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
         ))}
       </div>
 
-      {filteredQuestions.length === 0 && (
-        <Card>
-          <CardContent className="text-center py-12">
-            <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No questions found</h3>
-            <p className="text-gray-500">Try adjusting your search or filter criteria.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Statistics */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div>
-              <div className="text-2xl font-bold text-gray-800">{questions.length}</div>
-              <div className="text-sm text-gray-600">Total Questions</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-green-600">
-                {questions.filter(q => q.confidence_level === 'high').length}
-              </div>
-              <div className="text-sm text-gray-600">High Confidence</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-orange-600">
-                {questions.filter(q => q.study_priority === 1).length}
-              </div>
-              <div className="text-sm text-gray-600">Priority 1</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-blue-600">{uniqueTopics.length}</div>
-              <div className="text-sm text-gray-600">Topics Covered</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Footer */}
+      <div className="mt-8 flex justify-between items-center">
+        <Button variant="outline" onClick={onBack}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Style Selection
+        </Button>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={exportQuestions}>
+            <Download className="w-4 h-4 mr-2" />
+            Export Questions
+          </Button>
+          <Button onClick={onClose}>Close</Button>
+        </div>
+      </div>
     </div>
   );
 }

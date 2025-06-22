@@ -151,10 +151,11 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
         );
       case 'results':
         // Handle different result views based on style
+        const transformedData = getTransformedData();
         if (predictionData.style === 'objective_bulk') {
           return (
             <ObjectiveQuestionsView
-              predictionData={getTransformedData()}
+              predictionData={transformedData}
               onBack={handleBack}
               onClose={onClose}
             />
@@ -162,7 +163,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
         } else if (predictionData.style === 'practice_exam' || predictionData.style === 'exam-paper') {
           return (
             <ExamPaperView
-              predictionData={getTransformedData()}
+              predictionData={transformedData}
               onBack={handleBack}
               onClose={onClose}
             />
@@ -170,7 +171,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
         } else {
           return (
             <EnhancedPredictionResults
-              predictionData={getTransformedData()}
+              predictionData={transformedData}
               onBack={handleBack}
               onClose={onClose}
             />
