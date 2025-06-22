@@ -30,11 +30,11 @@ interface Material {
 }
 
 interface UploadedMaterialsListProps {
-  key?: number;
+  refreshKey?: number;
   onSectionChange?: (section: string) => void;
 }
 
-export function UploadedMaterialsList({ key, onSectionChange }: UploadedMaterialsListProps) {
+export function UploadedMaterialsList({ refreshKey, onSectionChange }: UploadedMaterialsListProps) {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
@@ -46,7 +46,7 @@ export function UploadedMaterialsList({ key, onSectionChange }: UploadedMaterial
     if (user) {
       fetchMaterials();
     }
-  }, [user, key]);
+  }, [user, refreshKey]);
 
   const fetchMaterials = async () => {
     try {

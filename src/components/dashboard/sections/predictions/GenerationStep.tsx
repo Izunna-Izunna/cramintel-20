@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Brain, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
@@ -89,6 +90,12 @@ export function GenerationStep({ predictionData, onNext, onBack, onGenerationCom
       setProgress(90);
       setCurrentTask('Processing with AI...');
 
+      console.log('Calling edge function with data:', {
+        clues: enrichedClues,
+        context: predictionData.context,
+        style: predictionData.style
+      });
+
       // Call the edge function
       const { data, error: functionError } = await supabase.functions.invoke('generate-predictions', {
         body: {
@@ -97,6 +104,9 @@ export function GenerationStep({ predictionData, onNext, onBack, onGenerationCom
           style: predictionData.style
         }
       });
+
+      console.log('Edge function response:', data);
+      console.log('Edge function error:', functionError);
 
       if (functionError) {
         console.error('Edge function error:', functionError);
@@ -116,17 +126,24 @@ export function GenerationStep({ predictionData, onNext, onBack, onGenerationCom
         throw new Error(errorMessage);
       }
 
+      // Handle the new response structure
       if (!data?.success) {
-        throw new Error(data?.error || 'Unknown error occurred during prediction generation');
+        const errorMsg = data?.error || 'Unknown error occurred during prediction generation';
+        console.error('Prediction generation failed:', errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      if (!data.data?.predictions || !Array.isArray(data.data.predictions)) {
+        console.error('Invalid prediction data received:', data);
+        throw new Error('Invalid predictions data received from server');
       }
 
       setProgress(100);
       setCurrentTask('Predictions generated successfully!');
       
       // Call the completion handler with the generated content
-      if (data.data) {
-        onGenerationComplete(data.data);
-      }
+      console.log('Calling onGenerationComplete with:', data.data);
+      onGenerationComplete(data.data);
       
       toast({
         title: "Success!",
@@ -139,7 +156,24 @@ export function GenerationStep({ predictionData, onNext, onBack, onGenerationCom
       onNext();
     } catch (err) {
       console.error('Error generating predictions:', err);
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred while generating predictions';
+      
+      // More user-friendly error messages
+      let errorMessage = 'An error occurred while generating predictions';
+      
+      if (err instanceof Error) {
+        if (err.message.includes('fetch') || err.message.includes('network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (err.message.includes('JSON') || err.message.includes('parse')) {
+          errorMessage = 'Server response error. Please try again or contact support.';
+        } else if (err.message.includes('Unauthorized')) {
+          errorMessage = 'Authentication error. Please try logging out and back in.';
+        } else if (err.message.includes('timeout')) {
+          errorMessage = 'Request timed out. Please try again with fewer materials.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
       setError(errorMessage);
       
       toast({
@@ -229,7 +263,7 @@ export function GenerationStep({ predictionData, onNext, onBack, onGenerationCom
                   <h4 className="font-semibold text-gray-800 mb-2">Analysis Summary:</h4>
                   <ul className="text-sm text-gray-600 space-y-1">
                     <li>• Course: {predictionData.context.course}</li>
-                    <li>• Topics: {predictionData.context.topics.join(', ')}</li>
+                    <li>• Topics: {predictionData.context.topics.join(', ') || 'Not specified'}</li>
                     <li>• Materials: {predictionData.clues.length} items</li>
                     <li>• Format: {predictionData.style === 'exam-paper' ? 'Full Exam Paper' : 'Question Predictions'}</li>
                   </ul>
