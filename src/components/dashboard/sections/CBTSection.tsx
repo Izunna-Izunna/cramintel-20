@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Book, Clock, Target, Play, BarChart3, Users, Award, Loader2 } from 'lucide-react';
@@ -92,7 +91,7 @@ export function CBTSection() {
         clues,
         context: {
           course,
-          topics: [...new Set(courseMaterials.map(m => m.topic).filter(Boolean))],
+          materials: courseMaterials.map(m => ({ name: m.name, type: m.material_type })),
         },
         style: 'objective_bulk' as const
       };
