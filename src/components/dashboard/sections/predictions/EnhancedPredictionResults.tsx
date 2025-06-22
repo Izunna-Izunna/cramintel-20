@@ -127,7 +127,7 @@ export function EnhancedPredictionResults({
                 
                 {prediction.rationale && (
                   <Collapsible>
-                    <Collapsible trigger>
+                    <CollapsibleTrigger asChild>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -233,8 +233,8 @@ export function EnhancedPredictionResults({
               </Button>
             </div>
           </CardHeader>
-          <CollapsibleContent>
-            {showStudyGuide && (
+          <Collapsible open={showStudyGuide} onOpenChange={setShowStudyGuide}>
+            <CollapsibleContent>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white p-4 rounded-lg border">
@@ -272,8 +272,8 @@ export function EnhancedPredictionResults({
                   </div>
                 </div>
               </CardContent>
-            )}
-          </CollapsibleContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
       )}
 
