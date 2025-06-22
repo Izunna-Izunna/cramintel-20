@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, X } from 'lucide-react';
@@ -12,6 +13,7 @@ import { EnhancedStyleSelectionStep } from './EnhancedStyleSelectionStep';
 import { GenerationStep } from './GenerationStep';
 import { EnhancedPredictionResults } from './EnhancedPredictionResults';
 import { ExamPaperView } from './ExamPaperView';
+import { ObjectiveQuestionsView } from './ObjectiveQuestionsView';
 import { PredictionResponse, PredictionContext } from '@/types/predictions';
 
 interface PredictionJourneyProps {
@@ -35,7 +37,7 @@ interface EnhancedPredictionData {
     lecturer?: string;
   };
   predictionContext: PredictionContext;
-  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper' | 'ranked' | 'practice_exam' | 'topic_based';
+  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper' | 'ranked' | 'practice_exam' | 'topic_based' | 'objective_bulk';
   generatedContent?: PredictionResponse;
 }
 
@@ -148,19 +150,32 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
           />
         );
       case 'results':
-        return predictionData.style === 'practice_exam' || predictionData.style === 'exam-paper' ? (
-          <ExamPaperView
-            predictionData={getTransformedData()}
-            onBack={handleBack}
-            onClose={onClose}
-          />
-        ) : (
-          <EnhancedPredictionResults
-            predictionData={getTransformedData()}
-            onBack={handleBack}
-            onClose={onClose}
-          />
-        );
+        // Handle different result views based on style
+        if (predictionData.style === 'objective_bulk') {
+          return (
+            <ObjectiveQuestionsView
+              predictionData={getTransformedData()}
+              onBack={handleBack}
+              onClose={onClose}
+            />
+          );
+        } else if (predictionData.style === 'practice_exam' || predictionData.style === 'exam-paper') {
+          return (
+            <ExamPaperView
+              predictionData={getTransformedData()}
+              onBack={handleBack}
+              onClose={onClose}
+            />
+          );
+        } else {
+          return (
+            <EnhancedPredictionResults
+              predictionData={getTransformedData()}
+              onBack={handleBack}
+              onClose={onClose}
+            />
+          );
+        }
       default:
         return null;
     }
@@ -181,7 +196,11 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
                 <ArrowLeft className="w-4 h-4" />
               </Button>
             )}
-            <h2 className="text-xl font-bold text-gray-800">Enhanced AI Predictions Journey</h2>
+            <h2 className="text-xl font-bold text-gray-800">
+              {predictionData.style === 'objective_bulk' && currentStep === 'results' 
+                ? 'Objective Questions Generator' 
+                : 'Enhanced AI Predictions Journey'}
+            </h2>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-gray-100">
             <X className="w-4 h-4" />

@@ -16,6 +16,10 @@ export interface GeneratedQuestion {
   rationale?: string[];
   confidence_level?: 'high' | 'medium' | 'low';
   study_priority?: number;
+  // New fields for objective questions
+  options?: string[];
+  correct_answer?: string;
+  topic?: string;
 }
 
 export interface ExamSection {
@@ -45,6 +49,11 @@ export interface PredictionResponse {
     priority_1: string[];
     priority_2: string[];
     priority_3: string[];
+  };
+  // New fields for objective questions
+  material_coverage?: {
+    topics_covered: string[];
+    sections_analyzed: string[];
   };
 }
 
