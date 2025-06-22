@@ -1,17 +1,23 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Book, Clock, Target, Play, BarChart3, Users, Award } from 'lucide-react';
+import { Book, Clock, Target, Play, BarChart3, Users, Award, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMaterials } from '@/hooks/useMaterials';
+import { usePredictions } from '@/hooks/usePredictions';
+import { useAuth } from '@/hooks/useAuth';
 import { CBTExamInterface } from './predictions/CBTExamInterface';
 import { CBTResultsView } from './predictions/CBTResultsView';
 import { GeneratedQuestion } from '@/types/predictions';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import CramIntelLogo from '@/components/CramIntelLogo';
 
 export function CBTSection() {
   const { materialGroups, loading } = useMaterials();
+  const { predictions } = usePredictions();
+  const { user } = useAuth();
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [examMode, setExamMode] = useState<'selection' | 'exam' | 'results'>('selection');
   const [examQuestions, setExamQuestions] = useState<GeneratedQuestion[]>([]);
@@ -19,6 +25,7 @@ export function CBTSection() {
     answers: Record<number, string>;
     timeSpent: number;
   } | null>(null);
+  const [generatingQuestions, setGeneratingQuestions] = useState(false);
 
   // Get unique courses from materials
   const courses = Array.from(
@@ -30,54 +37,115 @@ export function CBTSection() {
     )
   );
 
-  // Mock exam questions for demo (in real app, these would come from generated predictions)
-  const generateMockQuestions = (course: string): GeneratedQuestion[] => {
-    return [
-      {
-        question: `What is the primary concept in ${course}?`,
-        options: [
-          'A) First option related to the course',
-          'B) Second option that might be correct',
-          'C) Third option for consideration',
-          'D) Fourth option as alternative'
-        ],
-        correct_answer: 'A) First option related to the course',
-        topic: course,
-        confidence: 85,
-        difficulty: 'medium'
-      },
-      {
-        question: `Which principle is fundamental in ${course} studies?`,
-        options: [
-          'A) Basic principle one',
-          'B) Advanced concept two',
-          'C) Intermediate idea three',
-          'D) Complex theory four'
-        ],
-        correct_answer: 'B) Advanced concept two',
-        topic: course,
-        confidence: 90,
-        difficulty: 'hard'
-      },
-      {
-        question: `How do you apply ${course} concepts in practice?`,
-        options: [
-          'A) Through theoretical analysis only',
-          'B) By combining theory and practical application',
-          'C) Using only practical methods',
-          'D) Avoiding theoretical frameworks'
-        ],
-        correct_answer: 'B) By combining theory and practical application',
-        topic: course,
-        confidence: 78,
-        difficulty: 'medium'
+  // Get existing objective questions for a course from predictions
+  const getExistingQuestions = (course: string): GeneratedQuestion[] => {
+    const coursePredictions = predictions.filter(
+      p => p.course === course && 
+      p.prediction_type === 'objective_bulk' && 
+      p.status === 'active'
+    );
+
+    const questions: GeneratedQuestion[] = [];
+    coursePredictions.forEach(prediction => {
+      if (Array.isArray(prediction.questions)) {
+        prediction.questions.forEach(q => {
+          if (q.options && q.correct_answer) {
+            questions.push(q);
+          }
+        });
       }
-    ];
+    });
+
+    return questions;
   };
 
-  const handleStartExam = (course: string) => {
+  // Generate new questions using OpenAI
+  const generateNewQuestions = async (course: string): Promise<GeneratedQuestion[]> => {
+    if (!user) {
+      toast.error('Please log in to generate questions');
+      return [];
+    }
+
+    try {
+      setGeneratingQuestions(true);
+      toast.info('Generating CBT questions from your materials...');
+
+      // Get materials for this course
+      const courseMaterials = materialGroups
+        .flatMap(group => group.materials)
+        .filter(material => material.course === course);
+
+      if (courseMaterials.length === 0) {
+        toast.error('No materials found for this course');
+        return [];
+      }
+
+      // Prepare clues for generation
+      const clues = courseMaterials.map(material => ({
+        id: material.id,
+        name: material.name,
+        type: 'assignment' as const,
+        materialId: material.id
+      }));
+
+      const requestBody = {
+        clues,
+        context: {
+          course,
+          topics: [...new Set(courseMaterials.map(m => m.topic).filter(Boolean))],
+        },
+        style: 'objective_bulk' as const
+      };
+
+      const { data, error } = await supabase.functions.invoke('generate-predictions', {
+        body: requestBody
+      });
+
+      if (error) {
+        console.error('Error generating questions:', error);
+        toast.error('Failed to generate questions. Please try again.');
+        return [];
+      }
+
+      const questions = data?.data?.predictions || [];
+      
+      if (questions.length === 0) {
+        toast.error('No questions could be generated from your materials');
+        return [];
+      }
+
+      toast.success(`Generated ${questions.length} CBT questions!`);
+      return questions;
+    } catch (error) {
+      console.error('Error in question generation:', error);
+      toast.error('Failed to generate questions. Please try again.');
+      return [];
+    } finally {
+      setGeneratingQuestions(false);
+    }
+  };
+
+  const handleStartExam = async (course: string) => {
     setSelectedCourse(course);
-    setExamQuestions(generateMockQuestions(course));
+    
+    // First, try to get existing questions
+    let questions = getExistingQuestions(course);
+    
+    // If we have fewer than 10 questions, generate new ones
+    if (questions.length < 10) {
+      const newQuestions = await generateNewQuestions(course);
+      questions = [...questions, ...newQuestions];
+    }
+    
+    // Take up to 25 questions for the exam
+    const examQuestions = questions.slice(0, 25);
+    
+    if (examQuestions.length === 0) {
+      toast.error('No questions available for this course. Please upload some materials first.');
+      return;
+    }
+    
+    setExamQuestions(examQuestions);
     setExamMode('exam');
   };
 
@@ -114,7 +182,7 @@ export function CBTSection() {
       <CBTExamInterface
         questions={examQuestions}
         examTitle={`${selectedCourse} Practice Exam`}
-        timeLimit={30} // 30 minutes default
+        timeLimit={45} // 45 minutes for CBT
         onComplete={handleExamComplete}
         onExit={handleBackToSelection}
       />
@@ -156,7 +224,7 @@ export function CBTSection() {
             Computer Based Testing
           </h1>
           <p className="text-xl opacity-90 font-space">
-            Practice with realistic exam simulations
+            AI-powered exam simulations from your study materials
           </p>
         </div>
       </motion.div>
@@ -178,15 +246,17 @@ export function CBTSection() {
         <Card className="border-wrlds-accent/20 shadow-sm">
           <CardContent className="p-4 text-center">
             <Target className="w-8 h-8 text-wrlds-dark mx-auto mb-2" />
-            <p className="text-2xl font-bold text-wrlds-dark font-space">0</p>
-            <p className="text-sm text-wrlds-accent font-space">Tests Completed</p>
+            <p className="text-2xl font-bold text-wrlds-dark font-space">
+              {predictions.filter(p => p.prediction_type === 'objective_bulk').length}
+            </p>
+            <p className="text-sm text-wrlds-accent font-space">Question Banks</p>
           </CardContent>
         </Card>
         <Card className="border-wrlds-accent/20 shadow-sm">
           <CardContent className="p-4 text-center">
             <Clock className="w-8 h-8 text-green-600 mx-auto mb-2" />
             <p className="text-2xl font-bold text-wrlds-dark font-space">0h</p>
-            <p className="text-sm text-wrlds-accent font-space">Study Time</p>
+            <p className="text-sm text-wrlds-accent font-space">Practice Time</p>
           </CardContent>
         </Card>
         <Card className="border-wrlds-accent/20 shadow-sm">
@@ -238,6 +308,8 @@ export function CBTSection() {
                     .flatMap(group => group.materials)
                     .filter(material => material.course === course);
                   
+                  const existingQuestions = getExistingQuestions(course);
+                  
                   return (
                     <motion.div
                       key={course}
@@ -249,22 +321,40 @@ export function CBTSection() {
                         <CardContent className="p-6">
                           <div className="flex items-center justify-between mb-4">
                             <Book className="w-8 h-8 text-wrlds-dark" />
-                            <span className="text-sm text-wrlds-accent font-space">
-                              {courseMaterials.length} materials
-                            </span>
+                            <div className="text-right">
+                              <span className="text-sm text-wrlds-accent font-space block">
+                                {courseMaterials.length} materials
+                              </span>
+                              <span className="text-xs text-green-600 font-space">
+                                {existingQuestions.length} questions ready
+                              </span>
+                            </div>
                           </div>
                           <h3 className="font-semibold text-wrlds-dark mb-2 group-hover:text-gray-700 transition-colors font-space">
                             {course}
                           </h3>
                           <p className="text-sm text-wrlds-accent mb-4 font-space">
-                            Practice with AI-generated questions based on your uploaded materials
+                            {existingQuestions.length > 0 
+                              ? `Practice with ${existingQuestions.length} AI-generated questions`
+                              : 'Generate fresh questions from your materials'
+                            }
                           </p>
                           <Button
                             onClick={() => handleStartExam(course)}
-                            className="w-full bg-gradient-to-r from-wrlds-dark to-gray-800 hover:from-gray-800 hover:to-black font-space"
+                            disabled={generatingQuestions}
+                            className="w-full bg-gradient-to-r from-wrlds-dark to-gray-800 hover:from-gray-800 hover:to-black font-space disabled:opacity-50"
                           >
-                            <Play className="w-4 h-4 mr-2" />
-                            Start CBT
+                            {generatingQuestions ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-4 h-4 mr-2" />
+                                Start CBT
+                              </>
+                            )}
                           </Button>
                         </CardContent>
                       </Card>
@@ -277,7 +367,7 @@ export function CBTSection() {
         </motion.div>
       )}
 
-      {/* Quick Tips */}
+      {/* CBT Features */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -285,36 +375,36 @@ export function CBTSection() {
       >
         <Card className="border-wrlds-accent/20 shadow-sm">
           <CardHeader>
-            <CardTitle className="font-space text-wrlds-dark">CBT Tips</CardTitle>
+            <CardTitle className="font-space text-wrlds-dark">CBT Features</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-start space-x-3">
+                <BarChart3 className="w-5 h-5 text-wrlds-dark mt-1" />
+                <div>
+                  <h4 className="font-medium text-wrlds-dark font-space">AI-Generated Questions</h4>
+                  <p className="text-sm text-wrlds-accent font-space">Questions generated from your actual study materials using advanced AI</p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
                 <Clock className="w-5 h-5 text-wrlds-dark mt-1" />
                 <div>
-                  <h4 className="font-medium text-wrlds-dark font-space">Time Management</h4>
-                  <p className="text-sm text-wrlds-accent font-space">Practice with realistic time limits to improve your exam performance</p>
+                  <h4 className="font-medium text-wrlds-dark font-space">Realistic Timing</h4>
+                  <p className="text-sm text-wrlds-accent font-space">Practice with authentic exam time constraints and pressure</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
                 <Target className="w-5 h-5 text-wrlds-dark mt-1" />
                 <div>
-                  <h4 className="font-medium text-wrlds-dark font-space">Focus Areas</h4>
-                  <p className="text-sm text-wrlds-accent font-space">Questions are generated from your uploaded materials and weak spots</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <BarChart3 className="w-5 h-5 text-green-600 mt-1" />
-                <div>
-                  <h4 className="font-medium text-wrlds-dark font-space">Track Progress</h4>
-                  <p className="text-sm text-wrlds-accent font-space">Monitor your improvement across multiple practice sessions</p>
+                  <h4 className="font-medium text-wrlds-dark font-space">Smart Question Selection</h4>
+                  <p className="text-sm text-wrlds-accent font-space">Questions selected based on confidence scores and topic coverage</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
                 <Award className="w-5 h-5 text-purple-600 mt-1" />
                 <div>
-                  <h4 className="font-medium text-wrlds-dark font-space">Realistic Experience</h4>
-                  <p className="text-sm text-wrlds-accent font-space">Simulate actual exam conditions with our CBT interface</p>
+                  <h4 className="font-medium text-wrlds-dark font-space">Performance Analytics</h4>
+                  <p className="text-sm text-wrlds-accent font-space">Detailed analysis of your performance and areas for improvement</p>
                 </div>
               </div>
             </div>
