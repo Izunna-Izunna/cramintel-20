@@ -20,7 +20,7 @@ interface PredictionJourneyProps {
 
 export type PredictionStep = 1 | 2 | 3 | 4 | 5 | 6 | 'results';
 
-interface PredictionData {
+interface EnhancedPredictionData {
   selectedMaterials: string[];
   clues: Array<{
     id: string;
@@ -41,7 +41,7 @@ interface PredictionData {
 
 export function PredictionJourney({ onClose }: PredictionJourneyProps) {
   const [currentStep, setCurrentStep] = useState<PredictionStep>(1);
-  const [predictionData, setPredictionData] = useState<PredictionData>({
+  const [predictionData, setPredictionData] = useState<EnhancedPredictionData>({
     selectedMaterials: [],
     clues: [],
     context: {
@@ -84,7 +84,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
   };
 
   // Transform selectedMaterials to clues format when needed
-  const getTransformedData = (): PredictionData => {
+  const getTransformedData = (): EnhancedPredictionData => {
     const clues = predictionData.selectedMaterials.map((materialId, index) => ({
       id: `material-${index}`,
       name: `Material ${index + 1}`,
@@ -113,7 +113,6 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
         );
       case 3:
         return (
-          // Keep the existing TagContextStep for basic course/topic info
           <TagContextStep
             context={predictionData.context}
             onContextChange={(context) => setPredictionData(prev => ({ ...prev, context }))}
