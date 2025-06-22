@@ -457,6 +457,7 @@ export type Database = {
       }
       cramintel_predictions: {
         Row: {
+          confidence_level: string | null
           confidence_score: number | null
           course: string
           exam_date: string | null
@@ -464,10 +465,13 @@ export type Database = {
           id: string
           prediction_type: string | null
           questions: Json | null
+          rationale: string[] | null
           status: string | null
+          study_priority: number | null
           user_id: string | null
         }
         Insert: {
+          confidence_level?: string | null
           confidence_score?: number | null
           course: string
           exam_date?: string | null
@@ -475,10 +479,13 @@ export type Database = {
           id?: string
           prediction_type?: string | null
           questions?: Json | null
+          rationale?: string[] | null
           status?: string | null
+          study_priority?: number | null
           user_id?: string | null
         }
         Update: {
+          confidence_level?: string | null
           confidence_score?: number | null
           course?: string
           exam_date?: string | null
@@ -486,7 +493,9 @@ export type Database = {
           id?: string
           prediction_type?: string | null
           questions?: Json | null
+          rationale?: string[] | null
           status?: string | null
+          study_priority?: number | null
           user_id?: string | null
         }
         Relationships: []
@@ -1033,6 +1042,47 @@ export type Database = {
           url?: string
         }
         Relationships: []
+      }
+      prediction_context: {
+        Row: {
+          assignment_patterns: string | null
+          class_rumors: string | null
+          created_at: string | null
+          id: string
+          lecturer_emphasis: string | null
+          prediction_session_id: string | null
+          topic_emphasis: string[] | null
+          user_id: string | null
+        }
+        Insert: {
+          assignment_patterns?: string | null
+          class_rumors?: string | null
+          created_at?: string | null
+          id?: string
+          lecturer_emphasis?: string | null
+          prediction_session_id?: string | null
+          topic_emphasis?: string[] | null
+          user_id?: string | null
+        }
+        Update: {
+          assignment_patterns?: string | null
+          class_rumors?: string | null
+          created_at?: string | null
+          id?: string
+          lecturer_emphasis?: string | null
+          prediction_session_id?: string | null
+          topic_emphasis?: string[] | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prediction_context_prediction_session_id_fkey"
+            columns: ["prediction_session_id"]
+            isOneToOne: false
+            referencedRelation: "cramintel_predictions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {

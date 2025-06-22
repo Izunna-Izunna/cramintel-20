@@ -13,6 +13,9 @@ export interface GeneratedQuestion {
   instruction?: string;
   subtopics?: string[];
   hint?: string;
+  rationale?: string[];
+  confidence_level?: 'high' | 'medium' | 'low';
+  study_priority?: number;
 }
 
 export interface ExamSection {
@@ -38,4 +41,26 @@ export interface PredictionResponse {
   instructions?: string;
   sections?: ExamSection[];
   total_marks?: number;
+  study_guide?: {
+    priority_1: string[];
+    priority_2: string[];
+    priority_3: string[];
+  };
+}
+
+export interface PredictionContext {
+  lecturer_emphasis?: string;
+  assignment_patterns?: string;
+  class_rumors?: string;
+  topic_emphasis?: string[];
+  assignment_focus?: 'calculations' | 'theory' | 'both';
+  revision_hints?: string;
+}
+
+export interface MaterialCategory {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  materials: string[];
 }

@@ -1,5 +1,4 @@
 
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -8,128 +7,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Helper function to get stored extracted text or fall back to re-extraction
-async function getExtractedText(supabaseClient: any, materialId: string): Promise<string> {
-  try {
-    console.log(`Getting extracted text for material: ${materialId}`);
-    
-    // First, try to get stored extracted text
-    const { data: extractedData, error: extractedError } = await supabaseClient
-      .from('cramintel_extracted_texts')
-      .select('extracted_text, extraction_confidence, word_count')
-      .eq('material_id', materialId)
-      .single();
-
-    if (extractedData && !extractedError) {
-      console.log(`Found stored extracted text: ${extractedData.word_count} words, confidence: ${extractedData.extraction_confidence}%`);
-      
-      // Validate the stored text quality
-      if (extractedData.extracted_text && extractedData.extracted_text.length > 100) {
-        return extractedData.extracted_text;
-      }
-    }
-
-    console.log('No valid stored text found, attempting to get from material...');
-    
-    // Fallback: get material info to generate basic content
-    const { data: material, error: materialError } = await supabaseClient
-      .from('cramintel_materials')
-      .select('name, course, material_type')
-      .eq('id', materialId)
-      .single();
-
-    if (material && !materialError) {
-      // Generate basic content as fallback
-      return `Course Material: ${material.name}
-Subject: ${material.course}
-Material Type: ${material.material_type}
-
-This material covers essential topics for ${material.course}. Key areas include fundamental concepts, practical applications, and current developments in the field.`;
-    }
-
-    throw new Error('Unable to retrieve any content for this material');
-    
-  } catch (error) {
-    console.error('Error getting extracted text:', error);
-    throw new Error(`Failed to retrieve material content: ${error.message}`);
-  }
-}
-
-// Build simplified prompt based on stored extracted text
-function buildSimplifiedPrompt(materials: any[], context: any, style: string, whispers: string[] = []) {
-  console.log('Building prompt for materials:', materials.length);
-  
-  // Only use materials with substantial real content
-  const validMaterials = materials.filter(material => 
-    material.content && material.content.length > 200
-  );
-
-  if (validMaterials.length === 0) {
-    throw new Error('No valid content available for prediction generation');
-  }
-
-  // Combine all material content
-  const combinedContent = validMaterials.map((material, index) => 
-    `Material ${index + 1} (${material.name}): ${material.content.substring(0, 2000)}`
-  ).join('\n\n');
-
-  const prompt = `You are an expert academic AI that generates exam predictions based EXCLUSIVELY on provided course materials.
-
-COURSE: ${context.course}
-STYLE: ${style}
-
-MATERIALS CONTENT:
-${combinedContent}
-
-${whispers.length > 0 ? `STUDENT HINTS: ${whispers.join(', ')}` : ''}
-
-CRITICAL REQUIREMENTS:
-1. Generate questions ONLY from the actual content provided above
-2. Use specific terms, concepts, and examples from the materials
-3. Reference exact topics and details found in the content
-4. Questions must be answerable only by someone who studied these specific materials
-5. Match the academic level of the source materials
-
-${style === 'exam-paper' ? `
-OUTPUT FORMAT (Exam Paper):
-{
-  "exam_title": "${context.course} Examination",
-  "duration": "2-3 hours",
-  "instructions": "Answer ALL questions",
-  "sections": [
-    {
-      "title": "Section A",
-      "questions": [
-        {
-          "question": "[Specific question from material content]",
-          "type": "theory",
-          "marks": 15,
-          "confidence": 85
-        }
-      ]
-    }
-  ],
-  "total_marks": 100
-}` : `
-OUTPUT FORMAT (Predictions):
-{
-  "predictions": [
-    {
-      "question": "[Specific question from material content]",
-      "confidence": 85,
-      "reasoning": "Based on [specific topic] from materials",
-      "type": "theory",
-      "sources": ["${validMaterials[0]?.name || 'Material 1'}"]
-    }
-  ],
-  "overall_confidence": 85
-}`}
-
-Generate 3-5 questions based on the most important topics from the provided materials.
-Respond ONLY with valid JSON. NO explanations outside the JSON.`;
-
-  console.log('Generated prompt length:', prompt.length);
-  return prompt;
+interface PredictionRequest {
+  materials: string[];
+  context: {
+    course: string;
+    topics: string[];
+    lecturer?: string;
+  };
+  predictionContext?: {
+    lecturer_emphasis?: string;
+    assignment_patterns?: string;
+    class_rumors?: string;
+    topic_emphasis?: string[];
+    assignment_focus?: 'calculations' | 'theory' | 'both';
+    revision_hints?: string;
+  };
+  style: 'ranked' | 'practice_exam' | 'topic_based' | 'bullet' | 'theory' | 'mixed' | 'exam-paper';
 }
 
 serve(async (req) => {
@@ -138,262 +31,206 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Generate predictions function called')
-    
-    const { clues, context, style } = await req.json()
-    console.log('Request data:', { clues: clues?.length, context, style })
-    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { data: { user } } = await supabaseClient.auth.getUser()
-    if (!user) {
-      console.error('Unauthorized: No user found')
-      return new Response('Unauthorized', { status: 401, headers: corsHeaders })
+    const authHeader = req.headers.get('Authorization')!
+    const token = authHeader.replace('Bearer ', '')
+    const { data: user } = await supabaseClient.auth.getUser(token)
+
+    if (!user.user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
-    console.log('User authenticated:', user.id)
+    const requestBody: PredictionRequest = await req.json()
+    console.log('Generate predictions request:', requestBody)
 
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiApiKey) {
-      console.error('OpenAI API key not configured')
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      )
+    // Fetch material contents
+    const { data: materials, error: materialsError } = await supabaseClient
+      .from('cramintel_materials')
+      .select('*')
+      .in('id', requestBody.materials)
+      .eq('user_id', user.user.id)
+
+    if (materialsError) {
+      console.error('Error fetching materials:', materialsError)
+      return new Response(JSON.stringify({ error: 'Failed to fetch materials' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
-    // Extract content using stored extracted texts
-    console.log('Processing materials and getting stored extracted text...')
-    
-    const processedMaterials: any[] = []
-    const whisperTexts: string[] = []
+    // Fetch extracted texts for the materials
+    const { data: extractedTexts } = await supabaseClient
+      .from('cramintel_extracted_texts')
+      .select('*')
+      .in('material_id', requestBody.materials)
 
-    for (const clue of clues) {
-      try {
-        if (clue.type === 'whisper' && clue.content) {
-          whisperTexts.push(clue.content)
-        } else if (clue.materialId) {
-          // Single material
-          const { data: material } = await supabaseClient
-            .from('cramintel_materials')
-            .select('*')
-            .eq('id', clue.materialId)
-            .single()
+    // Build enhanced system prompt with contextual intelligence
+    const systemPrompt = `You are an expert exam question predictor with deep understanding of academic patterns. 
+Generate predictions with:
 
-          if (material) {
-            console.log(`Processing material: ${material.name} (${material.file_type})`)
-            
-            // Get stored extracted text (this is the key improvement!)
-            const materialContent = await getExtractedText(supabaseClient, material.id);
-            
-            if (!materialContent || materialContent.length < 100) {
-              throw new Error(`Unable to get sufficient content from ${material.name}`);
-            }
+1. CONFIDENCE SCORES (0-100%) based on:
+   - Frequency in past questions
+   - Emphasis in course materials  
+   - Lecturer behavioral cues
+   - Assignment topic distribution
 
-            processedMaterials.push({
-              ...material,
-              content: materialContent,
-              type: clue.type
-            })
-            
-            console.log(`Successfully retrieved ${materialContent.length} characters from stored text for ${material.name}`)
-          }
-        } else if (clue.isGroup && clue.groupMaterials) {
-          // Group of materials
-          console.log(`Processing group: ${clue.name} with ${clue.groupMaterials.length} materials`)
-          
-          let groupContent = `Group: ${clue.name}\n\n`;
-          
-          for (const materialId of clue.groupMaterials) {
-            const { data: material } = await supabaseClient
-              .from('cramintel_materials')
-              .select('*')
-              .eq('id', materialId)
-              .single()
+2. CLEAR RATIONALES for each prediction explaining:
+   - Why this question is likely (evidence from materials)
+   - Patterns observed in past questions
+   - Lecturer emphasis indicators
+   - Cross-references to specific content
 
-            if (material) {
-              console.log(`Processing group material: ${material.name}`)
-              
-              try {
-                const materialContent = await getExtractedText(supabaseClient, material.id);
-                
-                if (materialContent && materialContent.length > 100) {
-                  groupContent += `File: ${material.name}\n${materialContent}\n\n`;
-                }
-              } catch (error) {
-                console.warn(`Failed to get content for group material ${material.name}:`, error);
-              }
-            }
-          }
-          
-          if (groupContent.length > 200) {
-            processedMaterials.push({
-              id: clue.id,
-              name: clue.name,
-              content: groupContent,
-              type: clue.type,
-              isGroup: true
-            });
-            
-            console.log(`Successfully processed group with ${groupContent.length} characters`);
-          }
-        }
-      } catch (error) {
-        console.error('Error processing clue:', clue.id, error)
-        throw new Error(`Failed to process material: ${error.message}`);
-      }
+3. STUDY PRIORITY RANKINGS:
+   - High Priority (60% study time): Most likely questions
+   - Medium Priority (30% study time): Moderately likely
+   - Low Priority (10% study time): Less likely but possible
+
+4. ENHANCED CONTEXT ANALYSIS:
+   ${requestBody.predictionContext?.lecturer_emphasis ? `- Lecturer Emphasis: "${requestBody.predictionContext.lecturer_emphasis}"` : ''}
+   ${requestBody.predictionContext?.assignment_patterns ? `- Assignment Patterns: "${requestBody.predictionContext.assignment_patterns}"` : ''}
+   ${requestBody.predictionContext?.class_rumors ? `- Class Intelligence: "${requestBody.predictionContext.class_rumors}"` : ''}
+   ${requestBody.predictionContext?.topic_emphasis ? `- Emphasized Topics: ${requestBody.predictionContext.topic_emphasis.join(', ')}` : ''}
+   ${requestBody.predictionContext?.revision_hints ? `- Revision Hints: "${requestBody.predictionContext.revision_hints}"` : ''}
+
+Generate ${requestBody.style === 'ranked' ? 'confidence-ranked predictions' : 
+         requestBody.style === 'practice_exam' ? 'a complete practice exam' : 
+         'topic-organized predictions'} for ${requestBody.context.course}.
+
+Return JSON format:
+{
+  "predictions": [
+    {
+      "question": "Question text",
+      "confidence": 85,
+      "rationale": ["Reason 1", "Reason 2", "Reason 3"],
+      "sources": ["Material references"],
+      "confidence_level": "high|medium|low",
+      "study_priority": 1
     }
+  ],
+  "study_guide": {
+    "priority_1": ["High priority topics"],
+    "priority_2": ["Medium priority topics"], 
+    "priority_3": ["Low priority topics"]
+  },
+  "overall_confidence": 82,
+  "analysis_summary": "Brief analysis of prediction quality"
+}`
 
-    console.log(`Processed ${processedMaterials.length} materials/groups with stored extracted content`)
+    // Prepare content for AI
+    const materialContents = extractedTexts?.map(et => et.extracted_text).join('\n\n') || 
+                           materials.map(m => `Material: ${m.name}\nType: ${m.material_type}`).join('\n\n')
 
-    if (processedMaterials.length === 0) {
-      throw new Error('No valid materials found. Please upload materials with readable content.');
-    }
+    const userPrompt = `Course: ${requestBody.context.course}
+Topics: ${requestBody.context.topics.join(', ')}
+${requestBody.context.lecturer ? `Lecturer: ${requestBody.context.lecturer}` : ''}
 
-    // Build simplified prompt using the stored extracted text
-    const prompt = buildSimplifiedPrompt(processedMaterials, context, style, whisperTexts)
+Materials Content:
+${materialContents}
 
-    console.log('Calling OpenAI with prompt based on stored extracted text...')
+Please generate ${requestBody.style === 'ranked' ? '8-12 ranked' : 
+                  requestBody.style === 'practice_exam' ? 'a complete exam with' : '10-15'} predictions.`
 
-    // Call OpenAI with better model
+    // Call OpenAI API
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4',
         messages: [
-          {
-            role: 'system',
-            content: 'You are an expert academic AI that generates exam predictions based exclusively on provided course materials. Always respond with valid JSON in the requested format.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
-        temperature: 0.2,
-        max_tokens: 3000,
+        temperature: 0.7,
+        max_tokens: 3000
       }),
     })
 
     if (!openaiResponse.ok) {
       const errorText = await openaiResponse.text()
-      console.error('OpenAI API error:', openaiResponse.status, errorText)
-      throw new Error(`OpenAI API error: ${openaiResponse.status}`)
+      console.error('OpenAI API error:', errorText)
+      return new Response(JSON.stringify({ error: 'Failed to generate predictions' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
-    const openaiData = await openaiResponse.json()
-    console.log('OpenAI response received')
-    
-    if (!openaiData.choices?.[0]?.message?.content) {
-      console.error('Invalid OpenAI response structure:', openaiData)
-      throw new Error('Invalid response from OpenAI API')
-    }
+    const aiResult = await openaiResponse.json()
+    let generatedContent
 
-    const generatedContent = openaiData.choices[0].message.content.trim()
-    console.log('Generated content preview:', generatedContent.substring(0, 200))
-
-    // Parse JSON response
-    let parsedResponse
     try {
-      const cleanedContent = generatedContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-      parsedResponse = JSON.parse(cleanedContent)
-      console.log('Successfully parsed response:', Object.keys(parsedResponse))
+      generatedContent = JSON.parse(aiResult.choices[0].message.content)
     } catch (parseError) {
-      console.error('JSON parsing failed:', parseError)
-      console.error('Raw content:', generatedContent)
-      throw new Error('Failed to parse AI response. Please try again.');
-    }
-
-    // Validate response structure
-    if (style === 'exam-paper') {
-      if (!parsedResponse.exam_title || !parsedResponse.sections) {
-        console.error('Invalid exam paper structure:', Object.keys(parsedResponse))
-        throw new Error('Generated exam paper has invalid structure')
-      }
-    } else {
-      if (!parsedResponse.predictions || !Array.isArray(parsedResponse.predictions)) {
-        console.error('Invalid predictions structure:', Object.keys(parsedResponse))
-        throw new Error('Generated predictions have invalid structure')
+      console.error('Failed to parse AI response:', parseError)
+      // Fallback: create structured response from raw text
+      generatedContent = {
+        predictions: [{
+          question: aiResult.choices[0].message.content,
+          confidence: 70,
+          rationale: ['Generated from AI analysis'],
+          confidence_level: 'medium',
+          study_priority: 2
+        }],
+        overall_confidence: 70,
+        analysis_summary: 'Predictions generated successfully'
       }
     }
 
-    // Calculate confidence based on using stored extracted text
-    let confidenceScore = parsedResponse.overall_confidence || 80
-    if (processedMaterials.length > 1) confidenceScore += 5
-    if (whisperTexts.length > 0) confidenceScore += 5
-    // Bonus confidence for using stored extracted text (higher quality)
-    confidenceScore += 10
-    
-    // IMPORTANT FIX: Ensure confidence score is an integer
-    confidenceScore = Math.round(Math.min(100, Math.max(50, confidenceScore)))
-
-    console.log('Saving prediction with enhanced confidence:', confidenceScore)
-
-    // Save prediction to database
-    const predictionData = {
-      user_id: user.id,
-      course: context.course,
-      questions: style === 'exam-paper' ? [parsedResponse] : parsedResponse.predictions,
-      confidence_score: confidenceScore, // Now guaranteed to be an integer
-      prediction_type: style,
-      status: 'active'
-    }
-
+    // Save prediction to database with enhanced fields
     const { data: savedPrediction, error: saveError } = await supabaseClient
       .from('cramintel_predictions')
-      .insert(predictionData)
+      .insert({
+        user_id: user.user.id,
+        course: requestBody.context.course,
+        questions: generatedContent.predictions,
+        confidence_score: generatedContent.overall_confidence || 75,
+        prediction_type: requestBody.style,
+        status: 'active',
+        rationale: generatedContent.predictions?.map((p: any) => p.rationale).flat() || [],
+        confidence_level: generatedContent.overall_confidence > 80 ? 'high' : 
+                         generatedContent.overall_confidence > 60 ? 'medium' : 'low',
+        study_priority: 1
+      })
       .select()
       .single()
 
     if (saveError) {
       console.error('Error saving prediction:', saveError)
-      throw new Error(`Failed to save prediction: ${saveError.message}`)
     }
 
-    console.log('Prediction saved successfully:', savedPrediction.id)
-
-    // Return simplified response structure that matches frontend expectations
-    const responseData = {
-      success: true,
-      data: parsedResponse, // This will be passed to onGenerationComplete
-      prediction: savedPrediction
+    // Save contextual intelligence if provided
+    if (requestBody.predictionContext && savedPrediction) {
+      await supabaseClient
+        .from('prediction_context')
+        .insert({
+          user_id: user.user.id,
+          prediction_session_id: savedPrediction.id,
+          lecturer_emphasis: requestBody.predictionContext.lecturer_emphasis,
+          assignment_patterns: requestBody.predictionContext.assignment_patterns,
+          class_rumors: requestBody.predictionContext.class_rumors,
+          topic_emphasis: requestBody.predictionContext.topic_emphasis
+        })
     }
 
-    console.log('Returning response data:', Object.keys(responseData))
-
-    return new Response(
-      JSON.stringify(responseData),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify(generatedContent), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
 
   } catch (error) {
     console.error('Error in generate-predictions function:', error)
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-    const errorResponse = {
-      success: false,
-      error: errorMessage,
-      details: 'Prediction generation failed'
-    }
-    
-    return new Response(
-      JSON.stringify(errorResponse),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
-        status: 500 
-      }
-    )
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
   }
 })

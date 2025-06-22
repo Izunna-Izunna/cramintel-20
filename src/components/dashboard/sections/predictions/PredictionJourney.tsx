@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, X } from 'lucide-react';
@@ -6,19 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ProgressSteps } from '@/components/dashboard/ProgressSteps';
 import { StartPredictionStep } from './StartPredictionStep';
-import { UploadCluesStep } from './UploadCluesStep';
+import { EnhancedUploadStep } from './EnhancedUploadStep';
 import { TagContextStep } from './TagContextStep';
-import { StyleSelectionStep } from './StyleSelectionStep';
+import { ContextualIntelligenceStep } from './ContextualIntelligenceStep';
+import { EnhancedStyleSelectionStep } from './EnhancedStyleSelectionStep';
 import { GenerationStep } from './GenerationStep';
-import { PredictionResults } from './PredictionResults';
+import { EnhancedPredictionResults } from './EnhancedPredictionResults';
 import { ExamPaperView } from './ExamPaperView';
-import { PredictionResponse } from '@/types/predictions';
+import { PredictionResponse, PredictionContext } from '@/types/predictions';
 
 interface PredictionJourneyProps {
   onClose: () => void;
 }
 
-export type PredictionStep = 1 | 2 | 3 | 4 | 5 | 'results';
+export type PredictionStep = 1 | 2 | 3 | 4 | 5 | 6 | 'results';
 
 interface PredictionData {
   selectedMaterials: string[];
@@ -34,7 +34,8 @@ interface PredictionData {
     topics: string[];
     lecturer?: string;
   };
-  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper';
+  predictionContext: PredictionContext;
+  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper' | 'ranked' | 'practice_exam' | 'topic_based';
   generatedContent?: PredictionResponse;
 }
 
@@ -47,26 +48,27 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
       course: '',
       topics: [],
     },
-    style: 'bullet'
+    predictionContext: {},
+    style: 'ranked' // Default to new ranked style
   });
 
   const getCurrentStepNumber = (step: PredictionStep): number => {
-    return step === 'results' ? 6 : step;
+    return step === 'results' ? 7 : step;
   };
 
-  const stepTitles = ['Start', 'Upload', 'Tag', 'Style', 'Generate'];
+  const stepTitles = ['Start', 'Materials', 'Context', 'Intelligence', 'Style', 'Generate'];
 
   const handleNext = () => {
-    if (currentStep === 5) {
+    if (currentStep === 6) {
       setCurrentStep('results');
-    } else if (typeof currentStep === 'number' && currentStep < 5) {
+    } else if (typeof currentStep === 'number' && currentStep < 6) {
       setCurrentStep((prev) => (prev as number + 1) as PredictionStep);
     }
   };
 
   const handleBack = () => {
     if (currentStep === 'results') {
-      setCurrentStep(5);
+      setCurrentStep(6);
     } else if (typeof currentStep === 'number' && currentStep > 1) {
       setCurrentStep((prev) => (prev as number - 1) as PredictionStep);
     }
@@ -102,7 +104,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
         return <StartPredictionStep onNext={handleNext} />;
       case 2:
         return (
-          <UploadCluesStep
+          <EnhancedUploadStep
             selectedMaterials={predictionData.selectedMaterials}
             onMaterialsChange={(materials) => setPredictionData(prev => ({ ...prev, selectedMaterials: materials }))}
             onNext={handleNext}
@@ -111,6 +113,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
         );
       case 3:
         return (
+          // Keep the existing TagContextStep for basic course/topic info
           <TagContextStep
             context={predictionData.context}
             onContextChange={(context) => setPredictionData(prev => ({ ...prev, context }))}
@@ -120,14 +123,23 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
         );
       case 4:
         return (
-          <StyleSelectionStep
+          <ContextualIntelligenceStep
+            context={predictionData.predictionContext}
+            onContextChange={(predictionContext) => setPredictionData(prev => ({ ...prev, predictionContext }))}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        );
+      case 5:
+        return (
+          <EnhancedStyleSelectionStep
             selectedStyle={predictionData.style}
             onStyleChange={(style) => setPredictionData(prev => ({ ...prev, style }))}
             onNext={handleNext}
             onBack={handleBack}
           />
         );
-      case 5:
+      case 6:
         return (
           <GenerationStep
             predictionData={getTransformedData()}
@@ -137,14 +149,14 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
           />
         );
       case 'results':
-        return predictionData.style === 'exam-paper' ? (
+        return predictionData.style === 'practice_exam' || predictionData.style === 'exam-paper' ? (
           <ExamPaperView
             predictionData={getTransformedData()}
             onBack={handleBack}
             onClose={onClose}
           />
         ) : (
-          <PredictionResults
+          <EnhancedPredictionResults
             predictionData={getTransformedData()}
             onBack={handleBack}
             onClose={onClose}
@@ -170,7 +182,7 @@ export function PredictionJourney({ onClose }: PredictionJourneyProps) {
                 <ArrowLeft className="w-4 h-4" />
               </Button>
             )}
-            <h2 className="text-xl font-bold text-gray-800">AI Predictions Journey</h2>
+            <h2 className="text-xl font-bold text-gray-800">Enhanced AI Predictions Journey</h2>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-gray-100">
             <X className="w-4 h-4" />
