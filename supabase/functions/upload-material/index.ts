@@ -15,41 +15,79 @@ serve(async (req) => {
 
   try {
     console.log('🚀 Upload material function started')
+    console.log('Request method:', req.method)
+    console.log('Content-Type:', req.headers.get('content-type'))
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const requestBody = await req.json()
-    const { 
-      file, 
-      fileName, 
-      userId, 
-      materialType = 'document',
-      course = 'General',
-      tags = []
-    } = requestBody
+    // Parse FormData instead of JSON
+    const formData = await req.formData()
+    
+    // Extract data from FormData
+    const file = formData.get('file') as File
+    const fileName = formData.get('fileName') as string
+    const course = formData.get('course') as string || 'General'
+    const materialType = formData.get('materialType') as string || 'document'
+    const groupId = formData.get('groupId') as string || null
+    const groupName = formData.get('groupName') as string || null
+    
+    // Get user ID from auth header
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Missing authorization header'
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401
+        }
+      )
+    }
+
+    // Get user from token
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+    
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid or expired token'
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401
+        }
+      )
+    }
+
+    const userId = user.id
 
     console.log('📝 Upload request received:', { 
       fileName, 
       userId, 
       materialType, 
       course,
-      fileSize: file?.length || 0 
+      fileSize: file?.size || 0,
+      groupId,
+      groupName
     })
 
     // Validate required fields
-    if (!file || !fileName || !userId) {
+    if (!file || !fileName) {
       console.error('❌ Missing required fields:', { 
         hasFile: !!file, 
-        hasFileName: !!fileName, 
-        hasUserId: !!userId 
+        hasFileName: !!fileName
       })
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Missing required fields: file, fileName, and userId are required'
+          error: 'Missing required fields: file and fileName are required'
         }),
         { 
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -60,30 +98,18 @@ serve(async (req) => {
 
     // Step 1: Upload file to storage
     console.log('📤 Starting file upload to storage...')
-    let fileBuffer: Uint8Array
-    try {
-      fileBuffer = Uint8Array.from(atob(file), c => c.charCodeAt(0))
-    } catch (error) {
-      console.error('❌ Failed to decode base64 file:', error)
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Invalid file format - unable to decode base64 data'
-        }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400
-        }
-      )
-    }
+    
+    // Convert File to Uint8Array
+    const fileBuffer = await file.arrayBuffer()
+    const uint8Array = new Uint8Array(fileBuffer)
 
     const timestamp = Date.now()
     const filePath = `${userId}/${timestamp}_${fileName}`
 
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('cramintel-materials')
-      .upload(filePath, fileBuffer, {
-        contentType: fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/*',
+      .upload(filePath, uint8Array, {
+        contentType: file.type || (fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/*'),
         upsert: false
       })
 
@@ -112,12 +138,13 @@ serve(async (req) => {
         name: fileName,
         file_name: fileName,
         file_path: uploadData.path,
-        file_type: fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/*',
-        file_size: fileBuffer.length,
+        file_type: file.type || (fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/*'),
+        file_size: uint8Array.length,
         user_id: userId,
         material_type: materialType,
         course: course,
-        tags: tags,
+        group_id: groupId,
+        group_name: groupName,
         processed: false,
         processing_status: 'pending',
         upload_date: new Date().toISOString()
@@ -145,35 +172,28 @@ serve(async (req) => {
     const materialId = materialData.id
     console.log('✅ Material record created:', materialId)
 
-    // Step 3: Process the material (this can fail without affecting upload success)
+    // Step 3: Trigger processing (this can fail without affecting upload success)
     console.log('⚙️ Starting material processing...')
     let processingSuccess = false
     let processingError = null
 
     try {
       // Call the process-material function
-      const processResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/process-material`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const processResponse = await supabase.functions.invoke('process-material', {
+        body: {
           materialId: materialId,
           userId: userId,
           filePath: uploadData.path,
           fileName: fileName
-        })
+        }
       })
 
-      if (processResponse.ok) {
-        const processResult = await processResponse.json()
-        console.log('✅ Material processing completed:', processResult)
-        processingSuccess = true
+      if (processResponse.error) {
+        console.warn('⚠️ Material processing failed:', processResponse.error)
+        processingError = processResponse.error.message
       } else {
-        const errorText = await processResponse.text()
-        console.warn('⚠️ Material processing failed:', errorText)
-        processingError = errorText
+        console.log('✅ Material processing triggered successfully')
+        processingSuccess = true
       }
     } catch (error) {
       console.warn('⚠️ Material processing error:', error)
@@ -181,29 +201,27 @@ serve(async (req) => {
     }
 
     // Update material processing status
-    const finalStatus = processingSuccess ? 'completed' : 'failed'
+    const finalStatus = processingSuccess ? 'extracting_text' : 'error'
     await supabase
       .from('cramintel_materials')
       .update({
-        processed: processingSuccess,
         processing_status: finalStatus,
-        ...(processingError && { processing_progress: 0 })
+        processing_progress: processingSuccess ? 10 : 0
       })
       .eq('id', materialId)
 
     console.log('🎉 Upload completed successfully')
 
-    // Return success regardless of processing outcome
+    // Return success response
     return new Response(
       JSON.stringify({
         success: true,
-        materialId: materialId,
+        material: materialData,
+        processingTriggered: processingSuccess,
         message: 'Material uploaded successfully',
-        processingStatus: finalStatus,
-        processingSuccess: processingSuccess,
         ...(processingError && { processingError: processingError }),
         uploadPath: uploadData.path,
-        fileSize: fileBuffer.length
+        fileSize: uint8Array.length
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
