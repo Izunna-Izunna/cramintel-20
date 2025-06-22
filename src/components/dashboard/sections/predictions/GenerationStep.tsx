@@ -20,7 +20,7 @@ interface PredictionData {
     topics: string[];
     lecturer?: string;
   };
-  style: PredictionStyle;
+  style: PredictionStyle; // Now uses the shared type that includes 'objective_bulk'
 }
 
 interface GenerationStepProps {
