@@ -112,7 +112,7 @@ export function CBTConfigurationDialog({
                     <div className="flex justify-between items-center w-full">
                       <span>{course}</span>
                       <span className="text-sm text-wrlds-accent ml-2">
-                        {availableQuestions[course] || 0} questions
+                        {availableQuestions[course] || 0} available
                       </span>
                     </div>
                   </SelectItem>
@@ -160,6 +160,15 @@ export function CBTConfigurationDialog({
                   <div className="flex items-center p-2 text-amber-600 bg-amber-50 rounded-lg border border-amber-200">
                     <AlertCircle className="w-4 h-4 mr-2" />
                     <span className="text-xs font-space">Upload materials to generate questions</span>
+                  </div>
+                )}
+
+                {currentQuestionCount > 0 && (
+                  <div className="flex items-center p-2 text-green-600 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    <span className="text-xs font-space">
+                      Ready for CBT practice with {currentQuestionCount} questions
+                    </span>
                   </div>
                 )}
               </div>
@@ -244,7 +253,7 @@ export function CBTConfigurationDialog({
               {/* Start Button */}
               <Button
                 onClick={handleStartExam}
-                disabled={!selectedCourse || isGenerating || isGeneratingForThisCourse}
+                disabled={!selectedCourse || isGenerating || isGeneratingForThisCourse || maxQuestions === 0}
                 className="w-full bg-gradient-to-r from-wrlds-dark to-gray-800 hover:from-gray-800 hover:to-black font-space"
               >
                 {isGenerating || isGeneratingForThisCourse ? (
@@ -252,6 +261,8 @@ export function CBTConfigurationDialog({
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                     Preparing Questions...
                   </>
+                ) : maxQuestions === 0 ? (
+                  'No Questions Available'
                 ) : (
                   'Start CBT Exam'
                 )}

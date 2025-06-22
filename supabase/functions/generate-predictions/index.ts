@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -18,8 +19,10 @@ interface PredictionRequest {
   clues: PredictionClue[];
   context: {
     course: string;
-    topics: string[];
+    topics?: string[];
     lecturer?: string;
+    materials?: Array<{ name: string; type: string }>;
+    targetCount?: number;
   };
   predictionContext?: {
     lecturer_emphasis?: string;
@@ -114,7 +117,7 @@ serve(async (req) => {
     let questionCount = 10
 
     if (requestBody.style === 'objective_bulk') {
-      questionCount = 50
+      questionCount = requestBody.context.targetCount || 25
       systemPrompt = `You are an expert exam question generator specializing in OBJECTIVE QUESTIONS. You MUST respond with valid JSON only.
 
 CRITICAL: Your response must be valid JSON that follows this EXACT structure:
@@ -233,9 +236,13 @@ Remember: Respond with VALID JSON ONLY. No explanatory text before or after the 
       .map(clue => `${clue.name}: ${clue.content || 'No content available'}`)
       .join('\n')
 
+    // Fix the topics issue - provide fallback topics
+    const topics = requestBody.context.topics || ['General Topics']
+    
     const userPrompt = `Course: ${requestBody.context.course}
-Topics: ${requestBody.context.topics.join(', ') || 'Not specified'}
+Topics: ${topics.join(', ')}
 ${requestBody.context.lecturer ? `Lecturer: ${requestBody.context.lecturer}` : ''}
+${requestBody.context.materials ? `Materials Count: ${requestBody.context.materials.length}` : ''}
 
 Materials and Clues:
 ${materialContents}
