@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,15 +28,15 @@ export function MaterialAttachment({ attachedMaterials, onAttach, onDetach }: Ma
     try {
       console.log(`Extracting content for material: ${material.name}`);
       
-      // Get ALL flashcards for this material (not just 5)
+      // Get ALL flashcards for this material (not just 5) - removed 'tags' column
       const { data: flashcards, error: flashcardError } = await supabase
         .from('cramintel_flashcards')
-        .select('question, answer, difficulty_level, tags')
+        .select('question, answer, difficulty_level, course')
         .eq('material_id', material.id)
         .order('created_at', { ascending: true });
 
       let content = `📚 STUDY MATERIAL: ${material.name}
-🎓 Course: ${material.course || 'General Studies'}
+🎓 Course: ${material.course || 'General Studies'}  
 📁 Type: ${material.material_type || 'Document'}
 📄 File: ${material.file_name}
 📅 Uploaded: ${new Date(material.upload_date).toLocaleDateString()}
@@ -61,7 +60,6 @@ This material contains ${flashcards.length} key concepts and study points:
           content += `📝 FOUNDATIONAL CONCEPTS (${easyCards.length} items):\n`;
           easyCards.forEach((card, index) => {
             content += `${index + 1}. Q: ${card.question}\n   A: ${card.answer}\n`;
-            if (card.tags) content += `   Tags: ${card.tags}\n`;
             content += '\n';
           });
         }
@@ -70,7 +68,6 @@ This material contains ${flashcards.length} key concepts and study points:
           content += `🎯 INTERMEDIATE CONCEPTS (${mediumCards.length} items):\n`;
           mediumCards.forEach((card, index) => {
             content += `${index + 1}. Q: ${card.question}\n   A: ${card.answer}\n`;
-            if (card.tags) content += `   Tags: ${card.tags}\n`;
             content += '\n';
           });
         }
@@ -79,7 +76,6 @@ This material contains ${flashcards.length} key concepts and study points:
           content += `🚀 ADVANCED CONCEPTS (${hardCards.length} items):\n`;
           hardCards.forEach((card, index) => {
             content += `${index + 1}. Q: ${card.question}\n   A: ${card.answer}\n`;
-            if (card.tags) content += `   Tags: ${card.tags}\n`;
             content += '\n';
           });
         }
@@ -88,7 +84,6 @@ This material contains ${flashcards.length} key concepts and study points:
           content += `📋 ADDITIONAL CONCEPTS (${ungraded.length} items):\n`;
           ungraded.forEach((card, index) => {
             content += `${index + 1}. Q: ${card.question}\n   A: ${card.answer}\n`;
-            if (card.tags) content += `   Tags: ${card.tags}\n`;
             content += '\n';
           });
         }
@@ -107,8 +102,30 @@ The student can ask me about ANY topic covered in this material and I'll provide
 `;
       } else {
         // Try to get any other available content
-        console.log('No flashcards found, checking for other content...');
+        console.log('No flashcards found or error occurred:', flashcardError);
         
+        // Check for extracted text content
+        const { data: extractedTexts } = await supabase
+          .from('cramintel_extracted_texts')
+          .select('extracted_text, word_count, extraction_confidence')
+          .eq('material_id', material.id)
+          .limit(1);
+
+        if (extractedTexts && extractedTexts.length > 0) {
+          const textContent = extractedTexts[0];
+          content += `📖 EXTRACTED CONTENT:\n`;
+          content += `Word Count: ${textContent.word_count || 'Unknown'}\n`;
+          content += `Extraction Confidence: ${textContent.extraction_confidence ? `${(textContent.extraction_confidence * 100).toFixed(1)}%` : 'Unknown'}\n\n`;
+          
+          // Include a portion of the extracted text
+          if (textContent.extracted_text) {
+            const textPreview = textContent.extracted_text.length > 2000 
+              ? textContent.extracted_text.slice(0, 2000) + '...'
+              : textContent.extracted_text;
+            content += `Content Preview:\n${textPreview}\n\n`;
+          }
+        }
+
         // Check if there are any predictions or other processed content
         const { data: predictions } = await supabase
           .from('cramintel_predictions')
@@ -127,7 +144,7 @@ The student can ask me about ANY topic covered in this material and I'll provide
         
         content += `
 📖 MATERIAL OVERVIEW:
-This ${material.material_type} from ${material.course} contains important academic content that I can help explain and teach. While the specific content details are being processed, I can:
+This ${material.material_type} from ${material.course} contains important academic content that I can help explain and teach. ${flashcardError ? 'While I\'m processing the detailed content,' : 'I can:'} 
 
 - Help you understand concepts from ${material.course}
 - Create study guides and summaries
