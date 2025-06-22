@@ -14,7 +14,7 @@ import { GenerationStep } from './GenerationStep';
 import { EnhancedPredictionResults } from './EnhancedPredictionResults';
 import { ExamPaperView } from './ExamPaperView';
 import { ObjectiveQuestionsView } from './ObjectiveQuestionsView';
-import { PredictionResponse, PredictionContext } from '@/types/predictions';
+import { PredictionResponse, PredictionContext, PredictionStyle } from '@/types/predictions';
 
 interface PredictionJourneyProps {
   onClose: () => void;
@@ -37,7 +37,7 @@ interface EnhancedPredictionData {
     lecturer?: string;
   };
   predictionContext: PredictionContext;
-  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper' | 'ranked' | 'practice_exam' | 'topic_based' | 'objective_bulk';
+  style: PredictionStyle;
   generatedContent?: PredictionResponse;
 }
 

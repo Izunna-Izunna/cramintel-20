@@ -20,21 +20,15 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { PredictionResponse } from '@/types/predictions';
+import { PredictionResponse, GeneratedQuestion } from '@/types/predictions';
 
-interface ObjectiveQuestion {
-  question: string;
+// Helper function to check if a question is a valid objective question
+const isObjectiveQuestion = (question: GeneratedQuestion): question is GeneratedQuestion & {
   options: string[];
   correct_answer: string;
-  confidence: number;
-  rationale: string[];
-  sources: string[];
-  confidence_level: 'high' | 'medium' | 'low';
-  study_priority: number;
-  type: string;
-  marks: number;
-  topic?: string;
-}
+} => {
+  return !!(question.options && question.options.length > 0 && question.correct_answer);
+};
 
 interface ObjectiveQuestionsViewProps {
   predictionData: {
@@ -58,9 +52,13 @@ interface ObjectiveQuestionsViewProps {
 }
 
 export function ObjectiveQuestionsView({ predictionData, onBack, onClose }: ObjectiveQuestionsViewProps) {
-  const [questions, setQuestions] = useState<ObjectiveQuestion[]>(
-    predictionData.generatedContent?.predictions?.filter(p => p.type === 'objective') || []
-  );
+  // Filter and validate objective questions
+  const validObjectiveQuestions = React.useMemo(() => {
+    if (!predictionData.generatedContent?.predictions) return [];
+    return predictionData.generatedContent.predictions.filter(isObjectiveQuestion);
+  }, [predictionData.generatedContent?.predictions]);
+
+  const [questions, setQuestions] = useState<GeneratedQuestion[]>(validObjectiveQuestions);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTopic, setSelectedTopic] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
@@ -75,7 +73,7 @@ export function ObjectiveQuestionsView({ predictionData, onBack, onClose }: Obje
     const matchesSearch = question.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          question.topic?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTopic = selectedTopic === 'all' || question.topic === selectedTopic;
-    const matchesPriority = selectedPriority === 'all' || question.study_priority.toString() === selectedPriority;
+    const matchesPriority = selectedPriority === 'all' || question.study_priority?.toString() === selectedPriority;
     
     return matchesSearch && matchesTopic && matchesPriority;
   });
@@ -94,11 +92,11 @@ export function ObjectiveQuestionsView({ predictionData, onBack, onClose }: Obje
       if (error) throw error;
 
       if (data?.success && data.data?.predictions) {
-        const newQuestions = data.data.predictions.filter((p: any) => p.type === 'objective');
-        setQuestions(newQuestions);
+        const newObjectiveQuestions = data.data.predictions.filter(isObjectiveQuestion);
+        setQuestions(newObjectiveQuestions);
         toast({
           title: "Success!",
-          description: `Generated ${newQuestions.length} new objective questions.`,
+          description: `Generated ${newObjectiveQuestions.length} new objective questions.`,
         });
       } else {
         throw new Error(data?.error || 'Failed to generate new questions');
@@ -119,11 +117,11 @@ export function ObjectiveQuestionsView({ predictionData, onBack, onClose }: Obje
     const exportData = filteredQuestions.map((q, index) => ({
       number: index + 1,
       question: q.question,
-      options: q.options.join(', '),
-      correct_answer: q.correct_answer,
+      options: q.options?.join(', ') || '',
+      correct_answer: q.correct_answer || '',
       topic: q.topic || 'General',
-      confidence: q.confidence,
-      sources: q.sources.join(', ')
+      confidence: q.confidence || 0,
+      sources: q.sources?.join(', ') || ''
     }));
 
     const csvContent = [
@@ -147,7 +145,7 @@ export function ObjectiveQuestionsView({ predictionData, onBack, onClose }: Obje
     });
   };
 
-  const getConfidenceColor = (level: string) => {
+  const getConfidenceColor = (level?: string) => {
     switch (level) {
       case 'high': return 'bg-green-100 text-green-800';
       case 'medium': return 'bg-yellow-100 text-yellow-800';
@@ -156,7 +154,7 @@ export function ObjectiveQuestionsView({ predictionData, onBack, onClose }: Obje
     }
   };
 
-  const getPriorityColor = (priority: number) => {
+  const getPriorityColor = (priority?: number) => {
     switch (priority) {
       case 1: return 'bg-red-100 text-red-800';
       case 2: return 'bg-orange-100 text-orange-800';
@@ -264,10 +262,10 @@ export function ObjectiveQuestionsView({ predictionData, onBack, onClose }: Obje
                         </Badge>
                       )}
                       <Badge className={`text-xs ${getConfidenceColor(question.confidence_level)}`}>
-                        {question.confidence}%
+                        {question.confidence || 0}%
                       </Badge>
                       <Badge className={`text-xs ${getPriorityColor(question.study_priority)}`}>
-                        P{question.study_priority}
+                        P{question.study_priority || 0}
                       </Badge>
                     </div>
                     <CardTitle className="text-base leading-relaxed">

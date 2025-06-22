@@ -1,5 +1,7 @@
 
 // Type definitions for prediction data structures
+export type PredictionStyle = 'bullet' | 'theory' | 'mixed' | 'exam-paper' | 'ranked' | 'practice_exam' | 'topic_based' | 'objective_bulk';
+
 export interface GeneratedQuestion {
   question: string;
   confidence?: number;
