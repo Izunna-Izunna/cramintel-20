@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Book, Clock, Target, Play, BarChart3, Users, Award, Loader2 } from 'lucide-react';
@@ -8,6 +9,7 @@ import { usePredictions } from '@/hooks/usePredictions';
 import { useAuth } from '@/hooks/useAuth';
 import { CBTExamInterface } from './predictions/CBTExamInterface';
 import { CBTResultsView } from './predictions/CBTResultsView';
+import { CBTConfigurationDialog, ExamConfiguration } from './predictions/CBTConfigurationDialog';
 import { GeneratedQuestion } from '@/types/predictions';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -17,9 +19,9 @@ export function CBTSection() {
   const { materialGroups, loading } = useMaterials();
   const { predictions } = usePredictions();
   const { user } = useAuth();
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [examMode, setExamMode] = useState<'selection' | 'exam' | 'results'>('selection');
   const [examQuestions, setExamQuestions] = useState<GeneratedQuestion[]>([]);
+  const [examConfig, setExamConfig] = useState<ExamConfiguration | null>(null);
   const [examResults, setExamResults] = useState<{
     answers: Record<number, string>;
     timeSpent: number;
@@ -57,6 +59,12 @@ export function CBTSection() {
 
     return questions;
   };
+
+  // Get available question counts for each course
+  const availableQuestions = courses.reduce((acc, course) => {
+    acc[course] = getExistingQuestions(course).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   // Generate new questions using OpenAI
   const generateNewQuestions = async (course: string): Promise<GeneratedQuestion[]> => {
@@ -124,24 +132,28 @@ export function CBTSection() {
     }
   };
 
-  const handleStartExam = async (course: string) => {
-    setSelectedCourse(course);
+  const handleStartExam = async (config: ExamConfiguration) => {
+    setExamConfig(config);
     
     // First, try to get existing questions
-    let questions = getExistingQuestions(course);
+    let questions = getExistingQuestions(config.course);
     
-    // If we have fewer than 10 questions, generate new ones
-    if (questions.length < 10) {
-      const newQuestions = await generateNewQuestions(course);
+    // If we have fewer questions than requested, generate new ones
+    if (questions.length < config.questionCount) {
+      const newQuestions = await generateNewQuestions(config.course);
       questions = [...questions, ...newQuestions];
     }
     
-    // Take up to 25 questions for the exam
-    const examQuestions = questions.slice(0, 25);
+    // Take the requested number of questions
+    const examQuestions = questions.slice(0, config.questionCount);
     
     if (examQuestions.length === 0) {
       toast.error('No questions available for this course. Please upload some materials first.');
       return;
+    }
+
+    if (examQuestions.length < config.questionCount) {
+      toast.info(`Starting exam with ${examQuestions.length} questions (${config.questionCount} requested)`);
     }
     
     setExamQuestions(examQuestions);
@@ -155,7 +167,7 @@ export function CBTSection() {
 
   const handleBackToSelection = () => {
     setExamMode('selection');
-    setSelectedCourse(null);
+    setExamConfig(null);
     setExamQuestions([]);
     setExamResults(null);
   };
@@ -176,25 +188,25 @@ export function CBTSection() {
     );
   }
 
-  if (examMode === 'exam' && selectedCourse && examQuestions.length > 0) {
+  if (examMode === 'exam' && examConfig && examQuestions.length > 0) {
     return (
       <CBTExamInterface
         questions={examQuestions}
-        examTitle={`${selectedCourse} Practice Exam`}
-        timeLimit={45} // 45 minutes for CBT
+        examTitle={`${examConfig.course} Practice Exam`}
+        timeLimit={examConfig.timeLimit}
         onComplete={handleExamComplete}
         onExit={handleBackToSelection}
       />
     );
   }
 
-  if (examMode === 'results' && selectedCourse && examQuestions.length > 0 && examResults) {
+  if (examMode === 'results' && examConfig && examQuestions.length > 0 && examResults) {
     return (
       <CBTResultsView
         questions={examQuestions}
         answers={examResults.answers}
         timeSpent={examResults.timeSpent}
-        examTitle={`${selectedCourse} Practice Exam`}
+        examTitle={`${examConfig.course} Practice Exam`}
         onRetakeExam={handleRetakeExam}
         onBackToQuestions={handleBackToSelection}
       />
@@ -246,23 +258,23 @@ export function CBTSection() {
           <CardContent className="p-4 text-center">
             <Target className="w-8 h-8 text-wrlds-dark mx-auto mb-2" />
             <p className="text-2xl font-bold text-wrlds-dark font-space">
-              {predictions.filter(p => p.prediction_type === 'objective_bulk').length}
+              {Object.values(availableQuestions).reduce((sum, count) => sum + count, 0)}
             </p>
-            <p className="text-sm text-wrlds-accent font-space">Question Banks</p>
+            <p className="text-sm text-wrlds-accent font-space">Total Questions</p>
           </CardContent>
         </Card>
         <Card className="border-wrlds-accent/20 shadow-sm">
           <CardContent className="p-4 text-center">
             <Clock className="w-8 h-8 text-green-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-wrlds-dark font-space">0h</p>
-            <p className="text-sm text-wrlds-accent font-space">Practice Time</p>
+            <p className="text-2xl font-bold text-wrlds-dark font-space">25m</p>
+            <p className="text-sm text-wrlds-accent font-space">Default Time</p>
           </CardContent>
         </Card>
         <Card className="border-wrlds-accent/20 shadow-sm">
           <CardContent className="p-4 text-center">
             <Award className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-wrlds-dark font-space">0%</p>
-            <p className="text-sm text-wrlds-accent font-space">Average Score</p>
+            <p className="text-2xl font-bold text-wrlds-dark font-space">70</p>
+            <p className="text-sm text-wrlds-accent font-space">Max Questions</p>
           </CardContent>
         </Card>
       </motion.div>
@@ -298,68 +310,43 @@ export function CBTSection() {
         >
           <Card className="border-wrlds-accent/20 shadow-sm">
             <CardHeader>
-              <CardTitle className="font-space text-wrlds-dark">Select a Course for CBT Practice</CardTitle>
+              <CardTitle className="font-space text-wrlds-dark">Start Your CBT Practice</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {courses.map((course, index) => {
-                  const courseMaterials = materialGroups
-                    .flatMap(group => group.materials)
-                    .filter(material => material.course === course);
-                  
-                  const existingQuestions = getExistingQuestions(course);
-                  
-                  return (
-                    <motion.div
-                      key={course}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 * index }}
-                    >
-                      <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-wrlds-accent/20">
-                        <CardContent className="p-6">
-                          <div className="flex items-center justify-between mb-4">
-                            <Book className="w-8 h-8 text-wrlds-dark" />
-                            <div className="text-right">
-                              <span className="text-sm text-wrlds-accent font-space block">
-                                {courseMaterials.length} materials
-                              </span>
-                              <span className="text-xs text-green-600 font-space">
-                                {existingQuestions.length} questions ready
-                              </span>
-                            </div>
-                          </div>
-                          <h3 className="font-semibold text-wrlds-dark mb-2 group-hover:text-gray-700 transition-colors font-space">
-                            {course}
-                          </h3>
-                          <p className="text-sm text-wrlds-accent mb-4 font-space">
-                            {existingQuestions.length > 0 
-                              ? `Practice with ${existingQuestions.length} AI-generated questions`
-                              : 'Generate fresh questions from your materials'
-                            }
-                          </p>
-                          <Button
-                            onClick={() => handleStartExam(course)}
-                            disabled={generatingQuestions}
-                            className="w-full bg-gradient-to-r from-wrlds-dark to-gray-800 hover:from-gray-800 hover:to-black font-space disabled:opacity-50"
-                          >
-                            {generatingQuestions ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Generating...
-                              </>
-                            ) : (
-                              <>
-                                <Play className="w-4 h-4 mr-2" />
-                                Start CBT
-                              </>
-                            )}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
+              <div className="text-center space-y-4">
+                <p className="text-wrlds-accent font-space mb-6">
+                  Configure your exam settings and choose from {courses.length} available courses
+                </p>
+                <CBTConfigurationDialog
+                  courses={courses}
+                  availableQuestions={availableQuestions}
+                  onStartExam={handleStartExam}
+                  isGenerating={generatingQuestions}
+                />
+              </div>
+
+              {/* Available Courses Preview */}
+              <div className="mt-8">
+                <h4 className="font-semibold text-wrlds-dark mb-4 font-space">Available Courses</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {courses.map((course) => {
+                    const questionCount = availableQuestions[course] || 0;
+                    return (
+                      <div
+                        key={course}
+                        className="flex items-center justify-between p-3 bg-wrlds-light/50 rounded-lg border border-wrlds-accent/20"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <Book className="w-4 h-4 text-wrlds-dark" />
+                          <span className="text-sm font-medium text-wrlds-dark font-space">{course}</span>
+                        </div>
+                        <span className="text-xs text-wrlds-accent font-space">
+                          {questionCount} questions
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -388,15 +375,15 @@ export function CBTSection() {
               <div className="flex items-start space-x-3">
                 <Clock className="w-5 h-5 text-wrlds-dark mt-1" />
                 <div>
-                  <h4 className="font-medium text-wrlds-dark font-space">Realistic Timing</h4>
-                  <p className="text-sm text-wrlds-accent font-space">Practice with authentic exam time constraints and pressure</p>
+                  <h4 className="font-medium text-wrlds-dark font-space">Custom Timing</h4>
+                  <p className="text-sm text-wrlds-accent font-space">Set your own exam duration from 5 to 120 minutes</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
                 <Target className="w-5 h-5 text-wrlds-dark mt-1" />
                 <div>
-                  <h4 className="font-medium text-wrlds-dark font-space">Smart Question Selection</h4>
-                  <p className="text-sm text-wrlds-accent font-space">Questions selected based on confidence scores and topic coverage</p>
+                  <h4 className="font-medium text-wrlds-dark font-space">Flexible Question Count</h4>
+                  <p className="text-sm text-wrlds-accent font-space">Choose from 5 to 70 questions based on your study needs</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
