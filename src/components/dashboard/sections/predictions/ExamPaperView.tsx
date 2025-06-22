@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Download, Printer, Clock, Users, Calculator } from 'lucide-react';
@@ -20,7 +21,7 @@ interface PredictionData {
     topics: string[];
     lecturer?: string;
   };
-  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper';
+  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper' | 'ranked' | 'practice_exam' | 'topic_based';
   generatedContent?: PredictionResponse;
 }
 
