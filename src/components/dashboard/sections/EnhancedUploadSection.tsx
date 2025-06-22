@@ -1,12 +1,12 @@
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Upload, FileText, Image, BookOpen, Camera, CheckCircle, X, AlertCircle, Plus, FileImage } from 'lucide-react';
+import { Upload, FileText, Image, BookOpen, Camera, CheckCircle, X, AlertCircle, Plus, FileImage, Files } from 'lucide-react';
 import { TagChip } from '../TagChip';
 import { UploadedMaterialsList } from './UploadedMaterialsList';
-import { UploadPastQuestionImages } from './UploadPastQuestionImages';
 import { ProcessingAnimation } from '@/components/ProcessingAnimation';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,13 +19,31 @@ interface UploadedFile {
   type: string;
 }
 
+interface SelectedFile {
+  file: File;
+  preview: string;
+  status: 'pending' | 'uploading' | 'success' | 'error';
+  progress: number;
+  error?: string;
+}
+
 type ProcessingStatus = 'pending' | 'extracting_text' | 'processing_content' | 'generating_flashcards' | 'saving_flashcards' | 'completed' | 'error';
+type UploadMode = 'single' | 'batch';
 
 export function EnhancedUploadSection() {
+  const [uploadMode, setUploadMode] = useState<UploadMode>('single');
+  
+  // Single upload states
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [fileName, setFileName] = useState('');
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedType, setSelectedType] = useState('');
+  
+  // Batch upload states
+  const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
+  const [groupName, setGroupName] = useState('');
+  
+  // Common states
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('pending');
@@ -33,10 +51,10 @@ export function EnhancedUploadSection() {
   const [showProcessing, setShowProcessing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [currentMaterialId, setCurrentMaterialId] = useState<string | null>(null);
+  
   const { toast } = useToast();
   const { user } = useAuth();
-  const { profile, loading: profileLoading, error: profileError } = useUserProfile();
-  const [showPastQuestionUpload, setShowPastQuestionUpload] = useState(false);
+  const { profile, loading: profileLoading } = useUserProfile();
 
   const courseOptions = ['CSC 202', 'PHY 101', 'ENG 301', 'MTH 201', 'CHE 205', 'BIO 101', 'HIST 201'];
   const typeOptions = [
@@ -48,11 +66,12 @@ export function EnhancedUploadSection() {
   ];
 
   const cleanFileName = (file: File) => {
-    const name = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
+    const name = file.name.replace(/\.[^/.]+$/, '');
     return name.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  const handleFileUpload = (file: File) => {
+  // Single file upload handler
+  const handleSingleFileUpload = (file: File) => {
     setUploadedFile({
       file,
       type: file.type,
@@ -61,27 +80,77 @@ export function EnhancedUploadSection() {
     setFileName(cleanFileName(file));
   };
 
+  // Batch file upload handler
+  const handleBatchFileSelect = (files: File[]) => {
+    if (selectedFiles.length + files.length > 10) {
+      toast({
+        title: "Too many files",
+        description: "You can upload a maximum of 10 images at once.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const newFiles: SelectedFile[] = files
+      .filter(file => file.type.startsWith('image/'))
+      .map(file => ({
+        file,
+        preview: URL.createObjectURL(file),
+        status: 'pending' as const,
+        progress: 0
+      }));
+
+    setSelectedFiles(prev => [...prev, ...newFiles]);
+
+    if (!groupName && newFiles.length > 0) {
+      const today = new Date().toLocaleDateString();
+      setGroupName(`Past Questions - ${today}`);
+    }
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleFileUpload(file);
+    const files = Array.from(e.dataTransfer.files);
+    
+    if (uploadMode === 'single') {
+      const file = files[0];
+      if (file) handleSingleFileUpload(file);
+    } else {
+      handleBatchFileSelect(files);
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFileUpload(file);
+    const files = Array.from(e.target.files || []);
+    
+    if (uploadMode === 'single') {
+      const file = files[0];
+      if (file) handleSingleFileUpload(file);
+    } else {
+      handleBatchFileSelect(files);
+    }
   };
 
-  const handleTakePhoto = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) handleFileUpload(file);
-    };
-    input.click();
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => {
+      const newFiles = [...prev];
+      URL.revokeObjectURL(newFiles[index].preview);
+      newFiles.splice(index, 1);
+      return newFiles;
+    });
+  };
+
+  const getStatusIcon = (status: SelectedFile['status']) => {
+    switch (status) {
+      case 'success':
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'error':
+        return <AlertCircle className="w-4 h-4 text-red-600" />;
+      case 'uploading':
+        return <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />;
+      default:
+        return null;
+    }
   };
 
   // Real-time processing status monitoring
@@ -108,7 +177,6 @@ export function EnhancedUploadSection() {
           setProcessingProgress(material.processing_progress);
         }
 
-        // If completed successfully
         if (material.processed && material.processing_status === 'completed') {
           setShowProcessing(false);
           setRefreshKey(prev => prev + 1);
@@ -119,7 +187,6 @@ export function EnhancedUploadSection() {
           return;
         }
 
-        // If failed
         if (material.processing_status === 'error') {
           setShowProcessing(false);
           toast({
@@ -130,9 +197,8 @@ export function EnhancedUploadSection() {
           return;
         }
 
-        // Continue monitoring if still processing
         if (!material.processed) {
-          setTimeout(checkStatus, 2000); // Check every 2 seconds
+          setTimeout(checkStatus, 2000);
         }
       } catch (error) {
         console.error('Error monitoring status:', error);
@@ -142,7 +208,8 @@ export function EnhancedUploadSection() {
     checkStatus();
   };
 
-  const handleSubmit = async () => {
+  // Single file submit handler
+  const handleSingleSubmit = async () => {
     if (!uploadedFile || !selectedCourse || !selectedType || !user) {
       toast({
         title: "Missing Information",
@@ -171,7 +238,6 @@ export function EnhancedUploadSection() {
 
       setUploadProgress(50);
 
-      console.log('Calling upload-material function...');
       const { data, error } = await supabase.functions.invoke('upload-material', {
         body: formData,
         headers: {
@@ -186,28 +252,23 @@ export function EnhancedUploadSection() {
         throw error;
       }
 
-      console.log('Upload response:', data);
-
       if (!data.success) {
         throw new Error(data.error || 'Upload failed');
       }
 
       setUploadProgress(100);
 
-      // Check if processing was triggered successfully
       if (data.processingTriggered) {
         toast({
           title: "Upload Successful! 🎉",
           description: "Your material is being processed. 20 quality flashcards will be generated automatically.",
         });
         
-        // Start monitoring processing status
         setCurrentMaterialId(data.material.id);
         setShowProcessing(true);
         setProcessingStatus('extracting_text');
         setProcessingProgress(10);
         
-        // Start real-time monitoring
         monitorProcessingStatus(data.material.id);
       } else {
         toast({
@@ -217,13 +278,7 @@ export function EnhancedUploadSection() {
         });
       }
       
-      // Reset form
-      setUploadedFile(null);
-      setFileName('');
-      setSelectedCourse('');
-      setSelectedType('');
-      setUploadProgress(0);
-      
+      resetUpload();
       setRefreshKey(prev => prev + 1);
       
     } catch (error) {
@@ -238,9 +293,122 @@ export function EnhancedUploadSection() {
     }
   };
 
+  // Batch upload submit handler
+  const handleBatchSubmit = async () => {
+    if (!selectedCourse || selectedFiles.length === 0 || !user) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a course and add at least one image.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
+      const groupId = crypto.randomUUID();
+      const finalGroupName = groupName || `Past Questions - ${new Date().toLocaleDateString()}`;
+
+      const uploadPromises = selectedFiles.map(async (selectedFile, index) => {
+        try {
+          setSelectedFiles(prev => {
+            const newFiles = [...prev];
+            newFiles[index] = { ...newFiles[index], status: 'uploading', progress: 10 };
+            return newFiles;
+          });
+
+          const formData = new FormData();
+          formData.append('file', selectedFile.file);
+          formData.append('fileName', selectedFile.file.name.replace(/\.[^/.]+$/, ''));
+          formData.append('course', selectedCourse);
+          formData.append('materialType', 'past-question-images');
+          formData.append('groupId', groupId);
+          formData.append('groupName', finalGroupName);
+
+          const { data, error } = await supabase.functions.invoke('upload-material', {
+            body: formData,
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            }
+          });
+
+          if (error || !data.success) {
+            throw new Error(data?.error || 'Upload failed');
+          }
+
+          setSelectedFiles(prev => {
+            const newFiles = [...prev];
+            newFiles[index] = { ...newFiles[index], status: 'success', progress: 100 };
+            return newFiles;
+          });
+
+          return data;
+        } catch (error) {
+          console.error(`Upload error for file ${index}:`, error);
+          
+          setSelectedFiles(prev => {
+            const newFiles = [...prev];
+            newFiles[index] = { 
+              ...newFiles[index], 
+              status: 'error', 
+              progress: 0,
+              error: error.message 
+            };
+            return newFiles;
+          });
+          
+          throw error;
+        }
+      });
+
+      const results = await Promise.allSettled(uploadPromises);
+      const successful = results.filter(result => result.status === 'fulfilled').length;
+      const failed = results.filter(result => result.status === 'rejected').length;
+
+      if (successful > 0) {
+        toast({
+          title: `Upload Complete! 🎉`,
+          description: `${successful} image${successful === 1 ? '' : 's'} uploaded successfully as "${finalGroupName}". OCR processing started.`,
+        });
+        
+        setRefreshKey(prev => prev + 1);
+        
+        if (failed === 0) {
+          resetUpload();
+        }
+      }
+
+      if (failed > 0) {
+        toast({
+          title: "Some uploads failed",
+          description: `${failed} image${failed === 1 ? '' : 's'} failed to upload. You can retry or remove them.`,
+          variant: "destructive"
+        });
+      }
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload Failed",
+        description: "There was an error uploading your files. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const resetUpload = () => {
     setUploadedFile(null);
+    setSelectedFiles([]);
     setFileName('');
+    setGroupName('');
     setSelectedCourse('');
     setSelectedType('');
     setUploadProgress(0);
@@ -248,7 +416,6 @@ export function EnhancedUploadSection() {
     setCurrentMaterialId(null);
   };
 
-  // Get user's courses
   const userCourses = profile?.courses || [];
   const hasCourses = userCourses.length > 0;
 
@@ -268,7 +435,7 @@ export function EnhancedUploadSection() {
       <div>
         <h2 className="text-3xl font-bold text-gray-800 font-space mb-2">Upload Materials</h2>
         <p className="text-gray-600">
-          Drop it. Tag it. Let the AI create 20 quality flashcards.
+          Upload single files or batch upload past question images. Let AI create quality flashcards.
           {hasCourses && ` (${userCourses.length} course${userCourses.length === 1 ? '' : 's'} available)`}
         </p>
       </div>
@@ -297,18 +464,6 @@ export function EnhancedUploadSection() {
         )}
       </AnimatePresence>
 
-      {/* Past Question Upload Modal */}
-      <AnimatePresence>
-        {showPastQuestionUpload && (
-          <UploadPastQuestionImages
-            onClose={() => setShowPastQuestionUpload(false)}
-            onUploadComplete={() => {
-              setRefreshKey(prev => prev + 1);
-            }}
-          />
-        )}
-      </AnimatePresence>
-
       {!hasCourses ? (
         <Card className="max-w-2xl mx-auto">
           <CardContent className="p-8 text-center">
@@ -319,7 +474,6 @@ export function EnhancedUploadSection() {
             </p>
             <Button 
               onClick={() => {
-                // Navigate to profile section - you might want to implement proper navigation
                 const profileSection = document.querySelector('[data-section="profile"]');
                 if (profileSection) {
                   profileSection.scrollIntoView({ behavior: 'smooth' });
@@ -333,187 +487,278 @@ export function EnhancedUploadSection() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {/* Past Question Upload Card */}
-          <Card className="max-w-2xl mx-auto border-2 border-blue-200 bg-blue-50">
-            <CardContent className="p-6">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileImage className="w-8 h-8 text-blue-600" />
-                </div>
-                <h3 className="text-lg font-bold text-blue-800 mb-2">Upload Past Question Images</h3>
-                <p className="text-blue-700 mb-4">
-                  Upload multiple images of past questions (up to 10). We'll use OCR to extract text and generate flashcards automatically.
-                </p>
-                <Button 
-                  onClick={() => setShowPastQuestionUpload(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl">Upload Materials</CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant={uploadMode === 'single' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setUploadMode('single');
+                    resetUpload();
+                  }}
+                  disabled={isProcessing}
                 >
-                  <FileImage className="w-4 h-4 mr-2" />
-                  Upload Past Questions
+                  <FileText className="w-4 h-4 mr-2" />
+                  Single File
+                </Button>
+                <Button
+                  variant={uploadMode === 'batch' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setUploadMode('batch');
+                    resetUpload();
+                  }}
+                  disabled={isProcessing}
+                >
+                  <Files className="w-4 h-4 mr-2" />
+                  Past Questions
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            {/* Upload Area */}
+            <div
+              className="border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors rounded-lg p-8 text-center cursor-pointer"
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+              onClick={() => document.getElementById('file-upload')?.click()}
+            >
+              {uploadMode === 'single' ? (
+                <>
+                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Drop your study material here</h3>
+                  <p className="text-gray-600 mb-4">PDF, JPG, PNG, DOCX, TXT supported • AI will generate 20 flashcards</p>
+                </>
+              ) : (
+                <>
+                  <FileImage className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Drop past question images here</h3>
+                  <p className="text-gray-600 mb-4">Upload up to 10 images • OCR will extract text automatically</p>
+                </>
+              )}
+              <Button className="bg-gray-800 hover:bg-gray-700">
+                {uploadMode === 'single' ? 'Browse Files' : 'Select Images'}
+              </Button>
+            </div>
 
-          {/* Regular Upload Card */}
-          <Card className="max-w-2xl mx-auto">
-            <CardContent className="p-8 relative">
-              <AnimatePresence mode="wait">
-                {!uploadedFile ? (
-                  <motion.div
-                    key="upload"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    className="space-y-6"
-                  >
-                    <div
-                      className="border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors rounded-lg p-8 text-center cursor-pointer"
-                      onDrop={handleDrop}
-                      onDragOver={(e) => e.preventDefault()}
-                      onClick={() => document.getElementById('file-upload')?.click()}
+            <input
+              type="file"
+              id="file-upload"
+              className="hidden"
+              accept={uploadMode === 'single' ? '.pdf,.jpg,.jpeg,.png,.txt,.docx' : 'image/*'}
+              multiple={uploadMode === 'batch'}
+              onChange={handleFileSelect}
+            />
+
+            {/* Single File Preview */}
+            {uploadMode === 'single' && uploadedFile && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-4"
+              >
+                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="flex-shrink-0">
+                    {uploadedFile.preview ? (
+                      <img src={uploadedFile.preview} alt="Preview" className="w-12 h-12 object-cover rounded" />
+                    ) : (
+                      <FileText className="w-12 h-12 text-blue-500" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{uploadedFile.file.name}</p>
+                    <p className="text-sm text-gray-600">
+                      {uploadedFile.file.size > 1024 * 1024 ? 
+                        `${(uploadedFile.file.size / 1024 / 1024).toFixed(1)} MB` : 
+                        `${(uploadedFile.file.size / 1024).toFixed(0)} KB`}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={resetUpload} disabled={isProcessing}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {isProcessing && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Uploading...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Name (optional)</label>
+                  <Input
+                    value={fileName}
+                    onChange={(e) => setFileName(e.target.value)}
+                    placeholder="e.g., Thermodynamics Week 4 Notes"
+                    disabled={isProcessing}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Course</label>
+                  <div className="flex flex-wrap gap-2">
+                    {userCourses.map(course => (
+                      <TagChip
+                        key={course}
+                        label={course}
+                        color={selectedCourse === course ? 'blue' : 'gray'}
+                        onClick={() => !isProcessing && setSelectedCourse(course)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Material Type</label>
+                  <div className="flex flex-wrap gap-2">
+                    {typeOptions.map(type => (
+                      <TagChip
+                        key={type.id}
+                        label={`${type.icon} ${type.label}`}
+                        color={selectedType === type.id ? 'green' : 'gray'}
+                        onClick={() => !isProcessing && setSelectedType(type.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Batch Upload Preview */}
+            {uploadMode === 'batch' && selectedFiles.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Course</label>
+                    <select
+                      value={selectedCourse}
+                      onChange={(e) => setSelectedCourse(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={isProcessing}
                     >
-                      <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">Drop your study materials here</h3>
-                      <p className="text-gray-600 mb-4">PDF, JPG, PNG, DOCX, TXT supported • AI will generate 20 flashcards</p>
-                      <div className="flex gap-3 justify-center">
-                        <Button className="bg-gray-800 hover:bg-gray-700">
-                          Browse Files
-                        </Button>
-                      </div>
-                    </div>
-
-                    <input
-                      type="file"
-                      id="file-upload"
-                      className="hidden"
-                      accept=".pdf,.jpg,.jpeg,.png,.txt,.docx"
-                      onChange={handleFileSelect}
+                      <option value="">Select a course</option>
+                      {userCourses.map(course => (
+                        <option key={course} value={course}>{course}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Group Name</label>
+                    <Input
+                      value={groupName}
+                      onChange={(e) => setGroupName(e.target.value)}
+                      placeholder="e.g., 2023 Final Exam Questions"
+                      disabled={isProcessing}
                     />
+                  </div>
+                </div>
 
-                    <div className="flex justify-center gap-6 text-sm text-gray-500">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-blue-500" />
-                        <span>Documents</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Image className="w-4 h-4 text-green-500" />
-                        <span>Images</span>
-                      </div>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="details"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    className="space-y-6"
-                  >
-                    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                      <div className="flex-shrink-0">
-                        {uploadedFile.preview ? (
-                          <img src={uploadedFile.preview} alt="Preview" className="w-12 h-12 object-cover rounded" />
-                        ) : (
-                          <FileText className="w-12 h-12 text-blue-500" />
+                <div className="space-y-2">
+                  <h4 className="font-semibold">Selected Images ({selectedFiles.length}/10)</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {selectedFiles.map((selectedFile, index) => (
+                      <div key={index} className="relative">
+                        <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200">
+                          <img
+                            src={selectedFile.preview}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        
+                        <div className="absolute top-2 right-2 bg-white rounded-full p-1 shadow">
+                          {getStatusIcon(selectedFile.status)}
+                        </div>
+
+                        {selectedFile.status === 'pending' && !isProcessing && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute top-2 left-2 bg-white hover:bg-gray-100 p-1 h-auto"
+                            onClick={() => removeFile(index)}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
                         )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">{uploadedFile.file.name}</p>
-                        <p className="text-sm text-gray-600">
-                          {uploadedFile.file.size > 1024 * 1024 ? 
-                            `${(uploadedFile.file.size / 1024 / 1024).toFixed(1)} MB` : 
-                            `${(uploadedFile.file.size / 1024).toFixed(0)} KB`}
+
+                        {selectedFile.status === 'uploading' && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-white bg-opacity-90 p-2">
+                            <div className="w-full bg-gray-200 rounded-full h-1">
+                              <div 
+                                className="bg-blue-600 h-1 rounded-full transition-all duration-300"
+                                style={{ width: `${selectedFile.progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedFile.status === 'error' && selectedFile.error && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-red-500 text-white text-xs p-1 rounded-b-lg">
+                            {selectedFile.error}
+                          </div>
+                        )}
+
+                        <p className="text-xs text-gray-600 mt-1 truncate">
+                          {selectedFile.file.name}
                         </p>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={resetUpload} disabled={isProcessing}>
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
-                    {isProcessing && (
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Uploading...</span>
-                          <span>{uploadProgress}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
-                            style={{ width: `${uploadProgress}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Name (optional)</label>
-                      <Input
-                        value={fileName}
-                        onChange={(e) => setFileName(e.target.value)}
-                        placeholder="e.g., Thermodynamics Week 4 Notes"
-                        className="text-base"
-                        disabled={isProcessing}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Course</label>
-                      <div className="flex flex-wrap gap-2">
-                        {userCourses.map(course => (
-                          <TagChip
-                            key={course}
-                            label={course}
-                            color={selectedCourse === course ? 'blue' : 'gray'}
-                            onClick={() => !isProcessing && setSelectedCourse(course)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Material Type</label>
-                      <div className="flex flex-wrap gap-2">
-                        {typeOptions.map(type => (
-                          <TagChip
-                            key={type.id}
-                            label={`${type.icon} ${type.label}`}
-                            color={selectedType === type.id ? 'green' : 'gray'}
-                            onClick={() => !isProcessing && setSelectedType(type.id)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                      <Button variant="outline" onClick={resetUpload} disabled={isProcessing}>
-                        Cancel
-                      </Button>
-                      <Button 
-                        onClick={handleSubmit}
-                        disabled={!selectedCourse || !selectedType || isProcessing || !user}
-                        className="bg-gray-800 hover:bg-gray-700 flex-1"
-                      >
-                        {isProcessing ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="w-4 h-4 mr-2" />
-                            Upload & Generate 20 Flashcards
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </CardContent>
-          </Card>
-        </div>
+            {/* Action Buttons */}
+            {(uploadedFile || selectedFiles.length > 0) && (
+              <div className="flex gap-3 pt-4 border-t">
+                <Button variant="outline" onClick={resetUpload} disabled={isProcessing}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={uploadMode === 'single' ? handleSingleSubmit : handleBatchSubmit}
+                  disabled={
+                    uploadMode === 'single' 
+                      ? (!selectedCourse || !selectedType || !uploadedFile || isProcessing) 
+                      : (!selectedCourse || selectedFiles.length === 0 || isProcessing)
+                  }
+                  className="bg-gray-800 hover:bg-gray-700 flex-1"
+                >
+                  {isProcessing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      {uploadMode === 'single' ? 'Processing...' : 'Uploading...'}
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
+                      {uploadMode === 'single' 
+                        ? 'Upload & Generate 20 Flashcards'
+                        : `Upload ${selectedFiles.length} Image${selectedFiles.length === 1 ? '' : 's'}`
+                      }
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <UploadedMaterialsList key={refreshKey} />
