@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
@@ -23,34 +24,168 @@ interface ProcessedPage {
   height?: number;
 }
 
-// Robust PDF-to-Image Converter for Deno/Edge Environments
-class RobustPdfConverter {
-  private maxPages = 50; // Reasonable limit for processing
-  private timeoutMs = 30000; // 30 second timeout per page
+interface OCRResult {
+  success: boolean;
+  text: string;
+  method: string;
+  pageNumber: number;
+  confidence?: string;
+  error?: string;
+}
 
-  async convertPdfToImages(pdfBuffer: Uint8Array): Promise<ProcessedPage[]> {
-    console.log('Starting robust PDF to image conversion');
-    
-    try {
-      // Method 1: Try pdf-lib approach (most compatible with Deno)
-      console.log('Attempting pdf-lib conversion method');
-      const result = await this.convertWithPdfLib(pdfBuffer);
-      if (result.success && result.pages.length > 0) {
-        return result.pages;
-      }
-      
-      console.log('pdf-lib method failed, trying fallback method');
-      
-      // Method 2: Fallback - treat entire PDF as single image for OCR
-      return await this.convertWithFallback(pdfBuffer);
-      
-    } catch (error) {
-      console.error('All PDF conversion methods failed:', error);
-      throw new Error(`PDF conversion failed: ${error.message}`);
-    }
+// Enhanced OCR function with proper error handling
+async function extractTextFromImageOrPdf(imageBuffer: Uint8Array, pageNumber = 1, fileName = 'unknown', totalPages = 1): Promise<OCRResult> {
+  const googleVisionApiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY')
+  if (!googleVisionApiKey) {
+    throw new Error('Google Vision API key not configured')
   }
 
-  private async convertWithPdfLib(pdfBuffer: Uint8Array): Promise<{ success: boolean; pages: ProcessedPage[] }> {
+  // Create pageInfo object to prevent undefined errors
+  const pageInfo = {
+    current: pageNumber,
+    total: totalPages,
+    fileName: fileName
+  };
+
+  console.log(`Starting OCR processing for page ${pageInfo.current}/${pageInfo.total} of ${pageInfo.fileName}`);
+
+  const maxFileSize = 20 * 1024 * 1024
+  if (imageBuffer.byteLength > maxFileSize) {
+    return {
+      success: false,
+      text: '',
+      method: 'error',
+      pageNumber,
+      error: `File too large: ${(imageBuffer.byteLength / 1024 / 1024).toFixed(1)}MB. Maximum allowed: 20MB`
+    };
+  }
+
+  try {
+    console.log(`Processing page ${pageInfo.current} with OCR (size: ${(imageBuffer.byteLength / 1024 / 1024).toFixed(2)}MB)`);
+    
+    const base64Data = arrayBufferToBase64(imageBuffer.buffer);
+    
+    // Validate base64 data
+    if (!base64Data || base64Data.length < 100) {
+      return {
+        success: false,
+        text: '',
+        method: 'error',
+        pageNumber,
+        error: `Invalid or empty base64 data for page ${pageNumber}`
+      };
+    }
+    
+    const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${googleVisionApiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: {
+              content: base64Data,
+            },
+            features: [
+              {
+                type: 'DOCUMENT_TEXT_DETECTION',
+                maxResults: 1,
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Google Vision API error response:', errorText);
+      return {
+        success: false,
+        text: '',
+        method: 'error',
+        pageNumber,
+        error: `Google Vision API error: ${response.status} - ${errorText}`
+      };
+    }
+
+    const result = await response.json();
+    console.log(`Google Vision API response received for page ${pageInfo.current}`);
+    
+    if (result.responses && result.responses[0]) {
+      const responseData = result.responses[0];
+      
+      if (responseData.error) {
+        return {
+          success: false,
+          text: '',
+          method: 'error',
+          pageNumber,
+          error: `Google Vision API error: ${responseData.error.message}`
+        };
+      }
+      
+      // Try document text detection first
+      if (responseData.fullTextAnnotation && responseData.fullTextAnnotation.text) {
+        const extractedText = responseData.fullTextAnnotation.text.trim();
+        if (extractedText.length > 10) {
+          console.log(`✓ Document text detection successful for page ${pageInfo.current} (${extractedText.length} characters)`);
+          return {
+            success: true,
+            text: extractedText,
+            method: 'document_text_detection',
+            pageNumber,
+            confidence: 'high'
+          };
+        }
+      }
+      
+      // Fallback to regular text detection
+      const textAnnotations = responseData.textAnnotations;
+      if (textAnnotations && textAnnotations.length > 0) {
+        const extractedText = textAnnotations[0].description?.trim() || '';
+        if (extractedText.length > 10) {
+          console.log(`✓ Text detection successful for page ${pageInfo.current} (${extractedText.length} characters)`);
+          return {
+            success: true,
+            text: extractedText,
+            method: 'text_detection',
+            pageNumber,
+            confidence: 'medium'
+          };
+        }
+      }
+    }
+    
+    console.log(`✗ No readable text found on page ${pageInfo.current}`);
+    return {
+      success: false,
+      text: '',
+      method: 'no_text',
+      pageNumber,
+      error: `No readable text found on page ${pageNumber}`
+    };
+    
+  } catch (error) {
+    console.error(`OCR processing failed for page ${pageNumber}:`, error);
+    return {
+      success: false,
+      text: '',
+      method: 'error',
+      pageNumber,
+      error: `OCR processing failed: ${error.message}`
+    };
+  }
+}
+
+// Enhanced PDF-to-Image Converter using pdf-lib
+class EnhancedPdfConverter {
+  private maxPages = 50;
+
+  async convertPdfToImages(pdfBuffer: Uint8Array): Promise<ProcessedPage[]> {
+    console.log('Starting enhanced PDF to image conversion');
+    
     try {
       const pdfDoc = await PDFDocument.load(pdfBuffer);
       const pageCount = pdfDoc.getPageCount();
@@ -61,12 +196,12 @@ class RobustPdfConverter {
         console.warn(`PDF has ${pageCount} pages. Processing first ${this.maxPages} pages only.`);
       }
       
-      const pages: ProcessedPage[] = [];
+      const processedPages: ProcessedPage[] = [];
       const maxPagesToProcess = Math.min(pageCount, this.maxPages);
       
-      // For each page, create a separate single-page PDF
+      // For each page, create a separate single-page PDF for OCR processing
       for (let i = 0; i < maxPagesToProcess; i++) {
-        console.log(`Processing page ${i + 1}/${maxPagesToProcess}`);
+        console.log(`Converting page ${i + 1}/${maxPagesToProcess} to processable format`);
         
         try {
           // Create a new PDF with just this page
@@ -77,11 +212,11 @@ class RobustPdfConverter {
           // Get page dimensions
           const pageSize = page.getSize();
           
-          // Serialize to buffer - this single-page PDF can be processed by Google Vision
+          // Serialize to buffer - this creates a single-page PDF that can be processed by Google Vision
           const singlePageBuffer = await singlePagePdf.save();
           const singlePageUint8Array = new Uint8Array(singlePageBuffer);
           
-          pages.push({
+          processedPages.push({
             pageNumber: i + 1,
             imageData: singlePageUint8Array,
             width: pageSize.width,
@@ -90,7 +225,7 @@ class RobustPdfConverter {
           
         } catch (pageError) {
           console.error(`Error processing page ${i + 1}:`, pageError);
-          pages.push({
+          processedPages.push({
             pageNumber: i + 1,
             imageData: null,
             error: pageError.message
@@ -98,25 +233,125 @@ class RobustPdfConverter {
         }
       }
       
-      return { success: true, pages };
+      return processedPages;
       
     } catch (error) {
-      console.error('pdf-lib conversion failed:', error);
-      return { success: false, pages: [] };
+      console.error('Enhanced PDF conversion failed:', error);
+      // Return single page with entire PDF as fallback
+      return [{
+        pageNumber: 1,
+        imageData: pdfBuffer,
+        width: 595,
+        height: 842
+      }];
     }
   }
+}
 
-  private async convertWithFallback(pdfBuffer: Uint8Array): Promise<ProcessedPage[]> {
-    console.log('Using fallback method: treating PDF as single document');
+// Enhanced multi-page PDF processing with proper error handling
+async function processMultiPagePdf(pdfBuffer: Uint8Array, fileName: string): Promise<{ success: boolean; extractedText: string; totalPages: number; successfulPages: number; failedPages: number; error?: string }> {
+  console.log(`Starting multi-page PDF processing for ${fileName}`);
+  
+  try {
+    const converter = new EnhancedPdfConverter();
+    const processedPages = await converter.convertPdfToImages(pdfBuffer);
     
-    // Return the entire PDF as a single "page" for Google Vision to process
-    // Google Vision can handle PDF files directly in many cases
-    return [{
-      pageNumber: 1,
-      imageData: pdfBuffer,
-      width: 595, // A4 default width
-      height: 842  // A4 default height
-    }];
+    if (!processedPages || processedPages.length === 0) {
+      throw new Error('No pages could be extracted from PDF');
+    }
+
+    console.log(`PDF converted to ${processedPages.length} processable pages`);
+
+    const successfulResults: { pageNumber: number; text: string; method: string }[] = [];
+    const failedPages: { pageNumber: number; error: string }[] = [];
+
+    // Process each page individually with proper error handling
+    for (const page of processedPages) {
+      try {
+        console.log(`Processing page ${page.pageNumber}/${processedPages.length}`);
+        
+        if (!page.imageData) {
+          console.error(`No image data for page ${page.pageNumber}: ${page.error}`);
+          failedPages.push({
+            pageNumber: page.pageNumber,
+            error: page.error || 'No image data available'
+          });
+          continue;
+        }
+
+        // Extract text from this page
+        const result = await extractTextFromImageOrPdf(
+          page.imageData, 
+          page.pageNumber, 
+          fileName, 
+          processedPages.length
+        );
+
+        if (result.success && result.text.length > 10) {
+          successfulResults.push({
+            pageNumber: page.pageNumber,
+            text: result.text,
+            method: result.method
+          });
+          console.log(`✓ Page ${page.pageNumber} processed successfully (${result.text.length} chars)`);
+        } else {
+          failedPages.push({
+            pageNumber: page.pageNumber,
+            error: result.error || 'No text extracted'
+          });
+          console.log(`✗ Page ${page.pageNumber} failed: ${result.error}`);
+        }
+
+      } catch (pageError) {
+        console.error(`Error processing page ${page.pageNumber}:`, pageError);
+        failedPages.push({
+          pageNumber: page.pageNumber,
+          error: pageError.message
+        });
+      }
+    }
+
+    // Combine results from successful pages
+    let combinedText = '';
+    if (successfulResults.length > 1) {
+      combinedText = successfulResults.map(page => 
+        `--- Page ${page.pageNumber} ---\n\n${page.text}\n\n`
+      ).join('');
+    } else if (successfulResults.length === 1) {
+      combinedText = successfulResults[0].text;
+    }
+    
+    console.log(`PDF processing complete: ${successfulResults.length}/${processedPages.length} pages successful`);
+    
+    if (successfulResults.length === 0) {
+      return {
+        success: false,
+        extractedText: '',
+        totalPages: processedPages.length,
+        successfulPages: 0,
+        failedPages: failedPages.length,
+        error: `No pages could be processed successfully. Failed pages: ${failedPages.length}`
+      };
+    }
+
+    return {
+      success: true,
+      extractedText: combinedText,
+      totalPages: processedPages.length,
+      successfulPages: successfulResults.length,
+      failedPages: failedPages.length
+    };
+
+  } catch (error) {
+    console.error('Multi-page PDF processing failed:', error);
+    return {
+      success: false,
+      extractedText: '',
+      totalPages: 0,
+      successfulPages: 0,
+      failedPages: 0,
+      error: `PDF processing failed: ${error.message}`
+    };
   }
 }
 
@@ -224,86 +459,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary)
 }
 
-// Enhanced OCR function that can handle both images and single-page PDFs
-async function extractTextFromImageOrPdf(imageBuffer: Uint8Array, pageNumber?: number): Promise<string> {
-  const googleVisionApiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY')
-  if (!googleVisionApiKey) {
-    throw new Error('Google Vision API key not configured')
-  }
-
-  const maxFileSize = 20 * 1024 * 1024
-  if (imageBuffer.byteLength > maxFileSize) {
-    throw new Error(`File too large: ${(imageBuffer.byteLength / 1024 / 1024).toFixed(1)}MB. Maximum allowed: 20MB`)
-  }
-
-  try {
-    const pageInfo = pageNumber ? ` (page ${pageNumber})` : '';
-    console.log(`Processing file${pageInfo} of size: ${(imageBuffer.byteLength / 1024 / 1024).toFixed(2)}MB with OCR`)
-    
-    const base64Data = arrayBufferToBase64(imageBuffer.buffer)
-    
-    const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${googleVisionApiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: {
-              content: base64Data,
-            },
-            features: [
-              {
-                type: 'DOCUMENT_TEXT_DETECTION',
-                maxResults: 1,
-              },
-            ],
-          },
-        ],
-      }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Google Vision API error response:', errorText)
-      throw new Error(`Google Vision API error: ${response.status} - ${errorText}`)
-    }
-
-    const result = await response.json()
-    console.log(`Google Vision API response received${pageInfo}`)
-    
-    if (result.responses && result.responses[0]) {
-      const responseData = result.responses[0]
-      
-      if (responseData.error) {
-        throw new Error(`Google Vision API error: ${responseData.error.message}`)
-      }
-      
-      // Try document text detection first
-      if (responseData.fullTextAnnotation && responseData.fullTextAnnotation.text) {
-        const extractedText = responseData.fullTextAnnotation.text
-        console.log(`OCR extracted ${extractedText.length} characters${pageInfo} using document detection`)
-        return extractedText
-      }
-      
-      // Fallback to regular text detection
-      const textAnnotations = responseData.textAnnotations
-      if (textAnnotations && textAnnotations.length > 0) {
-        const extractedText = textAnnotations[0].description || ''
-        console.log(`OCR extracted ${extractedText.length} characters${pageInfo} using text detection`)
-        return extractedText
-      }
-    }
-    
-    console.log(`No text detected${pageInfo}`)
-    return ''
-  } catch (error) {
-    console.error(`OCR extraction failed${pageInfo}:`, error)
-    throw new Error(`OCR processing failed: ${error.message}`)
-  }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -352,7 +507,7 @@ serve(async (req) => {
       })
     }
 
-    console.log('Processing material with enhanced OCR approach:', materialId)
+    console.log('Processing material with fixed OCR approach:', materialId)
 
     // Get material details
     const { data: material, error: materialError } = await supabase
@@ -381,6 +536,7 @@ serve(async (req) => {
 
     let extractedText = ''
     let extractionConfidence = 0
+    let processingInfo = { method: '', totalPages: 0, successfulPages: 0, failedPages: 0 }
 
     try {
       // Download the file
@@ -404,104 +560,79 @@ serve(async (req) => {
         })
         .eq('id', materialId)
 
-      let processedPages: ProcessedPage[] = []
-
-      // Process different file types
+      // Process different file types with enhanced OCR
       if (material.file_type?.includes('pdf')) {
-        console.log('Processing PDF with robust page-by-page conversion')
-        const converter = new RobustPdfConverter()
-        processedPages = await converter.convertPdfToImages(fileBuffer)
-        console.log(`PDF converted to ${processedPages.length} processable pages`)
+        console.log('Processing PDF with enhanced page-by-page OCR')
+        const result = await processMultiPagePdf(fileBuffer, material.name)
+        
+        if (result.success) {
+          extractedText = result.extractedText
+          extractionConfidence = isValidExtractedText(extractedText) ? 85 : 35
+          processingInfo = {
+            method: 'enhanced_pdf_ocr',
+            totalPages: result.totalPages,
+            successfulPages: result.successfulPages,
+            failedPages: result.failedPages
+          }
+          console.log(`✅ PDF processed successfully: ${result.successfulPages}/${result.totalPages} pages`)
+        } else {
+          throw new Error(result.error || 'PDF processing failed')
+        }
+        
       } else if (material.file_type?.includes('image')) {
-        console.log('Processing image file with OCR')
-        processedPages = [{
-          pageNumber: 1,
-          imageData: fileBuffer,
-          width: 0,
-          height: 0
-        }]
+        console.log('Processing image file with enhanced OCR')
+        const result = await extractTextFromImageOrPdf(fileBuffer, 1, material.name, 1)
+        
+        if (result.success) {
+          extractedText = result.text
+          extractionConfidence = isValidExtractedText(extractedText) ? 85 : 35
+          processingInfo = { method: 'enhanced_image_ocr', totalPages: 1, successfulPages: 1, failedPages: 0 }
+          console.log(`✅ Image processed successfully`)
+        } else {
+          throw new Error(result.error || 'Image processing failed')
+        }
+        
       } else if (material.file_type?.includes('text')) {
         console.log('Converting text file to image for OCR processing')
         const textContent = new TextDecoder().decode(fileBuffer)
         const textImage = await convertTextToImage(textContent)
-        processedPages = [{
-          pageNumber: 1,
-          imageData: textImage,
-          width: 800,
-          height: 1000
-        }]
+        const result = await extractTextFromImageOrPdf(textImage, 1, material.name, 1)
+        
+        if (result.success) {
+          extractedText = result.text
+          extractionConfidence = isValidExtractedText(extractedText) ? 85 : 35
+          processingInfo = { method: 'text_to_image_ocr', totalPages: 1, successfulPages: 1, failedPages: 0 }
+        } else {
+          extractedText = textContent // Use original text as fallback
+          extractionConfidence = 95
+          processingInfo = { method: 'direct_text', totalPages: 1, successfulPages: 1, failedPages: 0 }
+        }
       } else {
         // Default: treat as text and convert to image
         console.log('Unknown file type, treating as text and converting to image')
         const textContent = new TextDecoder().decode(fileBuffer)
         const textImage = await convertTextToImage(textContent)
-        processedPages = [{
-          pageNumber: 1,
-          imageData: textImage,
-          width: 800,
-          height: 1000
-        }]
+        const result = await extractTextFromImageOrPdf(textImage, 1, material.name, 1)
+        
+        if (result.success) {
+          extractedText = result.text
+          extractionConfidence = isValidExtractedText(extractedText) ? 85 : 35
+          processingInfo = { method: 'unknown_to_image_ocr', totalPages: 1, successfulPages: 1, failedPages: 0 }
+        } else {
+          extractedText = textContent // Use original text as fallback
+          extractionConfidence = 75
+          processingInfo = { method: 'direct_text_fallback', totalPages: 1, successfulPages: 1, failedPages: 0 }
+        }
       }
 
-      if (processedPages.length === 0) {
-        throw new Error('No pages could be generated for OCR processing')
+      if (!extractedText || extractedText.trim().length < 50) {
+        throw new Error('Insufficient content extracted from document')
       }
 
-      await supabase
-        .from('cramintel_materials')
-        .update({ 
-          processing_status: 'extracting_text_ocr',
-          processing_progress: 40 
-        })
-        .eq('id', materialId)
-
-      // Process each page with OCR
-      const textPages = await Promise.all(
-        processedPages.map(async (page, index) => {
-          try {
-            if (!page.imageData) {
-              console.log(`Skipping page ${page.pageNumber} due to processing error: ${page.error}`)
-              return `[Page ${page.pageNumber} processing failed: ${page.error}]`
-            }
-            
-            console.log(`Processing page ${page.pageNumber}/${processedPages.length} with OCR`)
-            
-            // Update progress for multi-page documents
-            if (processedPages.length > 1) {
-              const pageProgress = 40 + (index / processedPages.length) * 30 // 40-70% range for OCR
-              await supabase
-                .from('cramintel_materials')
-                .update({ processing_progress: Math.floor(pageProgress) })
-                .eq('id', materialId)
-            }
-            
-            return await extractTextFromImageOrPdf(page.imageData, page.pageNumber)
-          } catch (error) {
-            console.error(`OCR failed for page ${page.pageNumber}:`, error)
-            return `[OCR processing failed for page ${page.pageNumber}: ${error.message}]`
-          }
-        })
-      )
-
-      // Combine all extracted text
-      if (processedPages.length > 1) {
-        extractedText = textPages.map((text, index) => 
-          `--- Page ${processedPages[index].pageNumber} ---\n\n${text}\n\n`
-        ).join('')
-      } else {
-        extractedText = textPages[0] || ''
-      }
-
-      extractionConfidence = isValidExtractedText(extractedText) ? 85 : 35
-      
-      console.log(`OCR processing completed, text length: ${extractedText.length}, confidence: ${extractionConfidence}`)
-      
-      if (!isValidExtractedText(extractedText)) {
-        throw new Error('OCR extracted text is of poor quality or insufficient')
-      }
+      console.log(`✅ Text extraction completed: ${extractedText.length} characters, confidence: ${extractionConfidence}%`)
       
     } catch (extractionError) {
-      console.error('OCR processing failed:', extractionError)
+      console.error('Enhanced OCR processing failed:', extractionError)
       throw new Error(`OCR processing failed: ${extractionError.message}`)
     }
 
@@ -510,7 +641,7 @@ serve(async (req) => {
       supabase, 
       materialId, 
       extractedText, 
-      'enhanced_ocr',
+      processingInfo.method,
       extractionConfidence
     )
 
@@ -595,7 +726,8 @@ ${cleanText.substring(0, 12000)}
 Course: ${material.course}
 Type: ${material.material_type}
 Title: ${material.name}
-Processing: OCR-Only Extraction`
+Processing: Enhanced OCR Extraction
+Pages Processed: ${processingInfo.successfulPages}/${processingInfo.totalPages}`
             }
           ],
           temperature: 0.3,
@@ -644,8 +776,8 @@ Processing: OCR-Only Extraction`
       })
       .eq('id', materialId)
 
-    const deckName = `${material.name} - OCR Flashcards`
-    const deckDescription = `Generated from OCR-processed content for ${material.course}`
+    const deckName = `${material.name} - Enhanced OCR Flashcards`
+    const deckDescription = `Generated from enhanced OCR-processed content for ${material.course} (${processingInfo.successfulPages}/${processingInfo.totalPages} pages processed)`
 
     const { data: deck, error: deckError } = await supabase
       .from('cramintel_decks')
@@ -715,8 +847,8 @@ Processing: OCR-Only Extraction`
       deck_id: deck.id,
       enhanced_ocr_processed: true,
       extraction_confidence: extractionConfidence,
-      pages_processed: processedPages.length,
-      message: `Successfully generated ${flashcards.length} flashcards using enhanced OCR processing`
+      processing_info: processingInfo,
+      message: `Successfully generated ${flashcards.length} flashcards using enhanced OCR processing (${processingInfo.successfulPages}/${processingInfo.totalPages} pages processed)`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
