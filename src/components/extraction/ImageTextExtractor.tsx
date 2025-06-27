@@ -17,7 +17,6 @@ const ImageTextExtractor = () => {
   const [progress, setProgress] = useState(0);
   const [language, setLanguage] = useState('eng');
   const [result, setResult] = useState<ExtractionResult | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -26,10 +25,6 @@ const ImageTextExtractor = () => {
       setExtractedText('');
       setResult(null);
       setProgress(0);
-      
-      // Create preview URL
-      const url = URL.createObjectURL(selectedFile);
-      setPreviewUrl(url);
     } else {
       toast.error('Please select a valid image file');
     }
@@ -64,10 +59,6 @@ const ImageTextExtractor = () => {
     setResult(null);
     setFile(null);
     setProgress(0);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
   };
 
   return (
@@ -78,7 +69,7 @@ const ImageTextExtractor = () => {
           Image OCR Text Extraction
         </CardTitle>
         <CardDescription>
-          Extract text from images using Optical Character Recognition (OCR). 
+          Extract text from images using Tesseract.js OCR technology. 
           Supports multiple languages and various image formats.
         </CardDescription>
       </CardHeader>
@@ -106,6 +97,9 @@ const ImageTextExtractor = () => {
               <p className="text-sm text-gray-600">
                 Click to upload or drag and drop an image file
               </p>
+              <p className="text-xs text-gray-500">
+                Supports JPG, PNG, GIF, BMP, TIFF formats
+              </p>
               <input
                 type="file"
                 accept="image/*"
@@ -121,21 +115,10 @@ const ImageTextExtractor = () => {
               </label>
             </div>
             {file && (
-              <div className="mt-4 space-y-3">
-                <div className="p-3 bg-green-50 rounded-md">
-                  <p className="text-sm font-medium text-green-900">
-                    {file.name} ({Math.round(file.size / 1024)} KB)
-                  </p>
-                </div>
-                {previewUrl && (
-                  <div className="max-w-md mx-auto">
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="w-full h-auto max-h-48 object-contain rounded-md border"
-                    />
-                  </div>
-                )}
+              <div className="mt-4 p-3 bg-green-50 rounded-md">
+                <p className="text-sm font-medium text-green-900">
+                  {file.name} ({Math.round(file.size / 1024)} KB)
+                </p>
               </div>
             )}
           </div>
@@ -163,7 +146,7 @@ const ImageTextExtractor = () => {
           {isProcessing && (
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span>Processing OCR...</span>
+                <span>Processing image...</span>
                 <span>{Math.round(progress)}%</span>
               </div>
               <Progress value={progress} className="w-full" />

@@ -2,8 +2,11 @@
 import { createWorker, Worker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Configure PDF.js worker - Use local worker instead of CDN
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.js',
+  import.meta.url
+).toString();
 
 export interface ExtractionResult {
   text: string;
@@ -35,27 +38,32 @@ export async function extractTextFromImage(
 ): Promise<ExtractionResult> {
   const startTime = Date.now();
   
-  // Use the new v6 API - create worker with language directly
-  const worker = await createWorker(language, 1, {
-    logger: (m) => {
-      if (m.status === 'recognizing text' && onProgress) {
-        onProgress(m.progress * 100);
+  try {
+    // Use the new v6 API - create worker with language directly
+    const worker = await createWorker(language, 1, {
+      logger: (m) => {
+        if (m.status === 'recognizing text' && onProgress) {
+          onProgress(m.progress * 100);
+        }
       }
-    }
-  });
-  
-  const { data: { text, confidence } } = await worker.recognize(imageData);
-  
-  await worker.terminate();
-  
-  const processingTime = Date.now() - startTime;
-  
-  return {
-    text: text.trim(),
-    confidence,
-    processingTime,
-    method: 'Tesseract OCR'
-  };
+    });
+    
+    const { data: { text, confidence } } = await worker.recognize(imageData);
+    
+    await worker.terminate();
+    
+    const processingTime = Date.now() - startTime;
+    
+    return {
+      text: text.trim(),
+      confidence,
+      processingTime,
+      method: 'Tesseract OCR'
+    };
+  } catch (error) {
+    console.error('OCR extraction failed:', error);
+    throw new Error(`OCR extraction failed: ${error.message}`);
+  }
 }
 
 export async function extractDirectPdfText(
@@ -64,38 +72,43 @@ export async function extractDirectPdfText(
 ): Promise<ExtractionResult> {
   const startTime = Date.now();
   
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  
-  let fullText = '';
-  const numPages = pdf.numPages;
-  
-  for (let i = 1; i <= numPages; i++) {
-    if (onProgress) {
-      onProgress((i / numPages) * 100);
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    let fullText = '';
+    const numPages = pdf.numPages;
+    
+    for (let i = 1; i <= numPages; i++) {
+      if (onProgress) {
+        onProgress((i / numPages) * 100);
+      }
+      
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      if (pageText) {
+        fullText += pageText + '\n\n';
+      }
     }
     
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
-    const pageText = textContent.items
-      .map((item: any) => item.str)
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const processingTime = Date.now() - startTime;
     
-    if (pageText) {
-      fullText += pageText + '\n\n';
-    }
+    return {
+      text: fullText.trim(),
+      processingTime,
+      pageCount: numPages,
+      method: 'PDF.js Direct Text'
+    };
+  } catch (error) {
+    console.error('PDF text extraction failed:', error);
+    throw new Error(`PDF text extraction failed: ${error.message}`);
   }
-  
-  const processingTime = Date.now() - startTime;
-  
-  return {
-    text: fullText.trim(),
-    processingTime,
-    pageCount: numPages,
-    method: 'PDF.js Direct Text'
-  };
 }
 
 export async function extractPdfToImageText(
@@ -105,56 +118,61 @@ export async function extractPdfToImageText(
 ): Promise<ExtractionResult> {
   const startTime = Date.now();
   
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  
-  let fullText = '';
-  const numPages = pdf.numPages;
-  let totalConfidence = 0;
-  
-  // Use the new v6 API - create worker with language directly
-  const worker = await createWorker(language, 1, {
-    logger: (m) => {
-      if (m.status === 'recognizing text' && onProgress) {
-        onProgress((m.progress * 100) / numPages);
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    let fullText = '';
+    const numPages = pdf.numPages;
+    let totalConfidence = 0;
+    
+    // Use the new v6 API - create worker with language directly
+    const worker = await createWorker(language, 1, {
+      logger: (m) => {
+        if (m.status === 'recognizing text' && onProgress) {
+          onProgress((m.progress * 100) / numPages);
+        }
+      }
+    });
+    
+    for (let i = 1; i <= numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR
+      
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d')!;
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      await page.render({ canvasContext: context, viewport: viewport }).promise;
+      const imageData = canvas.toDataURL('image/png');
+      
+      const { data: { text, confidence } } = await worker.recognize(imageData);
+      
+      if (text.trim()) {
+        fullText += text.trim() + '\n\n';
+        totalConfidence += confidence || 0;
+      }
+      
+      if (onProgress) {
+        onProgress((i / numPages) * 100);
       }
     }
-  });
-  
-  for (let i = 1; i <= numPages; i++) {
-    const page = await pdf.getPage(i);
-    const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR
     
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d')!;
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
+    await worker.terminate();
     
-    await page.render({ canvasContext: context, viewport: viewport }).promise;
-    const imageData = canvas.toDataURL('image/png');
+    const processingTime = Date.now() - startTime;
+    const avgConfidence = numPages > 0 ? totalConfidence / numPages : 0;
     
-    const { data: { text, confidence } } = await worker.recognize(imageData);
-    
-    if (text.trim()) {
-      fullText += text.trim() + '\n\n';
-      totalConfidence += confidence || 0;
-    }
-    
-    if (onProgress) {
-      onProgress((i / numPages) * 100);
-    }
+    return {
+      text: fullText.trim(),
+      confidence: avgConfidence,
+      processingTime,
+      pageCount: numPages,
+      method: 'PDF to Image OCR'
+    };
+  } catch (error) {
+    console.error('PDF to image OCR failed:', error);
+    throw new Error(`PDF to image OCR failed: ${error.message}`);
   }
-  
-  await worker.terminate();
-  
-  const processingTime = Date.now() - startTime;
-  const avgConfidence = numPages > 0 ? totalConfidence / numPages : 0;
-  
-  return {
-    text: fullText.trim(),
-    confidence: avgConfidence,
-    processingTime,
-    pageCount: numPages,
-    method: 'PDF to Image OCR'
-  };
 }

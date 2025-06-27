@@ -21,11 +21,15 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    include: ['@pdf-viewer/react']
+    include: ['@pdf-viewer/react', 'pdfjs-dist']
   },
   build: {
     commonjsOptions: {
       include: [/@pdf-viewer/, /node_modules/]
     }
-  }
+  },
+  worker: {
+    format: 'es'
+  },
+  assetsInclude: ['**/*.wasm']
 }));
