@@ -30,20 +30,40 @@ export const useStudyAnalytics = () => {
     try {
       const today = new Date().toISOString().split('T')[0];
       
-      // Get today's analytics
-      const { data: todayData } = await supabase
-        .from('cramintel_study_analytics')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('date', today)
-        .single();
+      // Get today's analytics with error handling
+      let todayData = null;
+      try {
+        const { data, error } = await supabase
+          .from('cramintel_study_analytics')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', today)
+          .maybeSingle();
 
-      // Get all analytics for streak calculation
-      const { data: allData } = await supabase
-        .from('cramintel_study_analytics')
-        .select('date, flashcards_studied')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false });
+        if (error && error.code !== '42501') {
+          throw error;
+        }
+        todayData = data;
+      } catch (err) {
+        console.warn('Could not fetch today\'s analytics:', err);
+      }
+
+      // Get all analytics for streak calculation with error handling
+      let allData = [];
+      try {
+        const { data, error } = await supabase
+          .from('cramintel_study_analytics')
+          .select('date, flashcards_studied')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false });
+
+        if (error && error.code !== '42501') {
+          throw error;
+        }
+        allData = data || [];
+      } catch (err) {
+        console.warn('Could not fetch analytics history:', err);
+      }
 
       // Calculate current and best streak
       let currentStreak = 0;
@@ -98,68 +118,76 @@ export const useStudyAnalytics = () => {
     if (!user) return;
 
     try {
-      // Record the study session
-      const { error: sessionError } = await supabase
-        .from('cramintel_study_sessions')
-        .insert({
-          user_id: user.id,
-          course: sessionData.course,
-          cards_studied: sessionData.cards_studied,
-          cards_correct: sessionData.cards_correct,
-          duration_minutes: sessionData.duration_minutes,
-          session_type: 'flashcard_study',
-          started_at: new Date(Date.now() - sessionData.duration_minutes * 60 * 1000).toISOString(),
-          ended_at: new Date().toISOString()
-        });
+      // Record the study session with error handling
+      try {
+        const { error: sessionError } = await supabase
+          .from('cramintel_study_sessions')
+          .insert({
+            user_id: user.id,
+            course: sessionData.course,
+            cards_studied: sessionData.cards_studied,
+            cards_correct: sessionData.cards_correct,
+            duration_minutes: sessionData.duration_minutes,
+            session_type: 'flashcard_study',
+            started_at: new Date(Date.now() - sessionData.duration_minutes * 60 * 1000).toISOString(),
+            ended_at: new Date().toISOString()
+          });
 
-      if (sessionError) {
-        console.error('Error recording study session:', sessionError);
-        return;
+        if (sessionError && sessionError.code !== '42501') {
+          console.error('Error recording study session:', sessionError);
+          return;
+        }
+      } catch (err) {
+        console.warn('Could not record study session, continuing with analytics:', err);
       }
 
-      // Update or create today's analytics
+      // Update or create today's analytics with error handling
       const today = new Date().toISOString().split('T')[0];
       const accuracy = sessionData.cards_studied > 0 ? (sessionData.cards_correct / sessionData.cards_studied) * 100 : 0;
 
-      const { data: existingData } = await supabase
-        .from('cramintel_study_analytics')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('date', today)
-        .single();
-
-      if (existingData) {
-        // Update existing record
-        const { error } = await supabase
+      try {
+        const { data: existingData } = await supabase
           .from('cramintel_study_analytics')
-          .update({
-            flashcards_studied: existingData.flashcards_studied + sessionData.cards_studied,
-            total_study_time: existingData.total_study_time + sessionData.duration_minutes,
-            accuracy_rate: ((existingData.accuracy_rate * existingData.flashcards_studied) + (accuracy * sessionData.cards_studied)) / (existingData.flashcards_studied + sessionData.cards_studied),
-            courses_studied: Array.from(new Set([...(existingData.courses_studied || []), sessionData.course]))
-          })
-          .eq('id', existingData.id);
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', today)
+          .maybeSingle();
 
-        if (error) {
-          console.error('Error updating analytics:', error);
-        }
-      } else {
-        // Create new record
-        const { error } = await supabase
-          .from('cramintel_study_analytics')
-          .insert({
-            user_id: user.id,
-            date: today,
-            flashcards_studied: sessionData.cards_studied,
-            total_study_time: sessionData.duration_minutes,
-            accuracy_rate: accuracy,
-            courses_studied: [sessionData.course],
-            streak_days: 1
-          });
+        if (existingData) {
+          // Update existing record
+          const { error } = await supabase
+            .from('cramintel_study_analytics')
+            .update({
+              flashcards_studied: existingData.flashcards_studied + sessionData.cards_studied,
+              total_study_time: existingData.total_study_time + sessionData.duration_minutes,
+              accuracy_rate: ((existingData.accuracy_rate * existingData.flashcards_studied) + (accuracy * sessionData.cards_studied)) / (existingData.flashcards_studied + sessionData.cards_studied),
+              courses_studied: Array.from(new Set([...(existingData.courses_studied || []), sessionData.course]))
+            })
+            .eq('id', existingData.id);
 
-        if (error) {
-          console.error('Error creating analytics:', error);
+          if (error && error.code !== '42501') {
+            console.error('Error updating analytics:', error);
+          }
+        } else {
+          // Create new record
+          const { error } = await supabase
+            .from('cramintel_study_analytics')
+            .insert({
+              user_id: user.id,
+              date: today,
+              flashcards_studied: sessionData.cards_studied,
+              total_study_time: sessionData.duration_minutes,
+              accuracy_rate: accuracy,
+              courses_studied: [sessionData.course],
+              streak_days: 1
+            });
+
+          if (error && error.code !== '42501') {
+            console.error('Error creating analytics:', error);
+          }
         }
+      } catch (err) {
+        console.warn('Could not update study analytics:', err);
       }
 
       // Refresh stats

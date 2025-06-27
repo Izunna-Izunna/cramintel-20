@@ -63,7 +63,14 @@ export function useDashboardData() {
         .eq('user_id', user.id)
         .gte('upload_date', weekAgo.toISOString());
 
-      if (materialsError) throw materialsError;
+      if (materialsError) {
+        // Handle RLS policy errors gracefully
+        if (materialsError.code === '42501') {
+          console.warn('RLS policy issue with materials table');
+        } else {
+          throw materialsError;
+        }
+      }
 
       // Get total flashcards
       const { data: flashcards, error: flashcardsError } = await supabase
@@ -71,16 +78,26 @@ export function useDashboardData() {
         .select('id')
         .eq('user_id', user.id);
 
-      if (flashcardsError) throw flashcardsError;
+      if (flashcardsError && flashcardsError.code !== '42501') {
+        throw flashcardsError;
+      }
 
-      // Get study sessions for streak calculation
-      const { data: sessions, error: sessionsError } = await supabase
-        .from('cramintel_study_sessions')
-        .select('started_at')
-        .eq('user_id', user.id)
-        .order('started_at', { ascending: false });
+      // Get study sessions for streak calculation with error handling
+      let sessions = [];
+      try {
+        const { data: sessionsData, error: sessionsError } = await supabase
+          .from('cramintel_study_sessions')
+          .select('started_at')
+          .eq('user_id', user.id)
+          .order('started_at', { ascending: false });
 
-      if (sessionsError) throw sessionsError;
+        if (sessionsError && sessionsError.code !== '42501') {
+          throw sessionsError;
+        }
+        sessions = sessionsData || [];
+      } catch (sessionErr) {
+        console.warn('Could not fetch study sessions:', sessionErr);
+      }
 
       // Calculate study streak
       const calculateStreak = () => {
