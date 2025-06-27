@@ -2,8 +2,8 @@ import { createWorker, Worker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
 import { extractTextFromImage } from '@/lib/imageUtils';
 
-// Configure PDF.js worker - Use HTTPS CDN worker for compatibility
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Configure PDF.js worker - Use jsDelivr CDN for better reliability
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
 
 export interface ExtractionResult {
   text: string;
@@ -70,8 +70,12 @@ export async function extractDirectPdfText(
   const startTime = Date.now();
   
   try {
+    console.log('Starting PDF text extraction...');
     const arrayBuffer = await file.arrayBuffer();
+    console.log('File loaded into array buffer');
+    
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    console.log('PDF document loaded successfully, pages:', pdf.numPages);
     
     let fullText = '';
     const numPages = pdf.numPages;
@@ -81,6 +85,7 @@ export async function extractDirectPdfText(
         onProgress((i / numPages) * 100);
       }
       
+      console.log(`Processing page ${i} of ${numPages}`);
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const pageText = textContent.items
@@ -91,6 +96,7 @@ export async function extractDirectPdfText(
       
       if (pageText) {
         fullText += pageText + '\n\n';
+        console.log(`Page ${i} text length:`, pageText.length);
       }
 
       // Extract text from embedded images
@@ -104,6 +110,7 @@ export async function extractDirectPdfText(
               const imageText = await extractTextFromImage(image.src);
               if (imageText.trim()) {
                 fullText += `[Image Text: ${imageText.trim()}]\n\n`;
+                console.log(`Extracted text from image on page ${i}`);
               }
             }
           }
@@ -114,6 +121,7 @@ export async function extractDirectPdfText(
     }
     
     const processingTime = Date.now() - startTime;
+    console.log('PDF extraction completed. Total text length:', fullText.length);
     
     return {
       text: fullText.trim(),
@@ -123,6 +131,13 @@ export async function extractDirectPdfText(
     };
   } catch (error) {
     console.error('PDF text extraction failed:', error);
+    console.error('Error details:', error.name, error.message);
+    
+    // Check if it's a worker loading error
+    if (error.message.includes('worker') || error.message.includes('fetch')) {
+      throw new Error('PDF worker failed to load. Please check your internet connection and try again.');
+    }
+    
     throw new Error(`PDF text extraction failed: ${error.message}`);
   }
 }
