@@ -114,7 +114,7 @@ serve(async (req) => {
       })
       .eq('id', materialId)
 
-    // FIXED: Stack overflow prevention - convert to base64 safely
+    // FIXED: Proper base64 conversion that creates valid base64
     const arrayBuffer = await fileData.arrayBuffer()
     const uint8Array = new Uint8Array(arrayBuffer)
     
@@ -126,19 +126,16 @@ serve(async (req) => {
 
     console.log(`Processing file of size: ${Math.round(arrayBuffer.byteLength / 1024)}KB`)
 
-    // FIXED: Byte-by-byte conversion to prevent stack overflow
-    let base64Content = ''
-    const chunkSize = 8192 // Process 8KB at a time
+    // FIXED: Convert entire binary data to string first, then encode as base64
+    let binaryString = ''
     
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.slice(i, i + chunkSize)
-      // Convert chunk to string byte-by-byte (NO spread operator)
-      let chunkString = ''
-      for (let j = 0; j < chunk.length; j++) {
-        chunkString += String.fromCharCode(chunk[j])
-      }
-      base64Content += btoa(chunkString)
+    // Convert all bytes to characters in one pass
+    for (let i = 0; i < uint8Array.length; i++) {
+      binaryString += String.fromCharCode(uint8Array[i])
     }
+    
+    // Now encode the entire binary string as base64
+    const base64Content = btoa(binaryString)
     
     console.log(`File converted to base64, size: ${Math.round(base64Content.length / 1024)}KB`)
 
