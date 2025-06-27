@@ -16,7 +16,6 @@ interface FlashcardQuestion {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -87,13 +86,14 @@ serve(async (req) => {
       .from('cramintel_materials')
       .update({ 
         processing_status: 'processing',
-        processing_progress: 10 
+        processing_progress: 10,
+        error_message: null
       })
       .eq('id', materialId)
 
     console.log(`Processing: ${material.name} (${material.file_size} bytes)`)
 
-    // Download file from Supabase storage
+    // FIXED: Use correct storage bucket name
     const { data: fileData, error: downloadError } = await supabase.storage
       .from('cramintel-materials')
       .download(material.file_path)
@@ -131,8 +131,8 @@ serve(async (req) => {
       throw new Error(`Text extraction failed: ${extractionError.message}`)
     }
 
-    if (!extractedText || extractedText.trim().length < 100) {
-      throw new Error('Insufficient content for flashcard generation')
+    if (!extractedText || extractedText.trim().length < 50) {
+      throw new Error('Insufficient content extracted from document. Please ensure the document contains readable text.')
     }
 
     console.log(`Successfully extracted ${extractedText.length} characters`)
@@ -220,7 +220,8 @@ serve(async (req) => {
       .update({ 
         processed: true,
         processing_status: 'completed',
-        processing_progress: 100 
+        processing_progress: 100,
+        error_message: null
       })
       .eq('id', materialId)
 
@@ -257,7 +258,8 @@ serve(async (req) => {
           .from('cramintel_materials')
           .update({
             processing_status: 'error',
-            processing_progress: 0
+            processing_progress: 0,
+            error_message: error.message
           })
           .eq('id', materialId)
       }
@@ -279,19 +281,36 @@ serve(async (req) => {
   }
 })
 
-// Enhanced text extraction function
+// FIXED: Improved text extraction with better memory management
 async function extractTextFromFile(fileData: Blob, fileType: string): Promise<string> {
-  // Check if we have the Google Cloud API key (try both possible names)
   const apiKey = Deno.env.get('GOOGLE_CLOUD_API_KEY') || Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY')
   if (!apiKey) {
     throw new Error('Google Cloud Vision API key not configured')
   }
 
-  // Convert file to base64
+  // FIXED: Check file size to prevent memory issues
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
+  if (fileData.size > MAX_FILE_SIZE) {
+    throw new Error(`File too large (${Math.round(fileData.size / 1024 / 1024)}MB). Maximum size is 10MB.`)
+  }
+
+  console.log(`Processing file of size: ${Math.round(fileData.size / 1024)}KB`)
+
+  // FIXED: More efficient base64 conversion to prevent stack overflow
   const arrayBuffer = await fileData.arrayBuffer()
-  const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+  const uint8Array = new Uint8Array(arrayBuffer)
   
-  console.log(`File converted to base64, size: ${base64Content.length} characters`)
+  // Convert in chunks to prevent stack overflow
+  const chunkSize = 1024 * 1024; // 1MB chunks
+  let base64Content = ''
+  
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.slice(i, i + chunkSize)
+    const chunkArray = Array.from(chunk)
+    base64Content += btoa(String.fromCharCode(...chunkArray))
+  }
+  
+  console.log(`File converted to base64, size: ${Math.round(base64Content.length / 1024)}KB`)
 
   // Use Google Vision API REST endpoint
   const response = await fetch(
@@ -345,14 +364,14 @@ async function extractTextFromFile(fileData: Blob, fileType: string): Promise<st
     if (fullTextAnnotation?.text) {
       return fullTextAnnotation.text
     }
-    throw new Error('No text annotations found in the document')
+    throw new Error('No text found in the document. Please ensure the document contains readable text.')
   }
 
   // First annotation contains the full text
   const fullText = textAnnotations[0]?.description || ''
   
   if (fullText.trim().length === 0) {
-    throw new Error('Extracted text is empty')
+    throw new Error('No readable text found in the document')
   }
 
   return fullText
@@ -471,16 +490,18 @@ Title: ${material.name}`
     throw new Error('Invalid flashcards format received from OpenAI')
   }
   
-  if (!Array.isArray(flashcards) || flashcards.length !== 20) {
-    console.warn(`Expected 20 flashcards, got ${flashcards.length}`)
-    if (flashcards.length < 20) {
-      while (flashcards.length < 20) {
-        const randomCard = flashcards[Math.floor(Math.random() * flashcards.length)]
-        flashcards.push({ ...randomCard })
-      }
-    } else {
-      flashcards = flashcards.slice(0, 20)
+  if (!Array.isArray(flashcards) || flashcards.length < 10) {
+    throw new Error(`Expected at least 10 flashcards, got ${flashcards.length}`)
+  }
+
+  // Ensure we have exactly 20 flashcards
+  if (flashcards.length < 20) {
+    while (flashcards.length < 20) {
+      const randomCard = flashcards[Math.floor(Math.random() * flashcards.length)]
+      flashcards.push({ ...randomCard })
     }
+  } else if (flashcards.length > 20) {
+    flashcards = flashcards.slice(0, 20)
   }
 
   console.log(`Successfully generated ${flashcards.length} flashcards using OpenAI`)

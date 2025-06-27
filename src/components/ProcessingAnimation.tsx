@@ -9,9 +9,10 @@ interface ProcessingAnimationProps {
   status: 'pending' | 'processing' | 'extracting_text' | 'processing_content' | 'generating_flashcards' | 'saving_flashcards' | 'completed' | 'error';
   progress: number;
   fileName: string;
+  errorMessage?: string;
 }
 
-export function ProcessingAnimation({ status, progress, fileName }: ProcessingAnimationProps) {
+export function ProcessingAnimation({ status, progress, fileName, errorMessage }: ProcessingAnimationProps) {
   const getStatusInfo = () => {
     switch (status) {
       case 'pending':
@@ -67,7 +68,7 @@ export function ProcessingAnimation({ status, progress, fileName }: ProcessingAn
         return {
           icon: AlertCircle,
           title: 'Processing Failed',
-          description: 'There was an error processing your document',
+          description: errorMessage || 'There was an error processing your document',
           color: 'text-red-500'
         };
       default:
@@ -91,12 +92,12 @@ export function ProcessingAnimation({ status, progress, fileName }: ProcessingAn
           <motion.div
             className={`mx-auto w-16 h-16 ${statusInfo.color} flex items-center justify-center`}
             animate={{
-              scale: status === 'completed' ? [1, 1.1, 1] : [1, 1.05, 1],
+              scale: status === 'completed' ? [1, 1.1, 1] : status === 'error' ? [1, 1.05, 1] : [1, 1.05, 1],
               rotate: status === 'generating_flashcards' ? [0, 360] : 0
             }}
             transition={{
-              duration: status === 'completed' ? 0.6 : 2,
-              repeat: status === 'completed' ? 0 : Infinity,
+              duration: status === 'completed' ? 0.6 : status === 'error' ? 0.8 : 2,
+              repeat: status === 'completed' || status === 'error' ? 0 : Infinity,
               ease: "easeInOut"
             }}
           >
@@ -110,36 +111,48 @@ export function ProcessingAnimation({ status, progress, fileName }: ProcessingAn
             <p className="text-xs text-gray-500 mt-2 truncate">{fileName}</p>
           </div>
 
-          {/* Progress Bar */}
-          <div className="space-y-2">
-            <Progress value={progress} className="h-2" />
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>Progress</span>
-              <span>{progress}%</span>
+          {/* Progress Bar - Hide for error state */}
+          {status !== 'error' && (
+            <div className="space-y-2">
+              <Progress value={progress} className="h-2" />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Progress</span>
+                <span>{progress}%</span>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Processing Steps - Updated for direct processing */}
-          <div className="space-y-2 text-left">
-            <div className="flex items-center space-x-2 text-xs">
-              <div className={`w-2 h-2 rounded-full ${progress >= 10 ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className={progress >= 10 ? 'text-green-600' : 'text-gray-500'}>Process file</span>
+          {/* Error Details */}
+          {status === 'error' && errorMessage && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-left">
+              <h4 className="text-sm font-medium text-red-800 mb-1">Error Details:</h4>
+              <p className="text-sm text-red-700">{errorMessage}</p>
             </div>
-            <div className="flex items-center space-x-2 text-xs">
-              <div className={`w-2 h-2 rounded-full ${progress >= 30 ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className={progress >= 30 ? 'text-green-600' : 'text-gray-500'}>Extract text content</span>
-            </div>
-            <div className="flex items-center space-x-2 text-xs">
-              <div className={`w-2 h-2 rounded-full ${progress >= 60 ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className={progress >= 60 ? 'text-green-600' : 'text-gray-500'}>Generate flashcards</span>
-            </div>
-            <div className="flex items-center space-x-2 text-xs">
-              <div className={`w-2 h-2 rounded-full ${progress >= 90 ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className={progress >= 90 ? 'text-green-600' : 'text-gray-500'}>Save to deck</span>
-            </div>
-          </div>
+          )}
 
-          {/* Estimated Time */}
+          {/* Processing Steps - Hide for error state */}
+          {status !== 'error' && (
+            <div className="space-y-2 text-left">
+              <div className="flex items-center space-x-2 text-xs">
+                <div className={`w-2 h-2 rounded-full ${progress >= 10 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className={progress >= 10 ? 'text-green-600' : 'text-gray-500'}>Process file</span>
+              </div>
+              <div className="flex items-center space-x-2 text-xs">
+                <div className={`w-2 h-2 rounded-full ${progress >= 30 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className={progress >= 30 ? 'text-green-600' : 'text-gray-500'}>Extract text content</span>
+              </div>
+              <div className="flex items-center space-x-2 text-xs">
+                <div className={`w-2 h-2 rounded-full ${progress >= 60 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className={progress >= 60 ? 'text-green-600' : 'text-gray-500'}>Generate flashcards</span>
+              </div>
+              <div className="flex items-center space-x-2 text-xs">
+                <div className={`w-2 h-2 rounded-full ${progress >= 90 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className={progress >= 90 ? 'text-green-600' : 'text-gray-500'}>Save to deck</span>
+              </div>
+            </div>
+          )}
+
+          {/* Estimated Time - Only show for active processing */}
           {status !== 'completed' && status !== 'error' && (
             <p className="text-xs text-gray-500">
               Estimated time: {Math.max(1, Math.ceil((100 - progress) / 30))} minutes

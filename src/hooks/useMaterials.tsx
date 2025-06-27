@@ -16,6 +16,9 @@ export interface Material {
   file_path?: string;
   group_id?: string;
   group_name?: string;
+  processing_status?: string;
+  processing_progress?: number;
+  error_message?: string;
 }
 
 export interface MaterialGroup {
@@ -53,7 +56,7 @@ export function useMaterials() {
 
       // Group materials by group_id
       const grouped = allMaterials.reduce((groups: { [key: string]: Material[] }, material) => {
-        const groupKey = material.group_id || material.id; // Use material id as fallback for ungrouped items
+        const groupKey = material.group_id || material.id;
         if (!groups[groupKey]) {
           groups[groupKey] = [];
         }

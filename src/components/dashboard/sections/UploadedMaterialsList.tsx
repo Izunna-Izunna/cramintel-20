@@ -1,173 +1,79 @@
-import React, { useEffect, useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FileText, Image, Eye, Play, AlertCircle, CheckCircle, Clock, Loader2, Trash2, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ProcessingAnimation } from '@/components/ProcessingAnimation';
+import { useMaterials } from '@/hooks/useMaterials';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { FileText, Image, Video, Music, Archive, Brain, Play, Trash2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
-import { EnhancedPdfViewer } from '@/components/ui/EnhancedPdfViewer';
-import { EnhancedImageViewer } from '@/components/ui/EnhancedImageViewer';
-
-interface Material {
-  id: string;
-  name: string;
-  file_name: string;
-  file_path: string;
-  file_type: string;
-  file_size: number;
-  course: string;
-  material_type: string;
-  upload_date: string;
-  processed: boolean;
-  processing_status?: string;
-  processing_progress?: number;
-  tags: string[];
-  flashcard_count?: number;
-  deck_name?: string;
-  deck_id?: string;
-}
 
 interface UploadedMaterialsListProps {
-  refreshKey?: number;
   onSectionChange?: (section: string) => void;
 }
 
-export function UploadedMaterialsList({ refreshKey, onSectionChange }: UploadedMaterialsListProps) {
-  const [materials, setMaterials] = useState<Material[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const { user } = useAuth();
+export function UploadedMaterialsList({ onSectionChange }: UploadedMaterialsListProps) {
+  const { materialGroups, loading, fetchMaterials } = useMaterials();
+  const [processingMaterials, setProcessingMaterials] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
+  // Poll for processing updates
   useEffect(() => {
-    if (user) {
-      fetchMaterials();
-    }
-  }, [user, refreshKey]);
-
-  const fetchMaterials = async () => {
-    try {
-      // First get materials
-      const { data: materialsData, error: materialsError } = await supabase
-        .from('cramintel_materials')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('upload_date', { ascending: false });
-
-      if (materialsError) {
-        console.error('Error fetching materials:', materialsError);
-        return;
+    const interval = setInterval(() => {
+      if (processingMaterials.size > 0) {
+        fetchMaterials();
       }
+    }, 2000);
 
-      // Then get flashcard counts and deck info for each material
-      const materialsWithCounts = await Promise.all(
-        materialsData?.map(async (material) => {
-          // Get flashcard count for this material
-          const { data: flashcardData } = await supabase
-            .from('cramintel_flashcards')
-            .select('id')
-            .eq('material_id', material.id);
+    return () => clearInterval(interval);
+  }, [processingMaterials.size, fetchMaterials]);
 
-          // Get deck info if there are flashcards
-          let deckInfo = null;
-          if (flashcardData && flashcardData.length > 0) {
-            const { data: deckData } = await supabase
-              .from('cramintel_deck_flashcards')
-              .select(`
-                deck_id,
-                cramintel_decks(id, name)
-              `)
-              .eq('flashcard_id', flashcardData[0].id)
-              .limit(1)
-              .single();
-
-            if (deckData && deckData.cramintel_decks) {
-              deckInfo = deckData.cramintel_decks;
-            }
-          }
-
-          return {
-            ...material,
-            processing_status: material.processing_status || 'pending',
-            processing_progress: material.processing_progress || 0,
-            flashcard_count: flashcardData?.length || 0,
-            deck_name: deckInfo?.name,
-            deck_id: deckInfo?.id
-          } as Material;
-        }) || []
-      );
-
-      setMaterials(materialsWithCounts);
-    } catch (error) {
-      console.error('Error fetching materials:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getFileIcon = (fileType: string) => {
-    if (fileType?.includes('pdf')) return <FileText className="w-8 h-8 text-red-500" />;
-    if (fileType?.includes('image')) return <Image className="w-8 h-8 text-green-500" />;
-    if (fileType?.includes('video')) return <Video className="w-8 h-8 text-blue-500" />;
-    if (fileType?.includes('audio')) return <Music className="w-8 h-8 text-purple-500" />;
-    return <Archive className="w-8 h-8 text-gray-500" />;
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-    if (diffInHours < 1) {
-      return 'Just now';
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)} hour${Math.floor(diffInHours) > 1 ? 's' : ''} ago`;
-    } else {
-      const diffInDays = Math.floor(diffInHours / 24);
-      return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
-    }
-  };
-
-  const handleViewMaterial = async (material: Material) => {
-    const { data, error } = await supabase.storage
-      .from('cramintel-materials')
-      .createSignedUrl(material.file_path, 3600);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load file",
-        variant: "destructive"
+  // Track processing materials
+  useEffect(() => {
+    const processing = new Set<string>();
+    materialGroups.forEach(group => {
+      group.materials.forEach(material => {
+        if (material.processing_status === 'processing' || 
+            material.processing_status === 'extracting_text' || 
+            material.processing_status === 'generating_flashcards' || 
+            material.processing_status === 'saving_flashcards') {
+          processing.add(material.id);
+        }
       });
-      return;
-    }
-
-    setSelectedMaterial({ ...material, file_path: data.signedUrl });
-    setViewerOpen(true);
-  };
-
-  const handleStudyFlashcards = (deckId: string) => {
-    // Navigate to flashcards section with this deck selected
-    if (onSectionChange) {
-      onSectionChange('flashcards');
-    } else {
-      window.location.hash = 'flashcards';
-    }
-    toast({
-      title: "Flashcards Ready",
-      description: "Navigate to the Flashcards section to study your generated cards"
     });
+    setProcessingMaterials(processing);
+  }, [materialGroups]);
+
+  const handleRetryProcessing = async (materialId: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('process-material', {
+        body: { materialId }
+      });
+
+      if (error) {
+        console.error('Error retrying processing:', error);
+        toast({
+          title: "Retry Failed",
+          description: "Failed to retry processing. Please try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Processing Restarted",
+          description: "The material is being processed again.",
+        });
+        fetchMaterials();
+      }
+    } catch (error) {
+      console.error('Error retrying processing:', error);
+      toast({
+        title: "Retry Failed",
+        description: "Failed to retry processing. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteMaterial = async (materialId: string) => {
@@ -175,40 +81,90 @@ export function UploadedMaterialsList({ refreshKey, onSectionChange }: UploadedM
       const { error } = await supabase
         .from('cramintel_materials')
         .delete()
-        .eq('id', materialId)
-        .eq('user_id', user?.id);
+        .eq('id', materialId);
 
       if (error) {
-        throw error;
+        console.error('Error deleting material:', error);
+        toast({
+          title: "Delete Failed",
+          description: "Failed to delete material. Please try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Material Deleted",
+          description: "The material has been deleted successfully.",
+        });
+        fetchMaterials();
       }
-
-      toast({
-        title: "Success",
-        description: "Material deleted successfully"
-      });
-      
-      fetchMaterials();
     } catch (error) {
       console.error('Error deleting material:', error);
       toast({
-        title: "Error",
-        description: "Failed to delete material",
-        variant: "destructive"
+        title: "Delete Failed",
+        description: "Failed to delete material. Please try again.",
+        variant: "destructive",
       });
     }
+  };
+
+  const getStatusBadge = (material: any) => {
+    switch (material.processing_status) {
+      case 'completed':
+        return <Badge variant="default" className="bg-green-500 text-white"><CheckCircle className="w-3 h-3 mr-1" />Complete</Badge>;
+      case 'error':
+        return <Badge variant="destructive"><AlertCircle className="w-3 h-3 mr-1" />Failed</Badge>;
+      case 'processing':
+      case 'extracting_text':
+      case 'generating_flashcards':
+      case 'saving_flashcards':
+        return <Badge variant="secondary"><Loader2 className="w-3 h-3 mr-1 animate-spin" />Processing</Badge>;
+      default:
+        return <Badge variant="outline"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
+    }
+  };
+
+  const getFileIcon = (fileType: string) => {
+    if (fileType?.includes('image')) {
+      return <Image className="w-8 h-8 text-blue-500" />;
+    }
+    return <FileText className="w-8 h-8 text-blue-500" />;
   };
 
   if (loading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Recent Uploads</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            Recent Uploads
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse bg-gray-200 h-20 rounded-lg" />
-            ))}
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-600">Loading materials...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (materialGroups.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            Recent Uploads
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-600 mb-4">No materials uploaded yet</p>
+            <Button onClick={() => onSectionChange?.('upload')} className="bg-gray-800 hover:bg-gray-900 text-white">
+              Upload Your First Material
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -216,140 +172,106 @@ export function UploadedMaterialsList({ refreshKey, onSectionChange }: UploadedM
   }
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            📚 Your Study Materials
-            <Badge variant="secondary">{materials.length} files</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {materials.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-              <p>No materials uploaded yet</p>
-              <p className="text-sm">Upload some study materials to get started!</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <AnimatePresence>
-                {materials.map((material) => (
-                  <motion.div
-                    key={material.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0">
-                        {getFileIcon(material.file_type)}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-gray-800 truncate">{material.name}</h4>
-                        <p className="text-sm text-gray-600 mb-2">
-                          {material.course} • {material.material_type} • {formatFileSize(material.file_size)}
-                        </p>
-                        
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {material.tags?.map(tag => (
-                            <Badge key={tag} variant="outline" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-
-                        {material.processed ? (
-                          <div className="flex items-center gap-2 text-sm text-green-600 mb-3">
-                            <Brain className="w-4 h-4" />
-                            <span>{material.flashcard_count || 0} flashcards generated</span>
-                            {material.deck_name && (
-                              <span className="text-gray-500">• Deck: {material.deck_name}</span>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="mb-3">
-                            <div className="flex justify-between text-sm text-gray-600 mb-1">
-                              <span>Processing...</span>
-                              <span>{material.processing_progress || 0}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
-                                style={{ width: `${material.processing_progress || 0}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">
-                            Uploaded {formatTimeAgo(material.upload_date)}
-                          </span>
-                          
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleViewMaterial(material)}
-                            >
-                              View
-                            </Button>
-                            
-                            {material.processed && material.deck_id && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleStudyFlashcards(material.deck_id!)}
-                                className="bg-green-600 hover:bg-green-700"
-                              >
-                                <Play className="w-4 h-4 mr-1" />
-                                Study
-                              </Button>
-                            )}
-                            
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDeleteMaterial(material.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="w-5 h-5" />
+          Recent Uploads
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {materialGroups.slice(0, 5).map((group) => (
+            <motion.div
+              key={group.group_id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3 flex-1">
+                  {getFileIcon(group.materials[0]?.file_type)}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-gray-800 truncate">{group.group_name}</h4>
+                    <p className="text-sm text-gray-600 mb-2">
+                      {group.materials[0]?.course || 'No course specified'}
+                    </p>
+                    <div className="flex items-center gap-2 mb-2">
+                      {getStatusBadge(group.materials[0])}
+                      <span className="text-xs text-gray-500">
+                        {group.total_count} file{group.total_count > 1 ? 's' : ''}
+                      </span>
                     </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                    <p className="text-xs text-gray-500">
+                      {new Date(group.upload_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {group.materials[0]?.processing_status === 'error' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRetryProcessing(group.materials[0].id)}
+                      className="text-xs"
+                    >
+                      <RotateCcw className="w-3 h-3 mr-1" />
+                      Retry
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteMaterial(group.materials[0].id)}
+                    className="text-xs text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
 
-      {selectedMaterial && (
-        <>
-          {selectedMaterial.file_type?.includes('pdf') && (
-            <EnhancedPdfViewer
-              isOpen={viewerOpen}
-              onClose={() => setViewerOpen(false)}
-              sourceUrl={selectedMaterial.file_path}
-              fileName={selectedMaterial.name}
-            />
-          )}
-          
-          {selectedMaterial.file_type?.includes('image') && (
-            <EnhancedImageViewer
-              isOpen={viewerOpen}
-              onClose={() => setViewerOpen(false)}
-              sourceUrl={selectedMaterial.file_path}
-              fileName={selectedMaterial.name}
-            />
-          )}
-        </>
-      )}
-    </>
+              {/* Show processing animation for active processing */}
+              {(group.materials[0]?.processing_status === 'processing' || 
+                group.materials[0]?.processing_status === 'extracting_text' || 
+                group.materials[0]?.processing_status === 'generating_flashcards' || 
+                group.materials[0]?.processing_status === 'saving_flashcards') && (
+                <div className="mt-4">
+                  <ProcessingAnimation
+                    status={group.materials[0].processing_status}
+                    progress={group.materials[0].processing_progress || 0}
+                    fileName={group.materials[0].file_name}
+                  />
+                </div>
+              )}
+
+              {/* Show error message for failed processing */}
+              {group.materials[0]?.processing_status === 'error' && group.materials[0]?.error_message && (
+                <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h5 className="text-sm font-medium text-red-800">Processing Failed</h5>
+                      <p className="text-sm text-red-700 mt-1">{group.materials[0].error_message}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </div>
+
+        {materialGroups.length > 5 && (
+          <div className="mt-4 text-center">
+            <Button 
+              variant="outline" 
+              onClick={() => onSectionChange?.('upload')}
+              className="text-sm"
+            >
+              View All Materials
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
