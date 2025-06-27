@@ -490,7 +490,7 @@ serve(async (req) => {
         extractedText = await fileData.text()
         extractionConfidence = 95
       } else {
-        // ... keep existing code (fallback content generation) the same
+        // ... keep existing code (fallback content generation) the same ...
         extractedText = `Course Material Analysis: ${material.name}
 Subject: ${material.course}
 Material Type: ${material.material_type}
@@ -574,7 +574,8 @@ Students should concentrate on understanding how these concepts interconnect and
       })
       .eq('id', materialId)
 
-    // ... keep existing code (flashcard generation with OpenAI) the same
+    // ... keep existing code (flashcard generation with OpenAI) the same ...
+
     let flashcards: FlashcardQuestion[] = []
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
@@ -691,7 +692,8 @@ Title: ${material.name}`
       throw new Error(`Flashcard generation failed: ${openaiError.message}`)
     }
 
-    // ... keep existing code (deck creation and flashcard saving) the same
+    // ... keep existing code (deck creation and flashcard saving) the same ...
+
     await supabase
       .from('cramintel_materials')
       .update({ 
