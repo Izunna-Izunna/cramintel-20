@@ -2,8 +2,27 @@ import { createWorker, Worker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
 import { extractTextFromImage } from '@/lib/imageUtils';
 
-// Configure PDF.js worker - Use jsDelivr CDN for better reliability
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+// Configure PDF.js worker with fallback options
+const configureWorker = () => {
+  console.log('Configuring PDF.js worker...');
+  
+  // Primary worker source - jsDelivr CDN
+  const primaryWorkerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+  
+  // Fallback worker source - unpkg CDN
+  const fallbackWorkerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+  
+  console.log('Primary worker URL:', primaryWorkerSrc);
+  console.log('Fallback worker URL:', fallbackWorkerSrc);
+  
+  // Set the primary worker source
+  pdfjsLib.GlobalWorkerOptions.workerSrc = primaryWorkerSrc;
+  
+  return { primaryWorkerSrc, fallbackWorkerSrc };
+};
+
+// Initialize worker configuration
+const { primaryWorkerSrc, fallbackWorkerSrc } = configureWorker();
 
 export interface ExtractionResult {
   text: string;
@@ -71,11 +90,26 @@ export async function extractDirectPdfText(
   
   try {
     console.log('Starting PDF text extraction...');
+    console.log('Current worker URL:', pdfjsLib.GlobalWorkerOptions.workerSrc);
+    
     const arrayBuffer = await file.arrayBuffer();
     console.log('File loaded into array buffer');
     
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    console.log('PDF document loaded successfully, pages:', pdf.numPages);
+    // Test PDF loading with primary worker
+    let pdf;
+    try {
+      pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      console.log('PDF document loaded successfully with primary worker, pages:', pdf.numPages);
+    } catch (workerError) {
+      console.warn('Primary worker failed, trying fallback:', workerError.message);
+      
+      // Try fallback worker
+      pdfjsLib.GlobalWorkerOptions.workerSrc = fallbackWorkerSrc;
+      console.log('Switched to fallback worker:', fallbackWorkerSrc);
+      
+      pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      console.log('PDF document loaded successfully with fallback worker, pages:', pdf.numPages);
+    }
     
     let fullText = '';
     const numPages = pdf.numPages;
@@ -133,9 +167,13 @@ export async function extractDirectPdfText(
     console.error('PDF text extraction failed:', error);
     console.error('Error details:', error.name, error.message);
     
-    // Check if it's a worker loading error
-    if (error.message.includes('worker') || error.message.includes('fetch')) {
-      throw new Error('PDF worker failed to load. Please check your internet connection and try again.');
+    // Clear any cached worker configuration
+    console.log('Clearing worker cache and resetting configuration...');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = primaryWorkerSrc;
+    
+    // Provide specific error messages
+    if (error.message.includes('worker') || error.message.includes('fetch') || error.message.includes('dynamically imported module')) {
+      throw new Error('PDF worker failed to load from CDN. Please check your internet connection and try refreshing the page.');
     }
     
     throw new Error(`PDF text extraction failed: ${error.message}`);
@@ -150,8 +188,26 @@ export async function extractPdfToImageText(
   const startTime = Date.now();
   
   try {
+    console.log('Starting PDF to Image OCR extraction...');
+    console.log('Current worker URL:', pdfjsLib.GlobalWorkerOptions.workerSrc);
+    
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    // Test PDF loading with fallback support
+    let pdf;
+    try {
+      pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      console.log('PDF loaded successfully for image conversion, pages:', pdf.numPages);
+    } catch (workerError) {
+      console.warn('Primary worker failed for PDF to image, trying fallback:', workerError.message);
+      
+      // Try fallback worker
+      pdfjsLib.GlobalWorkerOptions.workerSrc = fallbackWorkerSrc;
+      console.log('Switched to fallback worker for PDF to image:', fallbackWorkerSrc);
+      
+      pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      console.log('PDF loaded successfully with fallback worker for image conversion, pages:', pdf.numPages);
+    }
     
     let fullText = '';
     const numPages = pdf.numPages;
@@ -167,6 +223,7 @@ export async function extractPdfToImageText(
     });
     
     for (let i = 1; i <= numPages; i++) {
+      console.log(`Converting page ${i} to image and processing OCR...`);
       const page = await pdf.getPage(i);
       const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR
       
@@ -183,6 +240,7 @@ export async function extractPdfToImageText(
       if (text.trim()) {
         fullText += text.trim() + '\n\n';
         totalConfidence += confidence || 0;
+        console.log(`Page ${i} OCR completed, confidence: ${confidence}%`);
       }
       
       if (onProgress) {
@@ -195,6 +253,8 @@ export async function extractPdfToImageText(
     const processingTime = Date.now() - startTime;
     const avgConfidence = numPages > 0 ? totalConfidence / numPages : 0;
     
+    console.log('PDF to Image OCR completed. Total text length:', fullText.length);
+    
     return {
       text: fullText.trim(),
       confidence: avgConfidence,
@@ -204,6 +264,17 @@ export async function extractPdfToImageText(
     };
   } catch (error) {
     console.error('PDF to image OCR failed:', error);
+    console.error('Error details:', error.name, error.message);
+    
+    // Clear any cached worker configuration
+    console.log('Clearing worker cache and resetting configuration...');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = primaryWorkerSrc;
+    
+    // Provide specific error messages
+    if (error.message.includes('worker') || error.message.includes('fetch') || error.message.includes('dynamically imported module')) {
+      throw new Error('PDF worker failed to load from CDN. Please check your internet connection and try refreshing the page.');
+    }
+    
     throw new Error(`PDF to image OCR failed: ${error.message}`);
   }
 }
