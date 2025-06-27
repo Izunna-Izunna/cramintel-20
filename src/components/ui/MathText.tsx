@@ -27,15 +27,15 @@ export function MathText({ children, className = '' }: MathTextProps) {
             );
           case 'text':
           default:
-            // Split by newlines and render each line properly using span instead of Fragment
+            // Split by newlines and render each line properly
             const lines = segment.content.split('\n');
             return (
               <span key={index}>
                 {lines.map((line, lineIndex) => (
-                  <span key={lineIndex}>
+                  <React.Fragment key={lineIndex}>
                     {line}
                     {lineIndex < lines.length - 1 && <br />}
-                  </span>
+                  </React.Fragment>
                 ))}
               </span>
             );

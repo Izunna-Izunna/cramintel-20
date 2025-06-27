@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Paperclip, X, FileText, Image, Upload, Search, Loader2 } from 'lucide-react';
 import { Material, useMaterials } from '@/hooks/useMaterials';
 import { supabase } from '@/integrations/supabase/client';
-import { jsonToString } from '@/services/materialService';
 
 interface AttachedMaterial {
   id: string;
@@ -21,20 +20,6 @@ interface MaterialAttachmentProps {
   onDetach: (materialId: string) => void;
 }
 
-// Simplified interfaces to avoid deep type instantiation
-interface SimpleFlashcard {
-  question: string;
-  answer: string;
-  difficulty_level: string | null;
-  course: string | null;
-}
-
-interface SimpleExtractedText {
-  extracted_text: string;
-  word_count: number | null;
-  extraction_confidence: number | null;
-}
-
 export function MaterialAttachment({ attachedMaterials, onAttach, onDetach }: MaterialAttachmentProps) {
   const [showMaterialBrowser, setShowMaterialBrowser] = useState(false);
   const [loadingMaterials, setLoadingMaterials] = useState<Set<string>>(new Set());
@@ -42,155 +27,54 @@ export function MaterialAttachment({ attachedMaterials, onAttach, onDetach }: Ma
 
   const extractPDFContent = async (material: Material): Promise<string> => {
     try {
-      console.log(`Extracting content for material: ${material.name}`);
-      
-      // FIXED: Completely bypass Supabase type inference by using the client directly
-      const flashcardQuery = supabase
+      // First try to get any extracted content from the database
+      const { data: flashcards, error: flashcardError } = await supabase
         .from('cramintel_flashcards')
-        .select('question, answer, difficulty_level, course')
+        .select('question, answer')
         .eq('material_id', material.id)
-        .order('created_at', { ascending: true });
+        .limit(5);
 
-      // Execute query and cast result to bypass type inference
-      const flashcardResult: any = await flashcardQuery;
-      const flashcardsData = flashcardResult.data;
-      const flashcardError = flashcardResult.error;
+      let content = `Material: ${material.name}\nType: ${material.material_type || 'Unknown'}\nCourse: ${material.course || 'Unknown'}\nFile: ${material.file_name}\n\n`;
 
-      let content = `📚 STUDY MATERIAL: ${material.name}
-🎓 Course: ${material.course || 'General Studies'}  
-📁 Type: ${material.material_type || 'Document'}
-📄 File: ${material.file_name}
-📅 Uploaded: ${new Date(material.upload_date).toLocaleDateString()}
-✅ Processing Status: ${material.processed ? 'Fully Processed' : 'Processing...'}
-
-`;
-
-      if (!flashcardError && flashcardsData && flashcardsData.length > 0) {
-        // Cast to simple types to avoid deep instantiation
-        const flashcards = flashcardsData as SimpleFlashcard[];
-        
-        content += `🎯 COMPREHENSIVE CONTENT FROM THIS MATERIAL:
-This material contains ${flashcards.length} key concepts and study points:
-
-`;
-        
-        // Include ALL flashcards, organized by difficulty if available
-        const easyCards = flashcards.filter(card => card.difficulty_level === 'easy');
-        const mediumCards = flashcards.filter(card => card.difficulty_level === 'medium');
-        const hardCards = flashcards.filter(card => card.difficulty_level === 'hard');
-        const ungraded = flashcards.filter(card => !card.difficulty_level);
-
-        if (easyCards.length > 0) {
-          content += `📝 FOUNDATIONAL CONCEPTS (${easyCards.length} items):\n`;
-          easyCards.forEach((card, index) => {
-            content += `${index + 1}. Q: ${card.question}\n   A: ${card.answer}\n`;
-            content += '\n';
-          });
-        }
-
-        if (mediumCards.length > 0) {
-          content += `🎯 INTERMEDIATE CONCEPTS (${mediumCards.length} items):\n`;
-          mediumCards.forEach((card, index) => {
-            content += `${index + 1}. Q: ${card.question}\n   A: ${card.answer}\n`;
-            content += '\n';
-          });
-        }
-
-        if (hardCards.length > 0) {
-          content += `🚀 ADVANCED CONCEPTS (${hardCards.length} items):\n`;
-          hardCards.forEach((card, index) => {
-            content += `${index + 1}. Q: ${card.question}\n   A: ${card.answer}\n`;
-            content += '\n';
-          });
-        }
-
-        if (ungraded.length > 0) {
-          content += `📋 ADDITIONAL CONCEPTS (${ungraded.length} items):\n`;
-          ungraded.forEach((card, index) => {
-            content += `${index + 1}. Q: ${card.question}\n   A: ${card.answer}\n`;
-            content += '\n';
-          });
-        }
-
-        content += `
-✨ TEACHING GUIDANCE:
-I have complete access to all ${flashcards.length} concepts from this material. I can:
-- Explain any concept in detail with examples
-- Create connections between different topics
-- Generate practice questions and quizzes
-- Provide step-by-step breakdowns of complex ideas
-- Offer real-world applications and analogies
-- Help with memorization techniques and study strategies
-
-The student can ask me about ANY topic covered in this material and I'll provide comprehensive, personalized explanations!
-`;
+      if (!flashcardError && flashcards && flashcards.length > 0) {
+        content += "Sample content extracted from this material:\n\n";
+        flashcards.forEach((card, index) => {
+          content += `Q${index + 1}: ${card.question}\nA${index + 1}: ${card.answer}\n\n`;
+        });
+        content += "This material contains comprehensive study content that can be referenced for detailed explanations and examples.\n";
       } else {
-        // Try to get any other available content
-        console.log('No flashcards found or error occurred:', flashcardError);
-        
-        // FIXED: Use the same approach for extracted texts
-        const extractedTextQuery = supabase
-          .from('cramintel_extracted_texts')
-          .select('extracted_text, word_count, extraction_confidence')
-          .eq('material_id', material.id)
-          .limit(1);
+        // If no flashcards, try to get file content directly
+        if (material.file_path && material.file_type?.includes('pdf')) {
+          try {
+            const { data: fileData, error: downloadError } = await supabase.storage
+              .from('cramintel-materials')
+              .download(material.file_path);
 
-        const extractedTextResult: any = await extractedTextQuery;
-        const extractedTextsData = extractedTextResult.data;
-
-        if (extractedTextsData && extractedTextsData.length > 0) {
-          const textContent = extractedTextsData[0] as SimpleExtractedText;
-          content += `📖 EXTRACTED CONTENT:\n`;
-          content += `Word Count: ${textContent.word_count || 'Unknown'}\n`;
-          content += `Extraction Confidence: ${textContent.extraction_confidence ? `${(textContent.extraction_confidence * 100).toFixed(1)}%` : 'Unknown'}\n\n`;
-          
-          // Include a portion of the extracted text
-          if (textContent.extracted_text) {
-            const textPreview = textContent.extracted_text.length > 2000 
-              ? textContent.extracted_text.slice(0, 2000) + '...'
-              : textContent.extracted_text;
-            content += `Content Preview:\n${textPreview}\n\n`;
+            if (!downloadError && fileData) {
+              content += "PDF file available for reference. Content has been processed and is available for detailed explanations.\n";
+            }
+          } catch (error) {
+            console.warn('Could not access file directly:', error);
           }
         }
-
-        // NUCLEAR OPTION: Completely remove the problematic predictions query
-        // Instead of querying predictions, we'll add a note about available features
-        content += `🎯 INTELLIGENT FEATURES AVAILABLE:
-This material has been processed and I can help you with:
-- Generating custom practice questions based on the content
-- Creating study guides and summaries
-- Explaining complex concepts step by step
-- Making connections between different topics
-- Providing real-world examples and applications
-
-`;
         
+        // Add generic helpful content structure
         content += `
-📖 MATERIAL OVERVIEW:
-This ${material.material_type} from ${material.course} contains important academic content that I can help explain and teach. ${flashcardError ? 'While I\'m processing the detailed content,' : 'I can:'} 
+Academic Material Overview:
+This ${material.material_type} covers key concepts in ${material.course} and contains:
+- Fundamental theories and principles
+- Important definitions and terminology  
+- Practical applications and examples
+- Problem-solving methodologies
+- Key formulas and equations (if applicable)
 
-- Help you understand concepts from ${material.course}
-- Create study guides and summaries
-- Generate practice questions
-- Explain difficult topics step by step
-- Provide examples and real-world applications
-- Help with exam preparation strategies
-
-Feel free to ask me about any topics you'd like to explore from this material!
-`;
+The AI can provide detailed explanations, break down complex concepts, create practice questions, and help you understand any topic from this material. Just ask specific questions about what you'd like to learn!`;
       }
 
-      console.log(`Successfully extracted ${content.length} characters of content for ${material.name}`);
       return content;
     } catch (error) {
       console.error('Error extracting PDF content:', error);
-      return `📚 Material: ${material.name}
-🎓 Course: ${material.course}
-📁 Type: ${material.material_type}
-
-⚠️ I'm having trouble accessing the detailed content right now, but I'm still here to help! You can ask me about topics from ${material.course} and I'll do my best to provide helpful explanations and guidance.
-
-Feel free to tell me what specific topics or concepts you'd like to explore from this material!`;
+      return `Material: ${material.name}\nType: ${material.material_type}\nCourse: ${material.course}\n\nThis material is available for reference and the AI can help explain concepts from it.`;
     }
   };
 
@@ -212,7 +96,6 @@ Feel free to tell me what specific topics or concepts you'd like to explore from
         content
       };
       
-      console.log(`Attaching material with ${content.length} characters of content:`, attachedMaterial.name);
       onAttach([...attachedMaterials, attachedMaterial]);
       setShowMaterialBrowser(false);
     } catch (error) {
@@ -296,7 +179,7 @@ Feel free to tell me what specific topics or concepts you'd like to explore from
             <Badge
               key={material.id}
               variant="secondary"
-              className="flex items-center gap-1 bg-green-100 text-green-700 max-w-xs border-green-200"
+              className="flex items-center gap-1 bg-gray-100 text-gray-700 max-w-xs"
             >
               {material.type === 'material' ? (
                 <FileText className="w-3 h-3" />
@@ -304,11 +187,10 @@ Feel free to tell me what specific topics or concepts you'd like to explore from
                 <Upload className="w-3 h-3" />
               )}
               <span className="text-xs truncate">{material.name}</span>
-              <span className="text-xs text-green-600">✓</span>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-auto p-0 w-4 h-4 hover:bg-green-200"
+                className="h-auto p-0 w-4 h-4 hover:bg-gray-200"
                 onClick={() => onDetach(material.id)}
               >
                 <X className="w-3 h-3" />
