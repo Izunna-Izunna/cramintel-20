@@ -25,36 +25,25 @@ export const useStudyAnalytics = () => {
   const { user } = useAuth();
 
   const fetchStats = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    if (!user) return;
 
     try {
       const today = new Date().toISOString().split('T')[0];
       
-      // Get today's analytics with proper error handling
-      const { data: todayData, error: todayError } = await supabase
+      // Get today's analytics
+      const { data: todayData } = await supabase
         .from('cramintel_study_analytics')
         .select('*')
         .eq('user_id', user.id)
         .eq('date', today)
-        .maybeSingle();
-
-      if (todayError) {
-        console.error('Error fetching today\'s analytics:', todayError);
-      }
+        .single();
 
       // Get all analytics for streak calculation
-      const { data: allData, error: allError } = await supabase
+      const { data: allData } = await supabase
         .from('cramintel_study_analytics')
         .select('date, flashcards_studied')
         .eq('user_id', user.id)
         .order('date', { ascending: false });
-
-      if (allError) {
-        console.error('Error fetching all analytics:', allError);
-      }
 
       // Calculate current and best streak
       let currentStreak = 0;
@@ -132,17 +121,12 @@ export const useStudyAnalytics = () => {
       const today = new Date().toISOString().split('T')[0];
       const accuracy = sessionData.cards_studied > 0 ? (sessionData.cards_correct / sessionData.cards_studied) * 100 : 0;
 
-      const { data: existingData, error: fetchError } = await supabase
+      const { data: existingData } = await supabase
         .from('cramintel_study_analytics')
         .select('*')
         .eq('user_id', user.id)
         .eq('date', today)
-        .maybeSingle();
-
-      if (fetchError) {
-        console.error('Error fetching existing analytics:', fetchError);
-        return;
-      }
+        .single();
 
       if (existingData) {
         // Update existing record
