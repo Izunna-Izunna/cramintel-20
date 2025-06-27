@@ -3,10 +3,10 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, FileText, Target, CheckCircle } from 'lucide-react';
+import { TrendingUp, FileText, Target, CheckCircle, List } from 'lucide-react';
 
 interface EnhancedStyleSelectionStepProps {
-  selectedStyle: 'ranked' | 'practice_exam' | 'topic_based' | 'bullet' | 'theory' | 'mixed' | 'exam-paper';
+  selectedStyle: 'ranked' | 'practice_exam' | 'topic_based' | 'bullet' | 'theory' | 'mixed' | 'exam-paper' | 'objective_bulk';
   onStyleChange: (style: any) => void;
   onNext: () => void;
   onBack: () => void;
@@ -29,10 +29,25 @@ const enhancedStyles = [
     confidence: 'High accuracy based on material analysis'
   },
   {
+    id: 'objective_bulk',
+    name: 'Objective Questions (50)',
+    icon: List,
+    badge: 'Comprehensive',
+    badgeColor: 'bg-orange-100 text-orange-800',
+    description: 'Generate 50 multiple-choice questions covering all material topics',
+    features: [
+      '50 carefully crafted objective questions',
+      'Multiple choice with 4 options each',
+      'Complete material coverage',
+      'Regeneration capability for new sets'
+    ],
+    confidence: 'Comprehensive topic coverage from all materials'
+  },
+  {
     id: 'practice_exam',
     name: 'Full Practice Exam',
     icon: FileText,
-    badge: 'Comprehensive',
+    badge: 'Structured',
     badgeColor: 'bg-blue-100 text-blue-800',
     description: 'Complete exam paper format with timing and marking guidance',
     features: [
@@ -89,7 +104,7 @@ export function EnhancedStyleSelectionStep({
         <p className="text-gray-600">Select how you want your exam predictions presented</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {enhancedStyles.map((style) => {
           const Icon = style.icon;
           const isSelected = currentStyle === style.id;

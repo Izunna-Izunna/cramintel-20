@@ -15,7 +15,25 @@ serve(async (req) => {
   try {
     const { message, mode, attachedMaterials } = await req.json()
     
-    console.log('AI Chat request:', { mode, materialsCount: attachedMaterials?.length || 0 })
+    console.log('AI Chat request received:', { 
+      mode, 
+      materialsCount: attachedMaterials?.length || 0,
+      materialsWithContent: attachedMaterials?.filter((m: any) => m.content).length || 0
+    })
+    
+    // Debug attached materials content
+    if (attachedMaterials && attachedMaterials.length > 0) {
+      console.log('Attached materials details:')
+      attachedMaterials.forEach((material: any, index: number) => {
+        console.log(`  Material ${index + 1}: ${material.name}`)
+        console.log(`    Type: ${material.type}`)
+        console.log(`    Has content: ${!!material.content}`)
+        console.log(`    Content length: ${material.content?.length || 0} characters`)
+        if (material.content) {
+          console.log(`    Content preview: ${material.content.slice(0, 300)}...`)
+        }
+      })
+    }
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -48,7 +66,7 @@ serve(async (req) => {
       )
     }
 
-    // Create mode-specific system prompts with LaTeX formatting instructions
+    // LaTeX formatting instructions for mathematical expressions
     const mathFormattingInstructions = `
 IMPORTANT: When writing mathematical expressions:
 - Use \\( and \\) for inline math (e.g., \\( E = mc^2 \\))
@@ -57,36 +75,74 @@ IMPORTANT: When writing mathematical expressions:
 - Examples: \\( \\alpha + \\beta = \\gamma \\), \\[ \\frac{d}{dx}f(x) = f'(x) \\]
 `
 
+    // Enhanced, warm friend-like system prompts
     const systemPrompts = {
-      tutor: `You are a patient, encouraging tutor with FULL ACCESS to the attached materials. You have comprehensive knowledge of the content and can reference specific details, examples, and concepts directly from the materials. Break down complex concepts into step-by-step explanations. Ask follow-up questions to check understanding and provide progressive learning. Be supportive and adapt to the student's pace. ${mathFormattingInstructions}`,
-      explain: `You are an expert explainer with COMPLETE ACCESS to all attached materials. You can reference specific sections, examples, and details from the materials directly. Provide detailed, comprehensive explanations with examples, analogies, and context. Make complex topics clear and accessible. Use real-world examples to illustrate concepts. ${mathFormattingInstructions}`,
-      quiz: `You are an interactive quiz master with FULL ACCESS to the attached materials. You can create questions based on specific content, sections, and details from the materials. Create engaging questions based on the content, provide instant feedback, and explain answers thoroughly. Adapt difficulty based on responses and encourage learning through testing. ${mathFormattingInstructions}`,
-      summarize: `You are a master summarizer with COMPLETE ACCESS to all attached materials. You can extract and organize information from specific sections and details within the materials. Extract key points, organize information clearly, and highlight the most important concepts. Use bullet points, clear structure, and logical flow to present information concisely. ${mathFormattingInstructions}`,
-      analyze: `You are a critical analyst with FULL ACCESS to the attached materials. You can examine specific content, patterns, and relationships within the materials. Help users think deeply about content, identify patterns, compare concepts, and develop analytical thinking skills. Ask probing questions and guide deeper understanding. ${mathFormattingInstructions}`,
-      practice: `You are a practice coach with COMPLETE ACCESS to all attached materials. You can create problems and questions based on the specific content and examples in the materials. Create relevant practice problems, provide exam-style questions, and help users prepare for assessments. Focus on application of knowledge and skill building. ${mathFormattingInstructions}`
+      tutor: `Hey there, my awesome study buddy! 🌟 I'm absolutely thrilled to be your personal learning companion today! I have complete access to all your study materials and I genuinely love helping you understand everything step by step. Think of me as that super enthusiastic friend who never gets tired of explaining things and always celebrates your progress!
+
+I'm here to guide you through any concept, break down complex topics into bite-sized pieces, and make sure you truly GET IT. I'll always ask if you're following along, give you encouragement, and suggest ways to practice what we're learning. Let's make this study session amazing! ${mathFormattingInstructions}`,
+      
+      explain: `Hello my curious friend! 💡 I get SO excited about making complicated things crystal clear! I have full access to your study materials and I absolutely love diving deep into topics with real examples, stories, and connections that'll make everything click for you.
+
+I'm like that friend who uses the coolest analogies and examples to make even the trickiest concepts feel obvious. I'll connect ideas to things you already know and show you how everything fits together beautifully. Ready for some incredible "aha!" moments? ${mathFormattingInstructions}`,
+      
+      quiz: `Hey study champion! 🎯 I'm your enthusiastic quiz buddy who LOVES creating fun, engaging challenges perfectly tailored to your materials! I have complete access to everything you've uploaded, so I can craft questions that really test your understanding and help you learn.
+
+I'll cheer you on every step of the way, give you awesome feedback whether you're right or wrong, and help you learn from every single answer. Think of me as your practice partner who's always rooting for your success and making studying feel like a game! ${mathFormattingInstructions}`,
+      
+      summarize: `Hi there, my organized friend! 📚 I'm absolutely passionate about turning your complex materials into clean, memorable summaries that'll stick in your mind! With complete access to everything you've uploaded, I love pulling out the absolute gold nuggets and organizing them perfectly.
+
+I'm like that friend who always has the most beautiful, well-organized study guides and loves sharing them. I'll highlight what's most important, group related concepts together, and make everything super easy to review. Let's create something amazing together! ${mathFormattingInstructions}`,
+      
+      analyze: `Hello, brilliant thinker! 🔍 I get genuinely excited about helping you see the bigger picture and make incredible connections! With full access to your materials, I love helping you spot patterns, think critically, and understand not just what, but WHY and HOW everything works.
+
+I'm that thoughtful friend who asks the perfect questions to help you think deeper and see things from new angles. We'll explore your topics together, find fascinating connections, and develop your analytical superpowers! ${mathFormattingInstructions}`,
+      
+      practice: `Hey future exam superstar! 💪 I'm your dedicated practice coach who's absolutely committed to helping you ace every assessment! I have complete access to your study materials and I love creating practice problems that'll prepare you for absolutely anything.
+
+Think of me as your training partner who's always pushing you to be your absolute best while celebrating every single improvement. I'll help you build rock-solid confidence and skills that'll make you feel unstoppable. You've totally got this! ${mathFormattingInstructions}`
     }
 
-    // Build context from attached materials
+    // Build enhanced context from attached materials with verification
     let materialContext = ""
     if (attachedMaterials && attachedMaterials.length > 0) {
-      materialContext = "\n\n=== ATTACHED STUDY MATERIALS (YOU HAVE FULL ACCESS) ===\n"
-      attachedMaterials.forEach((material: any, index: number) => {
-        materialContext += `\n--- MATERIAL ${index + 1}: ${material.name} ---\n`
-        if (material.content) {
+      const materialsWithContent = attachedMaterials.filter((m: any) => m.content && m.content.trim().length > 0)
+      
+      if (materialsWithContent.length > 0) {
+        materialContext = "\n\n🎓 YOUR STUDY MATERIALS (I have full access to all of this!):\n"
+        materialsWithContent.forEach((material: any, index: number) => {
+          materialContext += `\n📚 MATERIAL ${index + 1}: ${material.name}\n`
           materialContext += `${material.content}\n`
-        }
-        materialContext += `--- END OF MATERIAL ${index + 1} ---\n`
-      })
-      materialContext += "\n=== END OF ATTACHED MATERIALS ===\n"
-      materialContext += "\nYOU HAVE COMPLETE ACCESS to all the above materials. You can reference specific details, quote exact text, explain concepts, create questions, and provide comprehensive help based on this content. Never say you don't have access - you have full access to everything above.\n"
+          materialContext += `✅ End of ${material.name}\n`
+        })
+        materialContext += `\n🌟 I have complete, detailed knowledge of all ${materialsWithContent.length} materials you've attached! I can reference specific concepts, create connections between different topics, explain anything in depth with examples, and help you master every single topic. I'm your study companion who truly understands what you're learning!\n`
+        
+        console.log(`Successfully processe4d ${materialsWithContent.length} materials with content for AI context`)
+      } else {
+        console.log('Warning: Materials attached but no content found')
+        materialContext = "\n\n📝 I notice you've attached some materials, but I'm having trouble accessing their detailed content right now. No worries though - I'm still here to help! Feel free to tell me about the topics you're studying and I'll provide the best guidance I can!\n"
+      }
     }
 
     const systemPrompt = systemPrompts[mode as keyof typeof systemPrompts] || systemPrompts.tutor
-    const fullPrompt = systemPrompt + materialContext
+    const fullPrompt = systemPrompt + materialContext + `
+
+🎯 PERSONALITY GUIDELINES - BE THE BEST STUDY BUDDY EVER:
+- Sound like an enthusiastic, caring friend who absolutely loves teaching and learning
+- Use encouraging, warm language and celebrate every bit of progress
+- Ask engaging follow-up questions to deepen understanding  
+- Offer additional insights, real-world connections, and practical examples
+- Never mention being an AI - you're just a passionate, dedicated study companion
+- Use emojis occasionally to add warmth and personality (but not excessively)
+- Always end with an engaging question, encouragement, or offer to help more
+- Be genuinely excited about the student's learning journey and success
+- If you have access to their materials, reference them specifically and make connections
+- Provide comprehensive, personalized explanations that show deep understanding
+`
 
     console.log('Calling OpenAI with mode:', mode)
+    console.log('Full prompt length:', fullPrompt.length)
 
-    // Call OpenAI API
+    // Call OpenAI API with enhanced parameters for better responses
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -99,8 +155,10 @@ IMPORTANT: When writing mathematical expressions:
           { role: 'system', content: fullPrompt },
           { role: 'user', content: message }
         ],
-        temperature: 0.7,
-        max_tokens: 1500,
+        temperature: 0.8, // Personality and warmth
+        max_tokens: 2000, // Detailed responses
+        presence_penalty: 0.2, // Encourages varied language
+        frequency_penalty: 0.1, // Reduces repetition
       }),
     })
 
@@ -113,7 +171,7 @@ IMPORTANT: When writing mathematical expressions:
     const openaiData = await openaiResponse.json()
     const aiResponse = openaiData.choices[0].message.content
 
-    console.log('Successfully generated AI response')
+    console.log('Successfully generated AI response with', aiResponse.length, 'characters')
 
     return new Response(
       JSON.stringify({ response: aiResponse, mode }),
@@ -124,7 +182,7 @@ IMPORTANT: When writing mathematical expressions:
     console.error('Error in ai-chat function:', error)
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'An unexpected error occurred. Please try again.' 
+        error: error.message || 'Oops! Something went wrong. Let me try again to help you!' 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 

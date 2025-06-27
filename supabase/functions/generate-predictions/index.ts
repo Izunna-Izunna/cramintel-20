@@ -19,8 +19,10 @@ interface PredictionRequest {
   clues: PredictionClue[];
   context: {
     course: string;
-    topics: string[];
+    topics?: string[];
     lecturer?: string;
+    materials?: Array<{ name: string; type: string }>;
+    targetCount?: number;
   };
   predictionContext?: {
     lecturer_emphasis?: string;
@@ -30,7 +32,7 @@ interface PredictionRequest {
     assignment_focus?: 'calculations' | 'theory' | 'both';
     revision_hints?: string;
   };
-  style: 'ranked' | 'practice_exam' | 'topic_based' | 'bullet' | 'theory' | 'mixed' | 'exam-paper';
+  style: 'ranked' | 'practice_exam' | 'topic_based' | 'bullet' | 'theory' | 'mixed' | 'exam-paper' | 'objective_bulk';
 }
 
 serve(async (req) => {
@@ -110,8 +112,74 @@ serve(async (req) => {
       extractedTexts = extractedTextsData || []
     }
 
-    // Build enhanced system prompt with contextual intelligence
-    const systemPrompt = `You are an expert exam question predictor. You MUST respond with valid JSON only.
+    // Build enhanced system prompt based on prediction style
+    let systemPrompt = ''
+    let questionCount = 10
+
+    if (requestBody.style === 'objective_bulk') {
+      questionCount = requestBody.context.targetCount || 25
+      systemPrompt = `You are an expert exam question generator specializing in OBJECTIVE QUESTIONS. You MUST respond with valid JSON only.
+
+CRITICAL: Your response must be valid JSON that follows this EXACT structure:
+
+{
+  "success": true,
+  "data": {
+    "predictions": [
+      {
+        "question": "Clear, specific question text here",
+        "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"],
+        "correct_answer": "A",
+        "confidence": 85,
+        "rationale": ["Reason 1", "Reason 2"],
+        "sources": ["Material section/chapter reference"],
+        "confidence_level": "high",
+        "study_priority": 1,
+        "type": "objective",
+        "marks": 2,
+        "topic": "Specific topic from material"
+      }
+    ],
+    "overall_confidence": 82,
+    "analysis_summary": "Brief analysis of question coverage and quality",
+    "material_coverage": {
+      "topics_covered": ["Topic 1", "Topic 2", "Topic 3"],
+      "sections_analyzed": ["Section 1", "Section 2"]
+    }
+  }
+}
+
+OBJECTIVE QUESTION REQUIREMENTS:
+1. Generate EXACTLY ${questionCount} multiple-choice questions
+2. Each question must have 4 options (A, B, C, D)
+3. Clearly indicate the correct answer
+4. Questions must cover ALL major topics from the materials
+5. Ensure comprehensive coverage - don't focus on just one section
+6. Make questions specific and detailed, not generic
+7. Base every question on actual content from the uploaded materials
+8. Include page/section references where possible
+9. Vary difficulty levels across questions
+10. Avoid duplicate or very similar questions
+
+QUALITY STANDARDS:
+- Each question should test understanding, not just memorization
+- Options should be plausible but clearly distinguishable
+- Questions should reference specific facts, concepts, or examples from materials
+- Maintain academic rigor appropriate for university level
+
+Generate ${questionCount} high-quality objective questions for ${requestBody.context.course}.
+
+Context Analysis:
+${requestBody.predictionContext?.lecturer_emphasis ? `- Lecturer Emphasis: "${requestBody.predictionContext.lecturer_emphasis}"` : ''}
+${requestBody.predictionContext?.assignment_patterns ? `- Assignment Patterns: "${requestBody.predictionContext.assignment_patterns}"` : ''}
+${requestBody.predictionContext?.class_rumors ? `- Class Intelligence: "${requestBody.predictionContext.class_rumors}"` : ''}
+${requestBody.predictionContext?.topic_emphasis ? `- Emphasized Topics: ${requestBody.predictionContext.topic_emphasis.join(', ')}` : ''}
+${requestBody.predictionContext?.revision_hints ? `- Revision Hints: "${requestBody.predictionContext.revision_hints}"` : ''}
+
+Remember: Respond with VALID JSON ONLY. No explanatory text before or after the JSON.`
+    } else {
+      // Keep existing system prompt for other styles
+      systemPrompt = `You are an expert exam question predictor. You MUST respond with valid JSON only.
 
 CRITICAL: Your response must be valid JSON that follows this exact structure:
 
@@ -157,29 +225,34 @@ Generate ${requestBody.style === 'ranked' ? '8-12 confidence-ranked predictions'
          '10-15 topic-organized predictions'} for ${requestBody.context.course}.
 
 Remember: Respond with VALID JSON ONLY. No explanatory text before or after the JSON.`
+    }
 
     // Prepare content for AI
     const materialContents = extractedTexts.length > 0 
-      ? extractedTexts.map(et => et.extracted_text).join('\n\n')
+      ? extractedTexts.map(et => `Material: ${et.material_id}\nContent: ${et.extracted_text}`).join('\n\n---\n\n')
       : materials.map(m => `Material: ${m.name}\nType: ${m.material_type}\nCourse: ${m.course}`).join('\n\n')
 
     const clueContents = requestBody.clues
       .map(clue => `${clue.name}: ${clue.content || 'No content available'}`)
       .join('\n')
 
+    // Fix the topics issue - provide fallback topics
+    const topics = requestBody.context.topics || ['General Topics']
+    
     const userPrompt = `Course: ${requestBody.context.course}
-Topics: ${requestBody.context.topics.join(', ') || 'Not specified'}
+Topics: ${topics.join(', ')}
 ${requestBody.context.lecturer ? `Lecturer: ${requestBody.context.lecturer}` : ''}
+${requestBody.context.materials ? `Materials Count: ${requestBody.context.materials.length}` : ''}
 
 Materials and Clues:
 ${materialContents}
 ${clueContents}
 
-Please generate predictions in the required JSON format.`
+Please generate ${requestBody.style === 'objective_bulk' ? 'objective questions' : 'predictions'} in the required JSON format.`
 
     console.log('Calling OpenAI with model: gpt-4o-mini')
 
-    // Call OpenAI API with updated model
+    // Call OpenAI API
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -192,8 +265,8 @@ Please generate predictions in the required JSON format.`
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.7,
-        max_tokens: 4000
+        temperature: requestBody.style === 'objective_bulk' ? 0.8 : 0.7,
+        max_tokens: requestBody.style === 'objective_bulk' ? 8000 : 4000
       }),
     })
 
@@ -237,8 +310,8 @@ Please generate predictions in the required JSON format.`
             rationale: ['AI response parsing failed'],
             confidence_level: 'low',
             study_priority: 3,
-            type: 'error',
-            marks: 0
+            type: requestBody.style === 'objective_bulk' ? 'objective' : 'theory',
+            marks: requestBody.style === 'objective_bulk' ? 2 : 15
           }],
           overall_confidence: 50,
           analysis_summary: 'Response format error - please try again',

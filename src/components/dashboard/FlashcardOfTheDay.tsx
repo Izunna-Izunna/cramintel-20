@@ -13,6 +13,7 @@ interface Flashcard {
   answer: string;
   course: string;
   difficulty_level: string;
+  times_reviewed?: number;
 }
 
 export function FlashcardOfTheDay() {
@@ -31,12 +32,15 @@ export function FlashcardOfTheDay() {
       // Get a random flashcard that's due for review
       const { data: flashcards, error } = await supabase
         .from('cramintel_flashcards')
-        .select('id, question, answer, course, difficulty_level')
+        .select('id, question, answer, course, difficulty_level, times_reviewed')
         .eq('user_id', user.id)
         .order('last_reviewed', { ascending: true, nullsFirst: true })
         .limit(5);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching flashcards:', error);
+        return;
+      }
 
       if (flashcards && flashcards.length > 0) {
         // Select a random flashcard from the top 5 most due for review
@@ -63,13 +67,18 @@ export function FlashcardOfTheDay() {
     if (!flashcard) return;
 
     try {
-      await supabase
+      // Use only the ID for the update query to avoid RLS issues
+      const { error } = await supabase
         .from('cramintel_flashcards')
         .update({ 
           last_reviewed: new Date().toISOString(),
-          times_reviewed: flashcard ? 1 : 0
+          times_reviewed: (flashcard.times_reviewed || 0) + 1
         })
         .eq('id', flashcard.id);
+
+      if (error) {
+        console.error('Error marking flashcard as reviewed:', error);
+      }
     } catch (error) {
       console.error('Error marking flashcard as reviewed:', error);
     }

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
@@ -21,6 +22,10 @@ const menuItems = [{
   title: "Predictions",
   section: "predictions" as DashboardSection,
   icon: "🔮"
+}, {
+  title: "CBT Test",
+  section: "cbt" as DashboardSection,
+  icon: "🖥️"
 }, {
   title: "Ask AI",
   section: "ai-chat" as DashboardSection,
