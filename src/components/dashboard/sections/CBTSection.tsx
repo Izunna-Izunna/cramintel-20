@@ -1,13 +1,12 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Book, Clock, Target, Play, BarChart3, Users, Award, Loader2, RefreshCw, History } from 'lucide-react';
+import { Book, Clock, Target, Play, BarChart3, Users, Award, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMaterials } from '@/hooks/useMaterials';
 import { usePredictions } from '@/hooks/usePredictions';
 import { useAuth } from '@/hooks/useAuth';
-import { useQuestionHistory } from '@/hooks/useQuestionHistory';
 import { CBTExamInterface } from './predictions/CBTExamInterface';
 import { CBTResultsView } from './predictions/CBTResultsView';
 import { CBTConfigurationDialog, ExamConfiguration } from './predictions/CBTConfigurationDialog';
@@ -18,16 +17,8 @@ import CramIntelLogo from '@/components/CramIntelLogo';
 
 export function CBTSection() {
   const { materialGroups, loading } = useMaterials();
-  const { predictions, fetchPredictions } = usePredictions();
+  const { predictions } = usePredictions();
   const { user } = useAuth();
-  const { 
-    markQuestionsAsAnswered, 
-    filterUnseenQuestions, 
-    shuffleQuestions, 
-    getQuestionStats,
-    resetCourseHistory 
-  } = useQuestionHistory();
-  
   const [examMode, setExamMode] = useState<'selection' | 'exam' | 'results'>('selection');
   const [examQuestions, setExamQuestions] = useState<GeneratedQuestion[]>([]);
   const [examConfig, setExamConfig] = useState<ExamConfiguration | null>(null);
@@ -36,7 +27,6 @@ export function CBTSection() {
     timeSpent: number;
   } | null>(null);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
-  const [freshQuestionsOnly, setFreshQuestionsOnly] = useState(true);
 
   // Get unique courses from materials
   const courses = Array.from(
@@ -72,32 +62,20 @@ export function CBTSection() {
 
   // Get available question counts for each course
   const availableQuestions = courses.reduce((acc, course) => {
-    const allQuestions = getExistingQuestions(course);
-    const unseenQuestions = freshQuestionsOnly ? filterUnseenQuestions(course, allQuestions) : allQuestions;
-    acc[course] = unseenQuestions.length;
-    return acc;
-  }, {} as Record<string, number>);
-
-  // Get material counts for each course
-  const materialCounts = courses.reduce((acc, course) => {
-    acc[course] = materialGroups
-      .flatMap(group => group.materials)
-      .filter(material => material.course === course).length;
+    acc[course] = getExistingQuestions(course).length;
     return acc;
   }, {} as Record<string, number>);
 
   // Generate new questions using OpenAI
-  const generateNewQuestions = async (course: string): Promise<void> => {
+  const generateNewQuestions = async (course: string): Promise<GeneratedQuestion[]> => {
     if (!user) {
       toast.error('Please log in to generate questions');
-      return;
+      return [];
     }
 
     try {
       setGeneratingQuestions(true);
-      toast.info('Generating CBT questions from your materials...', {
-        description: 'This may take 30-60 seconds depending on your materials'
-      });
+      toast.info('Generating CBT questions from your materials...');
 
       // Get materials for this course
       const courseMaterials = materialGroups
@@ -106,7 +84,7 @@ export function CBTSection() {
 
       if (courseMaterials.length === 0) {
         toast.error('No materials found for this course');
-        return;
+        return [];
       }
 
       // Prepare clues for generation
@@ -121,9 +99,7 @@ export function CBTSection() {
         clues,
         context: {
           course,
-          topics: [`${course} Topics`], // Provide default topics
           materials: courseMaterials.map(m => ({ name: m.name, type: m.material_type })),
-          targetCount: 25
         },
         style: 'objective_bulk' as const
       };
@@ -135,25 +111,22 @@ export function CBTSection() {
       if (error) {
         console.error('Error generating questions:', error);
         toast.error('Failed to generate questions. Please try again.');
-        return;
+        return [];
       }
 
       const questions = data?.data?.predictions || [];
       
       if (questions.length === 0) {
         toast.error('No questions could be generated from your materials');
-        return;
+        return [];
       }
 
-      // Refresh predictions to update the UI
-      await fetchPredictions();
-      
-      toast.success(`Generated ${questions.length} new CBT questions!`, {
-        description: `Total questions for ${course}: ${availableQuestions[course] + questions.length}`
-      });
+      toast.success(`Generated ${questions.length} CBT questions!`);
+      return questions;
     } catch (error) {
       console.error('Error in question generation:', error);
       toast.error('Failed to generate questions. Please try again.');
+      return [];
     } finally {
       setGeneratingQuestions(false);
     }
@@ -162,40 +135,17 @@ export function CBTSection() {
   const handleStartExam = async (config: ExamConfiguration) => {
     setExamConfig(config);
     
-    // Get existing questions
-    let allQuestions = getExistingQuestions(config.course);
+    // First, try to get existing questions
+    let questions = getExistingQuestions(config.course);
     
-    // Filter based on fresh questions preference
-    let availableQuestions = freshQuestionsOnly 
-      ? filterUnseenQuestions(config.course, allQuestions)
-      : allQuestions;
-    
-    // If we don't have enough fresh questions, offer to include answered ones
-    if (availableQuestions.length < config.questionCount && freshQuestionsOnly) {
-      const stats = getQuestionStats(config.course);
-      if (stats.hasHistory) {
-        toast.info(`Only ${availableQuestions.length} fresh questions available. Including previously answered questions.`);
-        availableQuestions = allQuestions;
-      }
+    // If we have fewer questions than requested, generate new ones
+    if (questions.length < config.questionCount) {
+      const newQuestions = await generateNewQuestions(config.course);
+      questions = [...questions, ...newQuestions];
     }
     
-    // If still not enough questions, try to generate new ones
-    if (availableQuestions.length < config.questionCount) {
-      try {
-        await generateNewQuestions(config.course);
-        // Re-fetch questions after generation
-        allQuestions = getExistingQuestions(config.course);
-        availableQuestions = freshQuestionsOnly 
-          ? filterUnseenQuestions(config.course, allQuestions)
-          : allQuestions;
-      } catch (error) {
-        console.error('Failed to generate additional questions:', error);
-      }
-    }
-    
-    // Shuffle and take the requested number of questions
-    const shuffledQuestions = shuffleQuestions(availableQuestions);
-    const examQuestions = shuffledQuestions.slice(0, config.questionCount);
+    // Take the requested number of questions
+    const examQuestions = questions.slice(0, config.questionCount);
     
     if (examQuestions.length === 0) {
       toast.error('No questions available for this course. Please upload some materials first.');
@@ -211,11 +161,6 @@ export function CBTSection() {
   };
 
   const handleExamComplete = (answers: Record<number, string>, timeSpent: number) => {
-    if (examConfig) {
-      // Mark questions as answered in history
-      markQuestionsAsAnswered(examConfig.course, examQuestions, answers);
-    }
-    
     setExamResults({ answers, timeSpent });
     setExamMode('results');
   };
@@ -230,11 +175,6 @@ export function CBTSection() {
   const handleRetakeExam = () => {
     setExamMode('exam');
     setExamResults(null);
-  };
-
-  const handleResetHistory = (course: string) => {
-    resetCourseHistory(course);
-    toast.success(`Question history reset for ${course}`);
   };
 
   if (loading) {
@@ -300,37 +240,6 @@ export function CBTSection() {
         </div>
       </motion.div>
 
-      {/* Question Mode Toggle */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="flex items-center justify-center mb-6"
-      >
-        <Card className="border-wrlds-accent/20 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setFreshQuestionsOnly(!freshQuestionsOnly)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                    freshQuestionsOnly 
-                      ? 'bg-wrlds-dark text-white' 
-                      : 'bg-wrlds-light text-wrlds-dark hover:bg-wrlds-accent/20'
-                  }`}
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  <span className="font-space text-sm">Fresh Questions Only</span>
-                </button>
-              </div>
-              <div className="text-xs text-wrlds-accent font-space">
-                {freshQuestionsOnly ? 'Showing only unanswered questions' : 'Showing all questions including answered'}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
       {/* Stats Overview */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -351,9 +260,7 @@ export function CBTSection() {
             <p className="text-2xl font-bold text-wrlds-dark font-space">
               {Object.values(availableQuestions).reduce((sum, count) => sum + count, 0)}
             </p>
-            <p className="text-sm text-wrlds-accent font-space">
-              {freshQuestionsOnly ? 'Fresh Questions' : 'Total Questions'}
-            </p>
+            <p className="text-sm text-wrlds-accent font-space">Total Questions</p>
           </CardContent>
         </Card>
         <Card className="border-wrlds-accent/20 shadow-sm">
@@ -413,10 +320,8 @@ export function CBTSection() {
                 <CBTConfigurationDialog
                   courses={courses}
                   availableQuestions={availableQuestions}
-                  materialCounts={materialCounts}
                   onStartExam={handleStartExam}
                   isGenerating={generatingQuestions}
-                  onGenerateQuestions={generateNewQuestions}
                 />
               </div>
 
@@ -426,9 +331,6 @@ export function CBTSection() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {courses.map((course) => {
                     const questionCount = availableQuestions[course] || 0;
-                    const materialCount = materialCounts[course] || 0;
-                    const stats = getQuestionStats(course);
-                    
                     return (
                       <div
                         key={course}
@@ -436,31 +338,11 @@ export function CBTSection() {
                       >
                         <div className="flex items-center space-x-2">
                           <Book className="w-4 h-4 text-wrlds-dark" />
-                          <div>
-                            <span className="text-sm font-medium text-wrlds-dark font-space block">{course}</span>
-                            <div className="flex items-center space-x-2 text-xs text-wrlds-accent font-space">
-                              <span>{materialCount} materials</span>
-                              {stats.hasHistory && (
-                                <span>• {stats.totalAnswered} answered</span>
-                              )}
-                            </div>
-                          </div>
+                          <span className="text-sm font-medium text-wrlds-dark font-space">{course}</span>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs text-wrlds-accent font-space">
-                            {questionCount} questions
-                          </span>
-                          {stats.hasHistory && (
-                            <Button
-                              onClick={() => handleResetHistory(course)}
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0"
-                            >
-                              <History className="w-3 h-3" />
-                            </Button>
-                          )}
-                        </div>
+                        <span className="text-xs text-wrlds-accent font-space">
+                          {questionCount} questions
+                        </span>
                       </div>
                     );
                   })}
@@ -491,17 +373,17 @@ export function CBTSection() {
                 </div>
               </div>
               <div className="flex items-start space-x-3">
-                <RefreshCw className="w-5 h-5 text-wrlds-dark mt-1" />
-                <div>
-                  <h4 className="font-medium text-wrlds-dark font-space">Smart Question Rotation</h4>
-                  <p className="text-sm text-wrlds-accent font-space">Tracks answered questions and provides fresh content each time</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
                 <Clock className="w-5 h-5 text-wrlds-dark mt-1" />
                 <div>
                   <h4 className="font-medium text-wrlds-dark font-space">Custom Timing</h4>
                   <p className="text-sm text-wrlds-accent font-space">Set your own exam duration from 5 to 120 minutes</p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <Target className="w-5 h-5 text-wrlds-dark mt-1" />
+                <div>
+                  <h4 className="font-medium text-wrlds-dark font-space">Flexible Question Count</h4>
+                  <p className="text-sm text-wrlds-accent font-space">Choose from 5 to 70 questions based on your study needs</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
