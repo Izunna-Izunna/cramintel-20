@@ -3,11 +3,10 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Paperclip, X, FileText, Image, Upload, Search, Loader2, AlertCircle } from 'lucide-react';
+import { Paperclip, X, FileText, Image, Upload, Search, Loader2 } from 'lucide-react';
 import { Material, useMaterials } from '@/hooks/useMaterials';
 import { supabase } from '@/integrations/supabase/client';
 import { jsonToString } from '@/services/materialService';
-import { useToast } from '@/hooks/use-toast';
 
 interface AttachedMaterial {
   id: string;
@@ -39,20 +38,11 @@ interface SimpleExtractedText {
 export function MaterialAttachment({ attachedMaterials, onAttach, onDetach }: MaterialAttachmentProps) {
   const [showMaterialBrowser, setShowMaterialBrowser] = useState(false);
   const [loadingMaterials, setLoadingMaterials] = useState<Set<string>>(new Set());
-  const [extractionErrors, setExtractionErrors] = useState<Set<string>>(new Set());
   const { materials, loading } = useMaterials();
-  const { toast } = useToast();
 
   const extractPDFContent = async (material: Material): Promise<string> => {
     try {
       console.log(`Extracting content for material: ${material.name}`);
-      
-      // Clear any previous extraction errors for this material
-      setExtractionErrors(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(material.id);
-        return newSet;
-      });
       
       // FIXED: Completely bypass Supabase type inference by using the client directly
       const flashcardQuery = supabase
@@ -65,11 +55,6 @@ export function MaterialAttachment({ attachedMaterials, onAttach, onDetach }: Ma
       const flashcardResult: any = await flashcardQuery;
       const flashcardsData = flashcardResult.data;
       const flashcardError = flashcardResult.error;
-
-      if (flashcardError) {
-        console.error('Error fetching flashcards:', flashcardError);
-        throw new Error(`Failed to fetch flashcards: ${flashcardError.message}`);
-      }
 
       let content = `📚 STUDY MATERIAL: ${material.name}
 🎓 Course: ${material.course || 'General Studies'}  
@@ -141,7 +126,7 @@ The student can ask me about ANY topic covered in this material and I'll provide
 `;
       } else {
         // Try to get any other available content
-        console.log('No flashcards found, trying extracted text...');
+        console.log('No flashcards found or error occurred:', flashcardError);
         
         // FIXED: Use the same approach for extracted texts
         const extractedTextQuery = supabase
@@ -152,12 +137,6 @@ The student can ask me about ANY topic covered in this material and I'll provide
 
         const extractedTextResult: any = await extractedTextQuery;
         const extractedTextsData = extractedTextResult.data;
-        const extractedTextError = extractedTextResult.error;
-
-        if (extractedTextError) {
-          console.error('Error fetching extracted text:', extractedTextError);
-          throw new Error(`Failed to fetch extracted text: ${extractedTextError.message}`);
-        }
 
         if (extractedTextsData && extractedTextsData.length > 0) {
           const textContent = extractedTextsData[0] as SimpleExtractedText;
@@ -172,11 +151,10 @@ The student can ask me about ANY topic covered in this material and I'll provide
               : textContent.extracted_text;
             content += `Content Preview:\n${textPreview}\n\n`;
           }
-        } else {
-          console.warn('No extracted text found for material');
-          throw new Error('No content found - material may still be processing or extraction failed');
         }
 
+        // NUCLEAR OPTION: Completely remove the problematic predictions query
+        // Instead of querying predictions, we'll add a note about available features
         content += `🎯 INTELLIGENT FEATURES AVAILABLE:
 This material has been processed and I can help you with:
 - Generating custom practice questions based on the content
@@ -189,7 +167,7 @@ This material has been processed and I can help you with:
         
         content += `
 📖 MATERIAL OVERVIEW:
-This ${material.material_type} from ${material.course} contains important academic content that I can help explain and teach. I can:
+This ${material.material_type} from ${material.course} contains important academic content that I can help explain and teach. ${flashcardError ? 'While I\'m processing the detailed content,' : 'I can:'} 
 
 - Help you understand concepts from ${material.course}
 - Create study guides and summaries
@@ -206,30 +184,13 @@ Feel free to ask me about any topics you'd like to explore from this material!
       return content;
     } catch (error) {
       console.error('Error extracting PDF content:', error);
-      
-      // Track extraction errors
-      setExtractionErrors(prev => new Set(prev).add(material.id));
-      
-      // Show user-friendly error message
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      toast({
-        title: "Content Extraction Failed",
-        description: `Failed to extract content from ${material.name}: ${errorMessage}`,
-        variant: "destructive"
-      });
-
       return `📚 Material: ${material.name}
 🎓 Course: ${material.course}
 📁 Type: ${material.material_type}
 
-⚠️ Content extraction failed: ${errorMessage}
+⚠️ I'm having trouble accessing the detailed content right now, but I'm still here to help! You can ask me about topics from ${material.course} and I'll do my best to provide helpful explanations and guidance.
 
-This might be because:
-- The material is still being processed
-- There was an error during content extraction
-- The file format isn't supported yet
-
-You can still ask me general questions about ${material.course} topics, and I'll do my best to help!`;
+Feel free to tell me what specific topics or concepts you'd like to explore from this material!`;
     }
   };
 
@@ -254,18 +215,8 @@ You can still ask me general questions about ${material.course} topics, and I'll
       console.log(`Attaching material with ${content.length} characters of content:`, attachedMaterial.name);
       onAttach([...attachedMaterials, attachedMaterial]);
       setShowMaterialBrowser(false);
-
-      toast({
-        title: "Material Attached",
-        description: `Successfully attached ${material.name} to the conversation`,
-      });
     } catch (error) {
       console.error('Error attaching material:', error);
-      toast({
-        title: "Attachment Failed",
-        description: `Failed to attach ${material.name}. Please try again.`,
-        variant: "destructive"
-      });
     } finally {
       setLoadingMaterials(prev => {
         const newSet = new Set(prev);
@@ -288,11 +239,6 @@ You can still ask me general questions about ${material.course} topics, and I'll
         content: e.target?.result as string
       };
       onAttach([...attachedMaterials, attachedMaterial]);
-      
-      toast({
-        title: "File Uploaded",
-        description: `Successfully uploaded ${file.name}`,
-      });
     };
 
     // Handle different file types
@@ -307,11 +253,6 @@ You can still ask me general questions about ${material.course} topics, and I'll
         content: `Uploaded file: ${file.name}\nSize: ${(file.size / 1024).toFixed(1)} KB\nType: ${file.type || 'Unknown'}`
       };
       onAttach([...attachedMaterials, attachedMaterial]);
-      
-      toast({
-        title: "File Uploaded",
-        description: `Successfully uploaded ${file.name}`,
-      });
     }
 
     // Reset the input
@@ -351,40 +292,29 @@ You can still ask me general questions about ${material.course} topics, and I'll
 
       {attachedMaterials.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
-          {attachedMaterials.map((material) => {
-            const hasError = extractionErrors.has(material.id);
-            return (
-              <Badge
-                key={material.id}
-                variant="secondary"
-                className={`flex items-center gap-1 max-w-xs border ${
-                  hasError 
-                    ? 'bg-red-100 text-red-700 border-red-200' 
-                    : 'bg-green-100 text-green-700 border-green-200'
-                }`}
+          {attachedMaterials.map((material) => (
+            <Badge
+              key={material.id}
+              variant="secondary"
+              className="flex items-center gap-1 bg-green-100 text-green-700 max-w-xs border-green-200"
+            >
+              {material.type === 'material' ? (
+                <FileText className="w-3 h-3" />
+              ) : (
+                <Upload className="w-3 h-3" />
+              )}
+              <span className="text-xs truncate">{material.name}</span>
+              <span className="text-xs text-green-600">✓</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto p-0 w-4 h-4 hover:bg-green-200"
+                onClick={() => onDetach(material.id)}
               >
-                {hasError ? (
-                  <AlertCircle className="w-3 h-3" />
-                ) : material.type === 'material' ? (
-                  <FileText className="w-3 h-3" />
-                ) : (
-                  <Upload className="w-3 h-3" />
-                )}
-                <span className="text-xs truncate">{material.name}</span>
-                {!hasError && <span className="text-xs text-green-600">✓</span>}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`h-auto p-0 w-4 h-4 ${
-                    hasError ? 'hover:bg-red-200' : 'hover:bg-green-200'
-                  }`}
-                  onClick={() => onDetach(material.id)}
-                >
-                  <X className="w-3 h-3" />
-                </Button>
-              </Badge>
-            );
-          })}
+                <X className="w-3 h-3" />
+              </Button>
+            </Badge>
+          ))}
         </div>
       )}
 
@@ -402,21 +332,16 @@ You can still ask me general questions about ${material.course} topics, and I'll
                 {materials.map((material) => {
                   const isAttached = attachedMaterials.find(m => m.id === material.id) !== undefined;
                   const isLoading = loadingMaterials.has(material.id);
-                  const hasError = extractionErrors.has(material.id);
                   
                   return (
                     <button
                       key={material.id}
                       onClick={() => handleAttachMaterial(material)}
                       disabled={isAttached || isLoading}
-                      className={`w-full text-left p-2 rounded hover:bg-gray-50 flex items-center gap-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed ${
-                        hasError ? 'bg-red-50 border border-red-200' : ''
-                      }`}
+                      className="w-full text-left p-2 rounded hover:bg-gray-50 flex items-center gap-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isLoading ? (
                         <Loader2 className="w-3 h-3 animate-spin text-gray-400" />
-                      ) : hasError ? (
-                        <AlertCircle className="w-3 h-3 text-red-500" />
                       ) : (
                         <FileText className="w-3 h-3 text-gray-400" />
                       )}
@@ -426,9 +351,6 @@ You can still ask me general questions about ${material.course} topics, and I'll
                       </span>
                       {isAttached && (
                         <span className="text-green-500 text-xs">✓</span>
-                      )}
-                      {hasError && (
-                        <span className="text-red-500 text-xs">⚠</span>
                       )}
                     </button>
                   );

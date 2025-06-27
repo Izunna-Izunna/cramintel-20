@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,19 +66,15 @@ export function UploadedMaterialsList({ refreshKey, onSectionChange }: UploadedM
       const materialsWithCounts = await Promise.all(
         materialsData?.map(async (material) => {
           // Get flashcard count for this material
-          const { data: flashcardData, error: flashcardError } = await supabase
+          const { data: flashcardData } = await supabase
             .from('cramintel_flashcards')
             .select('id')
             .eq('material_id', material.id);
 
-          if (flashcardError) {
-            console.error('Error fetching flashcard count:', flashcardError);
-          }
-
           // Get deck info if there are flashcards
           let deckInfo = null;
           if (flashcardData && flashcardData.length > 0) {
-            const { data: deckData, error: deckError } = await supabase
+            const { data: deckData } = await supabase
               .from('cramintel_deck_flashcards')
               .select(`
                 deck_id,
@@ -87,11 +82,9 @@ export function UploadedMaterialsList({ refreshKey, onSectionChange }: UploadedM
               `)
               .eq('flashcard_id', flashcardData[0].id)
               .limit(1)
-              .maybeSingle();
+              .single();
 
-            if (deckError) {
-              console.error('Error fetching deck info:', deckError);
-            } else if (deckData && deckData.cramintel_decks) {
+            if (deckData && deckData.cramintel_decks) {
               deckInfo = deckData.cramintel_decks;
             }
           }
@@ -147,40 +140,21 @@ export function UploadedMaterialsList({ refreshKey, onSectionChange }: UploadedM
   };
 
   const handleViewMaterial = async (material: Material) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('cramintel-materials')
-        .createSignedUrl(material.file_path, 3600);
+    const { data, error } = await supabase.storage
+      .from('cramintel-materials')
+      .createSignedUrl(material.file_path, 3600);
 
-      if (error) {
-        console.error('Storage error:', error);
-        toast({
-          title: "Storage Error",
-          description: `Failed to access file: ${error.message}`,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (!data?.signedUrl) {
-        toast({
-          title: "Error",
-          description: "Failed to generate access URL for file",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      setSelectedMaterial({ ...material, file_path: data.signedUrl });
-      setViewerOpen(true);
-    } catch (error) {
-      console.error('Error viewing material:', error);
+    if (error) {
       toast({
         title: "Error",
-        description: "An unexpected error occurred while accessing the file",
+        description: "Failed to load file",
         variant: "destructive"
       });
+      return;
     }
+
+    setSelectedMaterial({ ...material, file_path: data.signedUrl });
+    setViewerOpen(true);
   };
 
   const handleStudyFlashcards = (deckId: string) => {
@@ -201,7 +175,8 @@ export function UploadedMaterialsList({ refreshKey, onSectionChange }: UploadedM
       const { error } = await supabase
         .from('cramintel_materials')
         .delete()
-        .eq('id', materialId);
+        .eq('id', materialId)
+        .eq('user_id', user?.id);
 
       if (error) {
         throw error;
