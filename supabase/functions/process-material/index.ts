@@ -93,7 +93,7 @@ serve(async (req) => {
 
     console.log(`Processing: ${material.name} (${material.file_size} bytes)`)
 
-    // FIXED: Use correct storage bucket name
+    // Download file from Supabase storage
     const { data: fileData, error: downloadError } = await supabase.storage
       .from('cramintel-materials')
       .download(material.file_path)
@@ -114,7 +114,7 @@ serve(async (req) => {
       })
       .eq('id', materialId)
 
-    // FIXED: Proper base64 conversion that creates valid base64
+    // Convert to base64 - FIXED: Proper conversion method
     const arrayBuffer = await fileData.arrayBuffer()
     const uint8Array = new Uint8Array(arrayBuffer)
     
@@ -139,10 +139,18 @@ serve(async (req) => {
     
     console.log(`File converted to base64, size: ${Math.round(base64Content.length / 1024)}KB`)
 
-    // Extract text using Google Vision API
+    // Extract text based on file type
+    const fileExtension = material.file_name.toLowerCase().split('.').pop()
     let extractedText = ''
+
     try {
-      extractedText = await extractTextFromFile(base64Content)
+      if (fileExtension === 'pdf') {
+        console.log('Processing PDF using document file annotation')
+        extractedText = await processWithDocumentFileAnnotation(base64Content)
+      } else {
+        console.log('Processing image using standard image annotation')
+        extractedText = await processWithImageAnnotation(base64Content)
+      }
     } catch (extractionError) {
       console.error('Text extraction failed:', extractionError)
       throw new Error(`Text extraction failed: ${extractionError.message}`)
@@ -298,8 +306,77 @@ serve(async (req) => {
   }
 })
 
-// FIXED: Text extraction with proper error handling
-async function extractTextFromFile(base64Content: string): Promise<string> {
+// Function to process PDFs using the correct document annotation API
+async function processWithDocumentFileAnnotation(base64Content: string): Promise<string> {
+  const apiKey = Deno.env.get('GOOGLE_CLOUD_API_KEY') || Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY')
+  if (!apiKey) {
+    throw new Error('Google Cloud Vision API key not configured')
+  }
+
+  console.log('Using document file annotation for PDF processing')
+
+  // Use the correct Google Vision API endpoint for PDF files
+  const response = await fetch(
+    `https://vision.googleapis.com/v1/files:annotate?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            inputConfig: {
+              mimeType: 'application/pdf',
+              content: base64Content
+            },
+            features: [
+              {
+                type: 'DOCUMENT_TEXT_DETECTION'
+              }
+            ],
+            pages: [1, 2, 3, 4, 5] // Process first 5 pages
+          }
+        ]
+      })
+    }
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Google Vision PDF API error:', errorText)
+    throw new Error(`Google Vision PDF API error: ${response.status} - ${errorText}`)
+  }
+
+  const result = await response.json()
+  console.log('Google Vision PDF API response received')
+
+  if (result.responses?.[0]?.error) {
+    const apiError = result.responses[0].error
+    console.error('Vision PDF API returned error:', apiError)
+    throw new Error(`Vision PDF API error: ${apiError.message || 'Unknown error'}`)
+  }
+
+  // Extract text from PDF response structure
+  const responses = result.responses || []
+  let fullText = ''
+
+  for (const response of responses) {
+    if (response.fullTextAnnotation?.text) {
+      fullText += response.fullTextAnnotation.text + '\n'
+    }
+  }
+
+  if (fullText.trim().length === 0) {
+    throw new Error('No text found in PDF document')
+  }
+
+  console.log(`Extracted ${fullText.length} characters from PDF`)
+  return fullText.trim()
+}
+
+// Function to process images using standard image annotation API
+async function processWithImageAnnotation(base64Content: string): Promise<string> {
   const apiKey = Deno.env.get('GOOGLE_CLOUD_API_KEY') || Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY')
   if (!apiKey) {
     throw new Error('Google Cloud Vision API key not configured')
