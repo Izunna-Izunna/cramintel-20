@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Download, FileText, Clock, BookOpen, Award } from 'lucide-react';
+import { Download, Printer, Clock, Users, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { GeneratedQuestion, ExamSection, PredictionStyle } from '@/types/predictions';
+import { ExamSection, GeneratedQuestion, PredictionResponse } from '@/types/predictions';
+import 'katex/dist/katex.min.css';
 
 interface PredictionData {
   clues: Array<{
@@ -21,21 +21,8 @@ interface PredictionData {
     topics: string[];
     lecturer?: string;
   };
-  style: PredictionStyle;
-  generatedContent?: {
-    exam_title?: string;
-    duration?: string;
-    instructions?: string;
-    sections?: ExamSection[];
-    total_marks?: number;
-    predictions?: GeneratedQuestion[];
-    overall_confidence?: number;
-    study_guide?: {
-      priority_1: string[];
-      priority_2: string[];
-      priority_3: string[];
-    };
-  };
+  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper' | 'ranked' | 'practice_exam' | 'topic_based';
+  generatedContent?: PredictionResponse;
 }
 
 interface ExamPaperViewProps {
@@ -45,395 +32,211 @@ interface ExamPaperViewProps {
 }
 
 export function ExamPaperView({ predictionData, onBack, onClose }: ExamPaperViewProps) {
-  const [activeTab, setActiveTab] = useState<'exam' | 'study-guide'>('exam');
-
+  console.log('ExamPaperView received data:', predictionData);
+  
+  // Extract real exam paper data from generated content
   const examData = predictionData.generatedContent;
-  const hasExamStructure = examData?.sections && examData.sections.length > 0;
-  const hasStudyGuide = examData?.study_guide;
-
-  const exportExamPaper = () => {
-    let content = '';
-    
-    if (examData?.exam_title) {
-      content += `${examData.exam_title}\n`;
-      content += '='.repeat(examData.exam_title.length) + '\n\n';
-    }
-    
-    if (examData?.duration) {
-      content += `Duration: ${examData.duration}\n`;
-    }
-    
-    if (examData?.total_marks) {
-      content += `Total Marks: ${examData.total_marks}\n\n`;
-    }
-    
-    if (examData?.instructions) {
-      content += `Instructions:\n${examData.instructions}\n\n`;
-      content += '-'.repeat(50) + '\n\n';
-    }
-
-    if (hasExamStructure) {
-      examData.sections?.forEach((section, sectionIndex) => {
-        content += `SECTION ${sectionIndex + 1}: ${section.title}\n`;
-        content += '-'.repeat(30) + '\n\n';
-        
-        section.questions.forEach((question, questionIndex) => {
-          content += `Question ${questionIndex + 1}`;
-          if (question.marks) {
-            content += ` [${question.marks} marks]`;
-          }
-          content += `\n${question.question}\n\n`;
-          
-          if (question.options) {
-            question.options.forEach(option => {
-              content += `${option}\n`;
-            });
-            content += '\n';
-          }
-        });
-        
-        content += '\n';
-      });
-    } else if (examData?.predictions) {
-      examData.predictions.forEach((question, index) => {
-        content += `Question ${index + 1}`;
-        if (question.marks) {
-          content += ` [${question.marks} marks]`;
-        }
-        content += `\n${question.question}\n\n`;
-        
-        if (question.options) {
-          question.options.forEach(option => {
-            content += `${option}\n`;
-          });
-          content += '\n';
-        }
-      });
-    }
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${examData?.exam_title || predictionData.context.course}_Exam_Paper.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  
+  // Use real data or create fallback structure
+  const examHeader = {
+    course: examData?.exam_title || `${predictionData.context.course} Final Examination`,
+    duration: examData?.duration || "2-3 hours",
+    instruction: examData?.instructions || "Answer ALL questions in Section A, and ANY TWO questions in Section B"
   };
 
-  const renderExamContent = () => {
-    if (hasExamStructure) {
-      return (
-        <div className="space-y-8">
-          {examData.sections?.map((section, sectionIndex) => (
-            <Card key={sectionIndex} className="overflow-hidden">
-              <CardHeader className="bg-gray-50">
-                <CardTitle className="text-xl">
-                  Section {sectionIndex + 1}: {section.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-6">
-                  {section.questions.map((question, questionIndex) => (
-                    <motion.div
-                      key={questionIndex}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: questionIndex * 0.1 }}
-                      className="border-l-4 border-teal-500 pl-4"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <h4 className="font-semibold text-gray-800">
-                          Question {questionIndex + 1}
-                        </h4>
-                        <div className="flex gap-2">
-                          {question.marks && (
-                            <Badge variant="secondary">
-                              {question.marks} marks
-                            </Badge>
-                          )}
-                          {question.difficulty && (
-                            <Badge variant={
-                              question.difficulty === 'easy' ? 'default' :
-                              question.difficulty === 'medium' ? 'secondary' : 'destructive'
-                            }>
-                              {question.difficulty}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <p className="text-gray-700 mb-4 leading-relaxed">
-                        {question.question}
-                      </p>
-
-                      {question.options && (
-                        <div className="ml-4 space-y-2">
-                          {question.options.map((option, optionIndex) => (
-                            <p key={optionIndex} className="text-gray-600">
-                              {option}
-                            </p>
-                          ))}
-                        </div>
-                      )}
-
-                      {question.formula && (
-                        <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                          <p className="text-sm font-medium text-blue-800 mb-1">Formula:</p>
-                          <code className="text-blue-700">{question.formula}</code>
-                        </div>
-                      )}
-
-                      {question.constants && (
-                        <div className="mt-3 p-3 bg-amber-50 rounded-lg">
-                          <p className="text-sm font-medium text-amber-800 mb-1">Constants:</p>
-                          <p className="text-amber-700 text-sm">{question.constants}</p>
-                        </div>
-                      )}
-                    </motion.div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      );
-    } else if (examData?.predictions) {
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Exam Questions</CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-6">
-              {examData.predictions.map((question, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="border-l-4 border-teal-500 pl-4"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <h4 className="font-semibold text-gray-800">
-                      Question {index + 1}
-                    </h4>
-                    <div className="flex gap-2">
-                      {question.marks && (
-                        <Badge variant="secondary">
-                          {question.marks} marks
-                        </Badge>
-                      )}
-                      {question.confidence && (
-                        <Badge variant="outline">
-                          {Math.round(question.confidence)}% confidence
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <p className="text-gray-700 mb-4 leading-relaxed">
-                    {question.question}
-                  </p>
-
-                  {question.options && (
-                    <div className="ml-4 space-y-2">
-                      {question.options.map((option, optionIndex) => (
-                        <p key={optionIndex} className="text-gray-600">
-                          {option}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      );
-    } else {
-      return (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">No Exam Content Available</h3>
-            <p className="text-gray-600">
-              The exam paper could not be generated. Please try again with different materials.
-            </p>
-          </CardContent>
-        </Card>
-      );
+  // Use real sections from AI or create fallback
+  const examSections = examData?.sections || [
+    {
+      title: "Section A - Generated Questions",
+      questions: examData?.predictions?.map((pred, index) => ({
+        question: pred.question,
+        type: pred.type || "theory",
+        marks: pred.marks || 15,
+        confidence: pred.confidence || 75
+      })) || [
+        {
+          question: `No exam content was generated. Please try again with different materials.`,
+          type: "error",
+          marks: 0,
+          confidence: 0
+        }
+      ]
     }
-  };
+  ];
 
-  const renderStudyGuide = () => {
-    if (!hasStudyGuide) {
-      return (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">No Study Guide Available</h3>
-            <p className="text-gray-600">
-              Study recommendations were not generated for this exam paper.
-            </p>
-          </CardContent>
-        </Card>
-      );
-    }
+  console.log('Exam sections:', examSections);
 
+  const renderMathFormula = (formula: string) => {
     return (
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Award className="w-5 h-5 text-red-500" />
-              High Priority Topics
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {examData.study_guide?.priority_1.map((topic, index) => (
-                <Badge key={index} variant="destructive" className="mr-2 mb-2">
-                  {topic}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <span className="font-mono bg-blue-50 px-2 py-1 rounded text-blue-800">
+        {formula}
+      </span>
+    );
+  };
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Award className="w-5 h-5 text-amber-500" />
-              Medium Priority Topics
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {examData.study_guide?.priority_2.map((topic, index) => (
-                <Badge key={index} variant="secondary" className="mr-2 mb-2">
-                  {topic}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+  const renderQuestion = (question: GeneratedQuestion, questionNumber: number, sectionIndex: number) => {
+    const marks = question.marks || 10;
+    
+    return (
+      <div key={`${sectionIndex}-${questionNumber}`} className="border-l-4 border-blue-200 pl-4 mb-6">
+        <div className="flex items-start justify-between mb-2">
+          <h4 className="font-semibold text-gray-800">
+            {questionNumber}. {question.question}
+          </h4>
+          <Badge variant="outline">[{marks} marks]</Badge>
+        </div>
+        
+        {question.formula && (
+          <div className="mt-2 mb-2">
+            <span className="text-sm text-gray-600">Use: </span>
+            {renderMathFormula(question.formula)}
+          </div>
+        )}
+        
+        {question.constants && (
+          <div className="mt-1 mb-2">
+            <span className="text-sm text-gray-600">Given: </span>
+            <span className="font-mono text-sm">{question.constants}</span>
+          </div>
+        )}
+        
+        {question.instruction && (
+          <p className="text-sm italic text-gray-600 mt-2">
+            {question.instruction}
+          </p>
+        )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Award className="w-5 h-5 text-green-500" />
-              Low Priority Topics
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {examData.study_guide?.priority_3.map((topic, index) => (
-                <Badge key={index} variant="outline" className="mr-2 mb-2">
-                  {topic}
-                </Badge>
-              ))}
+        {question.hint && (
+          <div className="mt-2 mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+            <span className="text-sm text-yellow-800">💡 Hint: "{question.hint}"</span>
+          </div>
+        )}
+        
+        {question.type === 'calculation' && (
+          <div className="mt-3 p-3 bg-gray-50 rounded border-dashed border-2 border-gray-200">
+            <p className="text-xs text-gray-500 mb-2">Working space:</p>
+            <div className="space-y-2 text-sm text-gray-600">
+              <div>Given: ________________</div>
+              <div>Formula: _______________</div>
+              <div>Substitution: __________</div>
+              <div className="border-2 border-blue-300 p-2 bg-blue-50">
+                <strong>Final Answer: _______</strong>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        )}
+
+        {question.subtopics && (
+          <div className="mt-3">
+            <ul className="space-y-2 ml-4">
+              {question.subtopics.map((topic, idx) => (
+                <li key={idx} className="flex items-start">
+                  <span className="text-gray-600 mr-2">({String.fromCharCode(97 + idx)})</span>
+                  <span>{topic}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {(question.type === 'derivation' || question.type === 'applied') && (
+          <div className="mt-3 p-4 bg-gray-50 rounded border-dashed border-2 border-gray-200 min-h-[100px]">
+            <p className="text-xs text-gray-500 mb-2">Solution space:</p>
+          </div>
+        )}
       </div>
     );
   };
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-6"
+      >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              {examData?.exam_title || `${predictionData.context.course} Exam Paper`}
-            </h2>
-            <div className="flex items-center gap-4 text-sm text-gray-600">
-              {examData?.duration && (
-                <span className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  {examData.duration}
-                </span>
-              )}
-              {examData?.total_marks && (
-                <span>Total Marks: {examData.total_marks}</span>
-              )}
-              {examData?.overall_confidence && (
-                <Badge variant="outline">
-                  {Math.round(examData.overall_confidence)}% confidence
-                </Badge>
-              )}
+            <h3 className="text-2xl font-bold text-gray-800">Generated Exam Paper</h3>
+            <p className="text-gray-600">Based on your {predictionData.context.course} materials</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm">
+              <Printer className="w-4 h-4 mr-2" />
+              Print
+            </Button>
+            <Button variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-2" />
+              PDF
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+
+      <Card className="mb-6">
+        <CardContent className="p-8">
+          {/* Exam Header */}
+          <div className="text-center border-b-2 border-gray-200 pb-6 mb-8">
+            <h1 className="text-2xl font-bold mb-2">CramIntel Smart Prediction Engine</h1>
+            <h2 className="text-xl font-semibold mb-4">{examHeader.course}</h2>
+            <div className="flex justify-center gap-8 text-sm text-gray-600 mb-4">
+              <span>Duration: {examHeader.duration}</span>
+              {examData?.total_marks && <span>Total Marks: {examData.total_marks}</span>}
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+              <p className="font-medium text-gray-800">
+                <strong>Instructions:</strong> {examHeader.instruction}
+              </p>
             </div>
           </div>
-          <Button variant="outline" onClick={exportExamPaper}>
-            <Download className="w-4 h-4 mr-2" />
-            Export Paper
-          </Button>
-        </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab('exam')}
-            className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'exam'
-                ? 'border-teal-500 text-teal-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <FileText className="w-4 h-4 inline mr-2" />
-            Exam Paper
-          </button>
-          {hasStudyGuide && (
-            <button
-              onClick={() => setActiveTab('study-guide')}
-              className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'study-guide'
-                  ? 'border-teal-500 text-teal-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <BookOpen className="w-4 h-4 inline mr-2" />
-              Study Guide
-            </button>
-          )}
-        </div>
-      </div>
+          {/* Render Real Exam Sections */}
+          {examSections.map((section, sectionIndex) => (
+            <div key={sectionIndex} className="mb-8">
+              <div className="flex items-center gap-2 mb-6">
+                <h3 className="text-xl font-bold text-gray-800">{section.title}</h3>
+                <Badge variant="secondary">
+                  {section.questions.length} Question{section.questions.length !== 1 ? 's' : ''}
+                </Badge>
+              </div>
+              
+              <div className="space-y-6">
+                {section.questions.map((question, questionIndex) => 
+                  renderQuestion(question, questionIndex + 1, sectionIndex)
+                )}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
-      {/* Instructions */}
-      {examData?.instructions && activeTab === 'exam' && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Instructions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-              {examData.instructions}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Content */}
-      <div className="mb-8">
-        {activeTab === 'exam' ? renderExamContent() : renderStudyGuide()}
-      </div>
-
-      {/* Footer */}
-      <div className="flex justify-between items-center">
-        <Button variant="outline" onClick={onBack}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Style Selection
+      {/* Action Buttons */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <Button variant="outline" size="sm" className="justify-start">
+          <Clock className="w-4 h-4 mr-2" />
+          Practice Mode
         </Button>
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={exportExamPaper}>
-            <Download className="w-4 h-4 mr-2" />
-            Export Paper
-          </Button>
-          <Button onClick={onClose}>Close</Button>
-        </div>
+        <Button variant="outline" size="sm" className="justify-start">
+          <Calculator className="w-4 h-4 mr-2" />
+          Show Solutions
+        </Button>
+        <Button variant="outline" size="sm" className="justify-start">
+          <Users className="w-4 h-4 mr-2" />
+          Share with Circle
+        </Button>
+        <Button variant="outline" size="sm" className="justify-start">
+          <Download className="w-4 h-4 mr-2" />
+          Export PDF
+        </Button>
+      </div>
+
+      <div className="flex justify-between">
+        <Button variant="outline" onClick={onBack}>
+          Generate Again
+        </Button>
+        <Button onClick={onClose} className="bg-purple-600 hover:bg-purple-700">
+          Done
+        </Button>
       </div>
     </div>
   );

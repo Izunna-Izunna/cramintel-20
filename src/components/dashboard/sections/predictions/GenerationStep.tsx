@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Brain, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
@@ -5,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { PredictionResponse, PredictionStyle } from '@/types/predictions';
+import { PredictionResponse } from '@/types/predictions';
 
 interface PredictionData {
   clues: Array<{
@@ -20,7 +21,7 @@ interface PredictionData {
     topics: string[];
     lecturer?: string;
   };
-  style: PredictionStyle; // Now uses the shared type that includes 'objective_bulk'
+  style: 'bullet' | 'theory' | 'mixed' | 'exam-paper' | 'ranked' | 'practice_exam' | 'topic_based';
 }
 
 interface GenerationStepProps {

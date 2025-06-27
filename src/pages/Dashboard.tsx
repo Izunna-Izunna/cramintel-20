@@ -19,9 +19,8 @@ import { PredictionsSection } from '@/components/dashboard/sections/PredictionsS
 import { AIChatSection } from '@/components/dashboard/sections/AIChatSection';
 import { CommunitySection } from '@/components/dashboard/sections/CommunitySection';
 import { ProfileSection } from '@/components/dashboard/sections/ProfileSection';
-import { CBTSection } from '@/components/dashboard/sections/CBTSection';
 
-export type DashboardSection = 'dashboard' | 'upload' | 'flashcards' | 'predictions' | 'ai-chat' | 'community' | 'profile' | 'cbt';
+export type DashboardSection = 'dashboard' | 'upload' | 'flashcards' | 'predictions' | 'ai-chat' | 'community' | 'profile';
 
 const Dashboard = () => {
   const userData = JSON.parse(localStorage.getItem('cramIntelUser') || '{}');
@@ -45,8 +44,6 @@ const Dashboard = () => {
         return <CommunitySection />;
       case 'profile':
         return <ProfileSection />;
-      case 'cbt':
-        return <CBTSection />;
       default:
         return (
           <div className="space-y-6">

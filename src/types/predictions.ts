@@ -1,7 +1,5 @@
 
 // Type definitions for prediction data structures
-export type PredictionStyle = 'bullet' | 'theory' | 'mixed' | 'exam-paper' | 'ranked' | 'practice_exam' | 'topic_based' | 'objective_bulk';
-
 export interface GeneratedQuestion {
   question: string;
   confidence?: number;
@@ -18,10 +16,6 @@ export interface GeneratedQuestion {
   rationale?: string[];
   confidence_level?: 'high' | 'medium' | 'low';
   study_priority?: number;
-  // New fields for objective questions
-  options?: string[];
-  correct_answer?: string;
-  topic?: string;
 }
 
 export interface ExamSection {
@@ -51,11 +45,6 @@ export interface PredictionResponse {
     priority_1: string[];
     priority_2: string[];
     priority_3: string[];
-  };
-  // New fields for objective questions
-  material_coverage?: {
-    topics_covered: string[];
-    sections_analyzed: string[];
   };
 }
 
