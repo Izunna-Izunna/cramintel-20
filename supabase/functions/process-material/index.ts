@@ -15,152 +15,10 @@ interface FlashcardQuestion {
   topic?: string;
 }
 
-// Function to validate text quality
-function isValidExtractedText(text: string): boolean {
-  if (!text || text.trim().length < 50) return false
-  
-  const repeatedPattern = /(.)\1{10,}/g
-  const excessiveNumbers = /\d{20,}/g
-  const meaninglessPattern = /^[^a-zA-Z]*$/
-  
-  if (repeatedPattern.test(text) || excessiveNumbers.test(text) || meaninglessPattern.test(text.slice(0, 100))) {
-    return false
-  }
-  
-  const words = text.split(/\s+/).filter(word => word.length > 2)
-  const uniqueChars = new Set(text.toLowerCase().split(''))
-  
-  return words.length >= 10 && uniqueChars.size >= 15
-}
-
-// Function to store extracted text
-async function storeExtractedText(supabase: any, materialId: string, text: string, method: string, confidence?: number) {
-  const wordCount = text.split(/\s+/).length
-  const characterCount = text.length
-  
-  const { data, error } = await supabase
-    .from('cramintel_extracted_texts')
-    .upsert({
-      material_id: materialId,
-      extracted_text: text,
-      extraction_method: method,
-      extraction_confidence: confidence,
-      word_count: wordCount,
-      character_count: characterCount,
-      updated_at: new Date().toISOString()
-    }, {
-      onConflict: 'material_id'
-    })
-
-  if (error) {
-    console.error('Error storing extracted text:', error)
-  } else {
-    console.log('Successfully stored extracted text for material:', materialId)
-  }
-  
-  return { data, error }
-}
-
-// Chunked base64 conversion to prevent stack overflow for large files
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer)
-  const chunkSize = 8192
-  let binary = ''
-  
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.slice(i, i + chunkSize)
-    binary += String.fromCharCode.apply(null, Array.from(chunk))
-  }
-  
-  return btoa(binary)
-}
-
-// Enhanced function to extract text from both images and PDFs using Google Vision API
-async function extractTextFromFile(fileBuffer: Uint8Array, fileType: string): Promise<string> {
-  const googleVisionApiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY')
-  if (!googleVisionApiKey) {
-    throw new Error('Google Vision API key not configured')
-  }
-
-  const maxFileSize = 20 * 1024 * 1024
-  if (fileBuffer.byteLength > maxFileSize) {
-    throw new Error(`File too large: ${(fileBuffer.byteLength / 1024 / 1024).toFixed(1)}MB. Maximum allowed: 20MB`)
-  }
-
-  try {
-    console.log(`Processing ${fileType} file of size: ${(fileBuffer.byteLength / 1024 / 1024).toFixed(2)}MB with Google Vision API`)
-    
-    const base64File = arrayBufferToBase64(fileBuffer.buffer)
-    
-    // Use DOCUMENT_TEXT_DETECTION for both PDFs and images for better text extraction
-    const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${googleVisionApiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: {
-              content: base64File,
-            },
-            features: [
-              {
-                type: 'DOCUMENT_TEXT_DETECTION',
-                maxResults: 1,
-              },
-            ],
-            imageContext: {
-              languageHints: ['en'], // Optimize for English text
-            },
-          },
-        ],
-      }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Google Vision API error response:', errorText)
-      throw new Error(`Google Vision API error: ${response.status} - ${errorText}`)
-    }
-
-    const result = await response.json()
-    console.log('Google Vision API response received')
-    
-    if (result.responses && result.responses[0]) {
-      const responseData = result.responses[0]
-      
-      if (responseData.error) {
-        throw new Error(`Google Vision API error: ${responseData.error.message}`)
-      }
-      
-      // Try document text detection first (best for PDFs and complex documents)
-      if (responseData.fullTextAnnotation && responseData.fullTextAnnotation.text) {
-        const extractedText = responseData.fullTextAnnotation.text
-        console.log(`Extracted ${extractedText.length} characters using document detection`)
-        return extractedText
-      }
-      
-      // Fallback to regular text detection
-      const textAnnotations = responseData.textAnnotations
-      if (textAnnotations && textAnnotations.length > 0) {
-        const extractedText = textAnnotations[0].description || ''
-        console.log(`Extracted ${extractedText.length} characters using text detection`)
-        return extractedText
-      }
-    }
-    
-    console.log('No text detected in file')
-    return ''
-  } catch (error) {
-    console.error('Text extraction failed:', error)
-    throw new Error(`Text extraction failed: ${error.message}`)
-  }
-}
-
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   let requestBody: any
@@ -206,9 +64,9 @@ serve(async (req) => {
       })
     }
 
-    console.log('Processing material with direct file processing:', materialId)
+    console.log(`Starting processing for material: ${materialId}`)
 
-    // Get material details
+    // Get material from database
     const { data: material, error: materialError } = await supabase
       .from('cramintel_materials')
       .select('*')
@@ -224,7 +82,7 @@ serve(async (req) => {
       })
     }
 
-    // Update processing status
+    // Update status to processing
     await supabase
       .from('cramintel_materials')
       .update({ 
@@ -233,75 +91,56 @@ serve(async (req) => {
       })
       .eq('id', materialId)
 
+    console.log(`Processing: ${material.name} (${material.file_size} bytes)`)
+
+    // Download file from Supabase storage
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from('cramintel-materials')
+      .download(material.file_path)
+
+    if (downloadError) {
+      console.error('File download error:', downloadError)
+      throw new Error(`Failed to download file: ${downloadError.message}`)
+    }
+
+    console.log('File downloaded successfully')
+
+    // Update progress
+    await supabase
+      .from('cramintel_materials')
+      .update({ 
+        processing_status: 'extracting_text',
+        processing_progress: 30 
+      })
+      .eq('id', materialId)
+
+    // Extract text using improved method
     let extractedText = ''
-    let extractionConfidence = 0
+    const fileExtension = material.file_name.toLowerCase().split('.').pop()
 
     try {
-      // Download the file
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from('cramintel-materials')
-        .download(material.file_path)
-
-      if (downloadError || !fileData) {
-        throw new Error(`Failed to download file: ${downloadError?.message}`)
+      if (fileExtension === 'pdf') {
+        console.log('Processing PDF file')
+        extractedText = await extractTextFromFile(fileData, 'pdf')
+      } else {
+        console.log('Processing image file')
+        extractedText = await extractTextFromFile(fileData, 'image')
       }
-
-      const arrayBuffer = await fileData.arrayBuffer()
-      const fileBuffer = new Uint8Array(arrayBuffer)
-      console.log('File downloaded successfully, size:', fileBuffer.length, 'bytes')
-      
-      await supabase
-        .from('cramintel_materials')
-        .update({ 
-          processing_status: 'extracting_text',
-          processing_progress: 30 
-        })
-        .eq('id', materialId)
-
-      // Process file directly with Google Vision API (works for both PDFs and images)
-      extractedText = await extractTextFromFile(fileBuffer, material.file_type || 'unknown')
-      
-      extractionConfidence = isValidExtractedText(extractedText) ? 90 : 40
-      
-      console.log('Text extraction completed, text length:', extractedText.length, 'confidence:', extractionConfidence)
-      
-      if (!isValidExtractedText(extractedText)) {
-        throw new Error('Extracted text is of poor quality or insufficient')
-      }
-      
     } catch (extractionError) {
       console.error('Text extraction failed:', extractionError)
       throw new Error(`Text extraction failed: ${extractionError.message}`)
     }
 
-    // Store the extracted text in the database
-    await storeExtractedText(
-      supabase, 
-      materialId, 
-      extractedText, 
-      'google_vision_direct',
-      extractionConfidence
-    )
-
-    await supabase
-      .from('cramintel_materials')
-      .update({ 
-        processing_status: 'processing_content',
-        processing_progress: 50 
-      })
-      .eq('id', materialId)
-
-    let cleanText = extractedText
-      .replace(/\s+/g, ' ')
-      .replace(/[^\w\s.,!?;:()\-\[\]]/g, '')
-      .trim()
-
-    console.log('Cleaned text length:', cleanText.length)
-
-    if (cleanText.length < 100) {
+    if (!extractedText || extractedText.trim().length < 100) {
       throw new Error('Insufficient content for flashcard generation')
     }
 
+    console.log(`Successfully extracted ${extractedText.length} characters`)
+
+    // Store extracted text
+    await storeExtractedText(supabase, materialId, extractedText, 'google_vision_api', 90)
+
+    // Update progress
     await supabase
       .from('cramintel_materials')
       .update({ 
@@ -310,98 +149,8 @@ serve(async (req) => {
       })
       .eq('id', materialId)
 
-    // Generate flashcards with OpenAI
-    let flashcards: FlashcardQuestion[] = []
-
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiApiKey) {
-      throw new Error('OpenAI API key not configured')
-    }
-
-    try {
-      const systemPrompt = `You are an expert educator creating study flashcards from extracted content.
-
-REQUIREMENTS:
-- Generate EXACTLY 20 flashcards from the provided content
-- Base questions on the actual content that was extracted
-- Create questions that test understanding of the material
-- Provide complete, accurate answers
-- Distribute difficulty: 6 easy, 8 medium, 6 hard
-- Make questions specific and educational
-
-Return ONLY a JSON array:
-[
-  {
-    "question": "Specific question based on content",
-    "answer": "Complete, accurate answer",
-    "difficulty": "easy|medium|hard",
-    "topic": "specific topic area from content"
-  }
-]
-
-No text before or after the JSON.`
-
-      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt
-            },
-            {
-              role: 'user',
-              content: `Create 20 flashcards from this ${material.course} material:
-
-${cleanText.substring(0, 12000)}
-
-Course: ${material.course}
-Type: ${material.material_type}
-Title: ${material.name}`
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 4000,
-        }),
-      })
-
-      if (!openaiResponse.ok) {
-        const errorText = await openaiResponse.text()
-        console.error('OpenAI API error:', errorText)
-        throw new Error(`OpenAI API failed: ${openaiResponse.status}`)
-      }
-
-      const openaiData = await openaiResponse.json()
-      const flashcardsContent = openaiData.choices[0]?.message?.content
-
-      if (!flashcardsContent) {
-        throw new Error('No flashcards received from OpenAI')
-      }
-
-      flashcards = JSON.parse(flashcardsContent)
-      
-      if (!Array.isArray(flashcards) || flashcards.length !== 20) {
-        console.warn(`Expected 20 flashcards, got ${flashcards.length}`)
-        if (flashcards.length < 20) {
-          while (flashcards.length < 20) {
-            const randomCard = flashcards[Math.floor(Math.random() * flashcards.length)]
-            flashcards.push({ ...randomCard })
-          }
-        } else {
-          flashcards = flashcards.slice(0, 20)
-        }
-      }
-
-      console.log(`Successfully generated ${flashcards.length} flashcards using OpenAI`)
-    } catch (openaiError) {
-      console.error('OpenAI processing failed:', openaiError)
-      throw new Error(`Flashcard generation failed: ${openaiError.message}`)
-    }
+    // Generate flashcards
+    const flashcards = await generateFlashcards(extractedText, material)
 
     await supabase
       .from('cramintel_materials')
@@ -411,8 +160,9 @@ Title: ${material.name}`
       })
       .eq('id', materialId)
 
+    // Create deck and save flashcards
     const deckName = `${material.name} - Flashcards`
-    const deckDescription = `Generated from ${material.course} material using direct text extraction`
+    const deckDescription = `Generated from ${material.course} material`
 
     const { data: deck, error: deckError } = await supabase
       .from('cramintel_decks')
@@ -474,48 +224,265 @@ Title: ${material.name}`
       })
       .eq('id', materialId)
 
-    console.log('Material processing completed successfully with direct file processing')
+    console.log(`Processing completed successfully for: ${material.name}`)
 
-    return new Response(JSON.stringify({
-      success: true,
-      flashcards_generated: flashcards.length,
-      deck_id: deck.id,
-      extraction_method: 'google_vision_direct',
-      extraction_confidence: extractionConfidence,
-      message: `Successfully generated ${flashcards.length} flashcards using direct file processing`
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        materialId,
+        flashcards_generated: flashcards.length,
+        deck_id: deck.id,
+        textLength: extractedText.length,
+        message: 'Processing completed successfully'
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    )
 
   } catch (error) {
-    console.error('Error in process-material function:', error)
+    console.error('Processing error:', error)
     
+    // Update material status to error with detailed message  
     try {
-      const { materialId } = requestBody
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+      
+      const { materialId } = requestBody || {}
+      
       if (materialId) {
-        const supabase = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
-        
         await supabase
           .from('cramintel_materials')
-          .update({ 
+          .update({
             processing_status: 'error',
-            processing_progress: 0 
+            processing_progress: 0
           })
           .eq('id', materialId)
       }
-    } catch (updateError) {
-      console.error('Failed to update error status:', updateError)
+    } catch (dbError) {
+      console.error('Failed to update error status:', dbError)
     }
 
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      details: 'Direct file processing failed'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error.message,
+        details: 'Check function logs for more information'
+      }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    )
   }
 })
+
+// Enhanced text extraction function
+async function extractTextFromFile(fileData: Blob, fileType: string): Promise<string> {
+  // Check if we have the Google Cloud API key (try both possible names)
+  const apiKey = Deno.env.get('GOOGLE_CLOUD_API_KEY') || Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY')
+  if (!apiKey) {
+    throw new Error('Google Cloud Vision API key not configured')
+  }
+
+  // Convert file to base64
+  const arrayBuffer = await fileData.arrayBuffer()
+  const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+  
+  console.log(`File converted to base64, size: ${base64Content.length} characters`)
+
+  // Use Google Vision API REST endpoint
+  const response = await fetch(
+    `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: {
+              content: base64Content
+            },
+            features: [
+              {
+                type: 'DOCUMENT_TEXT_DETECTION',
+                maxResults: 1
+              }
+            ],
+            imageContext: {
+              languageHints: ['en']
+            }
+          }
+        ]
+      })
+    }
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Google Vision API error:', errorText)
+    throw new Error(`Google Vision API error: ${response.status} - ${errorText}`)
+  }
+
+  const result = await response.json()
+  console.log('Google Vision API response received')
+
+  if (result.responses?.[0]?.error) {
+    const apiError = result.responses[0].error
+    console.error('Vision API returned error:', apiError)
+    throw new Error(`Vision API error: ${apiError.message || 'Unknown error'}`)
+  }
+
+  // Extract text from response
+  const textAnnotations = result.responses?.[0]?.textAnnotations
+  if (!textAnnotations || textAnnotations.length === 0) {
+    // Try fullTextAnnotation as fallback
+    const fullTextAnnotation = result.responses?.[0]?.fullTextAnnotation
+    if (fullTextAnnotation?.text) {
+      return fullTextAnnotation.text
+    }
+    throw new Error('No text annotations found in the document')
+  }
+
+  // First annotation contains the full text
+  const fullText = textAnnotations[0]?.description || ''
+  
+  if (fullText.trim().length === 0) {
+    throw new Error('Extracted text is empty')
+  }
+
+  return fullText
+}
+
+// Store extracted text function
+async function storeExtractedText(supabase: any, materialId: string, text: string, method: string, confidence: number) {
+  const wordCount = text.split(/\s+/).length
+  const characterCount = text.length
+  
+  const { data, error } = await supabase
+    .from('cramintel_extracted_texts')
+    .upsert({
+      material_id: materialId,
+      extracted_text: text,
+      extraction_method: method,
+      extraction_confidence: confidence,
+      word_count: wordCount,
+      character_count: characterCount,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'material_id'
+    })
+
+  if (error) {
+    console.error('Error storing extracted text:', error)
+  } else {
+    console.log('Successfully stored extracted text for material:', materialId)
+  }
+  
+  return { data, error }
+}
+
+// Generate flashcards function
+async function generateFlashcards(extractedText: string, material: any): Promise<FlashcardQuestion[]> {
+  const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+  if (!openaiApiKey) {
+    throw new Error('OpenAI API key not configured')
+  }
+
+  const cleanText = extractedText
+    .replace(/\s+/g, ' ')
+    .replace(/[^\w\s.,!?;:()\-\[\]]/g, '')
+    .trim()
+
+  const systemPrompt = `You are an expert educator creating study flashcards from extracted content.
+
+REQUIREMENTS:
+- Generate EXACTLY 20 flashcards from the provided content
+- Base questions on the actual content that was extracted
+- Create questions that test understanding of the material
+- Provide complete, accurate answers
+- Distribute difficulty: 6 easy, 8 medium, 6 hard
+- Make questions specific and educational
+
+Return ONLY a JSON array:
+[
+  {
+    "question": "Specific question based on content",
+    "answer": "Complete, accurate answer",
+    "difficulty": "easy|medium|hard",
+    "topic": "specific topic area from content"
+  }
+]
+
+No text before or after the JSON.`
+
+  const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openaiApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt
+        },
+        {
+          role: 'user',
+          content: `Create 20 flashcards from this ${material.course} material:
+
+${cleanText.substring(0, 12000)}
+
+Course: ${material.course}
+Type: ${material.material_type}
+Title: ${material.name}`
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 4000,
+    }),
+  })
+
+  if (!openaiResponse.ok) {
+    const errorText = await openaiResponse.text()
+    console.error('OpenAI API error:', errorText)
+    throw new Error(`OpenAI API failed: ${openaiResponse.status}`)
+  }
+
+  const openaiData = await openaiResponse.json()
+  const flashcardsContent = openaiData.choices[0]?.message?.content
+
+  if (!flashcardsContent) {
+    throw new Error('No flashcards received from OpenAI')
+  }
+
+  let flashcards: FlashcardQuestion[] = []
+  
+  try {
+    flashcards = JSON.parse(flashcardsContent)
+  } catch (parseError) {
+    console.error('Failed to parse flashcards JSON:', parseError)
+    throw new Error('Invalid flashcards format received from OpenAI')
+  }
+  
+  if (!Array.isArray(flashcards) || flashcards.length !== 20) {
+    console.warn(`Expected 20 flashcards, got ${flashcards.length}`)
+    if (flashcards.length < 20) {
+      while (flashcards.length < 20) {
+        const randomCard = flashcards[Math.floor(Math.random() * flashcards.length)]
+        flashcards.push({ ...randomCard })
+      }
+    } else {
+      flashcards = flashcards.slice(0, 20)
+    }
+  }
+
+  console.log(`Successfully generated ${flashcards.length} flashcards using OpenAI`)
+  return flashcards
+}
