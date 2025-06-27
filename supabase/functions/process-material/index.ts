@@ -15,218 +15,126 @@ interface FlashcardQuestion {
   topic?: string;
 }
 
-// Direct PDF processing with Google Vision API
-async function extractTextFromPdf(pdfBuffer: Uint8Array, fileName: string): Promise<{ success: boolean; text: string; error?: string }> {
-  const googleVisionApiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY');
-  if (!googleVisionApiKey) {
-    throw new Error('Google Vision API key not configured');
-  }
-
-  console.log(`Processing PDF directly with Google Vision: ${fileName} (${(pdfBuffer.byteLength / 1024 / 1024).toFixed(2)}MB)`);
-
+// Convert PDF to images using PDF.js
+async function convertPdfToImages(pdfBuffer: Uint8Array): Promise<Uint8Array[]> {
   try {
-    const base64Data = arrayBufferToBase64(pdfBuffer.buffer);
+    // Import PDF.js for server-side use
+    const pdfjsLib = await import('https://esm.sh/pdfjs-dist@3.11.174/legacy/build/pdf.js')
     
-    if (!base64Data || base64Data.length < 100) {
-      return {
-        success: false,
-        text: '',
-        error: 'Invalid or empty PDF data'
-      };
-    }
-
-    const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${googleVisionApiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: {
-              content: base64Data,
-            },
-            features: [
-              {
-                type: 'DOCUMENT_TEXT_DETECTION',
-                maxResults: 1,
-              },
-            ],
-          },
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Google Vision API error response:', errorText);
-      return {
-        success: false,
-        text: '',
-        error: `Google Vision API error: ${response.status} - ${errorText}`
-      };
-    }
-
-    const result = await response.json();
-    console.log('Google Vision API response received');
+    const loadingTask = pdfjsLib.getDocument({ 
+      data: pdfBuffer,
+      verbosity: 0
+    })
+    const pdf = await loadingTask.promise
     
-    if (result.responses && result.responses[0]) {
-      const responseData = result.responses[0];
-      
-      if (responseData.error) {
-        return {
-          success: false,
-          text: '',
-          error: `Google Vision API error: ${responseData.error.message}`
-        };
-      }
-      
-      // Extract text from document text detection
-      if (responseData.fullTextAnnotation && responseData.fullTextAnnotation.text) {
-        const extractedText = responseData.fullTextAnnotation.text.trim();
-        if (extractedText.length > 50) {
-          console.log(`✅ Successfully extracted ${extractedText.length} characters from PDF`);
-          return {
-            success: true,
-            text: extractedText
-          };
+    const images: Uint8Array[] = []
+    
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      try {
+        const page = await pdf.getPage(pageNum)
+        const scale = 2.0
+        const viewport = page.getViewport({ scale })
+        
+        // Create canvas for rendering
+        const canvas = new OffscreenCanvas(viewport.width, viewport.height)
+        const context = canvas.getContext('2d')
+        
+        if (!context) {
+          throw new Error('Could not get canvas context')
         }
-      }
-      
-      // Fallback to regular text detection
-      const textAnnotations = responseData.textAnnotations;
-      if (textAnnotations && textAnnotations.length > 0) {
-        const extractedText = textAnnotations[0].description?.trim() || '';
-        if (extractedText.length > 50) {
-          console.log(`✅ Extracted ${extractedText.length} characters using fallback method`);
-          return {
-            success: true,
-            text: extractedText
-          };
+        
+        const renderContext = {
+          canvasContext: context,
+          viewport: viewport,
         }
+        
+        await page.render(renderContext).promise
+        
+        // Convert canvas to PNG blob
+        const blob = await canvas.convertToBlob({ type: 'image/png' })
+        const arrayBuffer = await blob.arrayBuffer()
+        const imageBuffer = new Uint8Array(arrayBuffer)
+        
+        images.push(imageBuffer)
+        console.log(`Converted PDF page ${pageNum} to image (${imageBuffer.length} bytes)`)
+      } catch (pageError) {
+        console.error(`Error converting page ${pageNum}:`, pageError)
       }
     }
     
-    return {
-      success: false,
-      text: '',
-      error: 'No readable text found in PDF'
-    };
-    
+    return images
   } catch (error) {
-    console.error(`PDF processing failed:`, error);
-    return {
-      success: false,
-      text: '',
-      error: `PDF processing failed: ${error.message}`
-    };
+    console.error('Error converting PDF to images:', error)
+    throw new Error(`Failed to convert PDF to images: ${error.message}`)
   }
 }
 
-// Process image files
-async function extractTextFromImage(imageBuffer: Uint8Array, fileName: string): Promise<{ success: boolean; text: string; error?: string }> {
-  const googleVisionApiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY');
-  if (!googleVisionApiKey) {
-    throw new Error('Google Vision API key not configured');
-  }
-
-  console.log(`Processing image with Google Vision: ${fileName}`);
-
+// Convert text content to image for OCR processing
+async function convertTextToImage(textContent: string): Promise<Uint8Array> {
   try {
-    const base64Data = arrayBufferToBase64(imageBuffer.buffer);
+    console.log('Converting text content to image for OCR processing')
     
-    const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${googleVisionApiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: {
-              content: base64Data,
-            },
-            features: [
-              {
-                type: 'DOCUMENT_TEXT_DETECTION',
-                maxResults: 1,
-              },
-            ],
-          },
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      return {
-        success: false,
-        text: '',
-        error: `Google Vision API error: ${response.status} - ${errorText}`
-      };
-    }
-
-    const result = await response.json();
+    // Create canvas with appropriate size for text
+    const canvas = new OffscreenCanvas(800, 1000)
+    const context = canvas.getContext('2d')
     
-    if (result.responses && result.responses[0]) {
-      const responseData = result.responses[0];
-      
-      if (responseData.error) {
-        return {
-          success: false,
-          text: '',
-          error: `Google Vision API error: ${responseData.error.message}`
-        };
-      }
-      
-      if (responseData.fullTextAnnotation && responseData.fullTextAnnotation.text) {
-        const extractedText = responseData.fullTextAnnotation.text.trim();
-        console.log(`✅ Successfully extracted ${extractedText.length} characters from image`);
-        return {
-          success: true,
-          text: extractedText
-        };
-      }
+    if (!context) {
+      throw new Error('Could not get canvas context')
     }
     
-    return {
-      success: false,
-      text: '',
-      error: 'No readable text found in image'
-    };
+    // Set up text rendering
+    context.fillStyle = 'white'
+    context.fillRect(0, 0, 800, 1000)
+    context.fillStyle = 'black'
+    context.font = '14px Arial'
+    
+    // Split text into lines and render
+    const lines = textContent.split('\n')
+    const lineHeight = 20
+    let y = 30
+    
+    for (const line of lines) {
+      if (y > 980) break // Don't overflow canvas
+      context.fillText(line.substring(0, 100), 20, y) // Limit line length
+      y += lineHeight
+    }
+    
+    // Convert canvas to PNG
+    const blob = await canvas.convertToBlob({ type: 'image/png' })
+    const arrayBuffer = await blob.arrayBuffer()
+    const imageBuffer = new Uint8Array(arrayBuffer)
+    
+    console.log(`Converted text to image (${imageBuffer.length} bytes)`)
+    return imageBuffer
     
   } catch (error) {
-    console.error(`Image processing failed:`, error);
-    return {
-      success: false,
-      text: '',
-      error: `Image processing failed: ${error.message}`
-    };
+    console.error('Error converting text to image:', error)
+    throw new Error(`Failed to convert text to image: ${error.message}`)
   }
 }
 
 // Function to validate text quality
 function isValidExtractedText(text: string): boolean {
-  if (!text || text.trim().length < 50) return false;
+  if (!text || text.trim().length < 50) return false
   
-  const repeatedPattern = /(.)\1{10,}/g;
-  const excessiveNumbers = /\d{20,}/g;
-  const meaninglessPattern = /^[^a-zA-Z]*$/;
+  const repeatedPattern = /(.)\1{10,}/g
+  const excessiveNumbers = /\d{20,}/g
+  const meaninglessPattern = /^[^a-zA-Z]*$/
   
   if (repeatedPattern.test(text) || excessiveNumbers.test(text) || meaninglessPattern.test(text.slice(0, 100))) {
-    return false;
+    return false
   }
   
-  const words = text.split(/\s+/).filter(word => word.length > 2);
-  const uniqueChars = new Set(text.toLowerCase().split(''));
+  const words = text.split(/\s+/).filter(word => word.length > 2)
+  const uniqueChars = new Set(text.toLowerCase().split(''))
   
-  return words.length >= 10 && uniqueChars.size >= 15;
+  return words.length >= 10 && uniqueChars.size >= 15
 }
 
 // Function to store extracted text
 async function storeExtractedText(supabase: any, materialId: string, text: string, method: string, confidence?: number) {
-  const wordCount = text.split(/\s+/).length;
-  const characterCount = text.length;
+  const wordCount = text.split(/\s+/).length
+  const characterCount = text.length
   
   const { data, error } = await supabase
     .from('cramintel_extracted_texts')
@@ -240,80 +148,159 @@ async function storeExtractedText(supabase: any, materialId: string, text: strin
       updated_at: new Date().toISOString()
     }, {
       onConflict: 'material_id'
-    });
+    })
 
   if (error) {
-    console.error('Error storing extracted text:', error);
+    console.error('Error storing extracted text:', error)
   } else {
-    console.log('Successfully stored extracted text for material:', materialId);
+    console.log('Successfully stored extracted text for material:', materialId)
   }
   
-  return { data, error };
+  return { data, error }
 }
 
 // Chunked base64 conversion to prevent stack overflow for large files
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 8192;
-  let binary = '';
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 8192
+  let binary = ''
   
   for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.slice(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, Array.from(chunk));
+    const chunk = bytes.slice(i, i + chunkSize)
+    binary += String.fromCharCode.apply(null, Array.from(chunk))
   }
   
-  return btoa(binary);
+  return btoa(binary)
+}
+
+// OCR function using Google Vision API
+async function extractTextFromImage(imageBuffer: Uint8Array): Promise<string> {
+  const googleVisionApiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY')
+  if (!googleVisionApiKey) {
+    throw new Error('Google Vision API key not configured')
+  }
+
+  const maxFileSize = 20 * 1024 * 1024
+  if (imageBuffer.byteLength > maxFileSize) {
+    throw new Error(`Image file too large: ${(imageBuffer.byteLength / 1024 / 1024).toFixed(1)}MB. Maximum allowed: 20MB`)
+  }
+
+  try {
+    console.log(`Processing image of size: ${(imageBuffer.byteLength / 1024 / 1024).toFixed(2)}MB with OCR`)
+    
+    const base64Image = arrayBufferToBase64(imageBuffer.buffer)
+    
+    const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${googleVisionApiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: {
+              content: base64Image,
+            },
+            features: [
+              {
+                type: 'DOCUMENT_TEXT_DETECTION',
+                maxResults: 1,
+              },
+            ],
+          },
+        ],
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Google Vision API error response:', errorText)
+      throw new Error(`Google Vision API error: ${response.status} - ${errorText}`)
+    }
+
+    const result = await response.json()
+    console.log('Google Vision API response received')
+    
+    if (result.responses && result.responses[0]) {
+      const responseData = result.responses[0]
+      
+      if (responseData.error) {
+        throw new Error(`Google Vision API error: ${responseData.error.message}`)
+      }
+      
+      // Try document text detection first
+      if (responseData.fullTextAnnotation && responseData.fullTextAnnotation.text) {
+        const extractedText = responseData.fullTextAnnotation.text
+        console.log(`OCR extracted ${extractedText.length} characters using document detection`)
+        return extractedText
+      }
+      
+      // Fallback to regular text detection
+      const textAnnotations = responseData.textAnnotations
+      if (textAnnotations && textAnnotations.length > 0) {
+        const extractedText = textAnnotations[0].description || ''
+        console.log(`OCR extracted ${extractedText.length} characters using text detection`)
+        return extractedText
+      }
+    }
+    
+    console.log('No text detected in image')
+    return ''
+  } catch (error) {
+    console.error('OCR extraction failed:', error)
+    throw new Error(`OCR processing failed: ${error.message}`)
+  }
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
-  let requestBody: any;
+  let requestBody: any
   try {
-    requestBody = await req.json();
+    requestBody = await req.json()
   } catch (error) {
     return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    })
   }
 
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    )
 
-    const authHeader = req.headers.get('Authorization');
+    const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'No authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      })
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      })
     }
 
-    const { materialId } = requestBody;
+    const { materialId } = requestBody
 
     if (!materialId) {
       return new Response(JSON.stringify({ error: 'Material ID is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      })
     }
 
-    console.log('Processing material with direct PDF approach:', materialId);
+    console.log('Processing material with OCR-only approach:', materialId)
 
     // Get material details
     const { data: material, error: materialError } = await supabase
@@ -321,102 +308,117 @@ serve(async (req) => {
       .select('*')
       .eq('id', materialId)
       .eq('user_id', user.id)
-      .single();
+      .single()
 
     if (materialError || !material) {
-      console.error('Material not found:', materialError);
+      console.error('Material not found:', materialError)
       return new Response(JSON.stringify({ error: 'Material not found' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      })
     }
 
-    // Update processing status
+    // Update processing status - all files now go through OCR
     await supabase
       .from('cramintel_materials')
       .update({ 
         processing_status: 'processing_ocr',
         processing_progress: 10 
       })
-      .eq('id', materialId);
+      .eq('id', materialId)
 
-    let extractedText = '';
-    let extractionConfidence = 0;
-    let processingMethod = '';
+    let extractedText = ''
+    let extractionConfidence = 0
 
     try {
       // Download the file
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('cramintel-materials')
-        .download(material.file_path);
+        .download(material.file_path)
 
       if (downloadError || !fileData) {
-        throw new Error(`Failed to download file: ${downloadError?.message}`);
+        throw new Error(`Failed to download file: ${downloadError?.message}`)
       }
 
-      const arrayBuffer = await fileData.arrayBuffer();
-      const fileBuffer = new Uint8Array(arrayBuffer);
-      console.log('File downloaded successfully, size:', fileBuffer.length, 'bytes');
+      const arrayBuffer = await fileData.arrayBuffer()
+      const fileBuffer = new Uint8Array(arrayBuffer)
+      console.log('File downloaded successfully, size:', fileBuffer.length, 'bytes')
       
       await supabase
         .from('cramintel_materials')
         .update({ 
-          processing_status: 'extracting_text',
-          processing_progress: 30 
+          processing_status: 'converting_to_images',
+          processing_progress: 25 
         })
-        .eq('id', materialId);
+        .eq('id', materialId)
 
-      // Process different file types with direct Google Vision
+      let imagesToProcess: Uint8Array[] = []
+
+      // Convert all file types to images for OCR processing
       if (material.file_type?.includes('pdf')) {
-        console.log('Processing PDF with direct Google Vision API');
-        const result = await extractTextFromPdf(fileBuffer, material.name);
-        
-        if (result.success) {
-          extractedText = result.text;
-          extractionConfidence = isValidExtractedText(extractedText) ? 90 : 50;
-          processingMethod = 'direct_pdf_vision';
-          console.log(`✅ PDF processed successfully: ${extractedText.length} characters`);
-        } else {
-          throw new Error(result.error || 'PDF processing failed');
-        }
-        
+        console.log('Converting PDF to images for OCR processing')
+        imagesToProcess = await convertPdfToImages(fileBuffer)
       } else if (material.file_type?.includes('image')) {
-        console.log('Processing image file with Google Vision API');
-        const result = await extractTextFromImage(fileBuffer, material.name);
-        
-        if (result.success) {
-          extractedText = result.text;
-          extractionConfidence = isValidExtractedText(extractedText) ? 90 : 50;
-          processingMethod = 'direct_image_vision';
-          console.log(`✅ Image processed successfully: ${extractedText.length} characters`);
-        } else {
-          throw new Error(result.error || 'Image processing failed');
-        }
-        
+        console.log('Processing image file with OCR')
+        imagesToProcess = [fileBuffer]
       } else if (material.file_type?.includes('text')) {
-        console.log('Processing text file directly');
-        extractedText = new TextDecoder().decode(fileBuffer);
-        extractionConfidence = 95;
-        processingMethod = 'direct_text';
-        console.log(`✅ Text file processed: ${extractedText.length} characters`);
-        
+        console.log('Converting text file to image for OCR processing')
+        const textContent = new TextDecoder().decode(fileBuffer)
+        const textImage = await convertTextToImage(textContent)
+        imagesToProcess = [textImage]
       } else {
-        // Default: treat as text
-        console.log('Unknown file type, treating as text');
-        extractedText = new TextDecoder().decode(fileBuffer);
-        extractionConfidence = 75;
-        processingMethod = 'direct_text_fallback';
+        // Default: treat as text and convert to image
+        console.log('Unknown file type, treating as text and converting to image')
+        const textContent = new TextDecoder().decode(fileBuffer)
+        const textImage = await convertTextToImage(textContent)
+        imagesToProcess = [textImage]
       }
 
-      if (!extractedText || extractedText.trim().length < 50) {
-        throw new Error('Insufficient content extracted from document');
+      if (imagesToProcess.length === 0) {
+        throw new Error('No images could be generated for OCR processing')
       }
 
-      console.log(`✅ Text extraction completed: ${extractedText.length} characters, confidence: ${extractionConfidence}%`);
+      await supabase
+        .from('cramintel_materials')
+        .update({ 
+          processing_status: 'extracting_text_ocr',
+          processing_progress: 40 
+        })
+        .eq('id', materialId)
+
+      // Process each image with OCR
+      const textPages = await Promise.all(
+        imagesToProcess.map(async (imageBuffer, index) => {
+          try {
+            console.log(`Processing image ${index + 1}/${imagesToProcess.length} with OCR`)
+            return await extractTextFromImage(imageBuffer)
+          } catch (error) {
+            console.error(`OCR failed for image ${index + 1}:`, error)
+            return `[OCR processing failed for page ${index + 1}: ${error.message}]`
+          }
+        })
+      )
+
+      // Combine all extracted text
+      if (imagesToProcess.length > 1) {
+        extractedText = textPages.map((text, index) => 
+          `--- Page ${index + 1} ---\n\n${text}\n\n`
+        ).join('')
+      } else {
+        extractedText = textPages[0] || ''
+      }
+
+      extractionConfidence = isValidExtractedText(extractedText) ? 85 : 35
+      
+      console.log('OCR processing completed, text length:', extractedText.length, 'confidence:', extractionConfidence)
+      
+      if (!isValidExtractedText(extractedText)) {
+        throw new Error('OCR extracted text is of poor quality or insufficient')
+      }
       
     } catch (extractionError) {
-      console.error('Direct processing failed:', extractionError);
-      throw new Error(`Processing failed: ${extractionError.message}`);
+      console.error('OCR processing failed:', extractionError)
+      throw new Error(`OCR processing failed: ${extractionError.message}`)
     }
 
     // Store the extracted text in the database
@@ -424,51 +426,52 @@ serve(async (req) => {
       supabase, 
       materialId, 
       extractedText, 
-      processingMethod,
+      'ocr_only',
       extractionConfidence
-    );
+    )
 
     await supabase
       .from('cramintel_materials')
       .update({ 
         processing_status: 'processing_content',
-        processing_progress: 60 
+        processing_progress: 50 
       })
-      .eq('id', materialId);
+      .eq('id', materialId)
 
     let cleanText = extractedText
       .replace(/\s+/g, ' ')
       .replace(/[^\w\s.,!?;:()\-\[\]]/g, '')
-      .trim();
+      .trim()
 
-    console.log('Cleaned text length:', cleanText.length);
+    console.log('Cleaned text length:', cleanText.length)
 
     if (cleanText.length < 100) {
-      throw new Error('Insufficient content for flashcard generation');
+      throw new Error('Insufficient content for flashcard generation')
     }
 
     await supabase
       .from('cramintel_materials')
       .update({ 
         processing_status: 'generating_flashcards',
-        processing_progress: 80 
+        processing_progress: 60 
       })
-      .eq('id', materialId);
+      .eq('id', materialId)
 
     // Generate flashcards with OpenAI
-    let flashcards: FlashcardQuestion[] = [];
+    let flashcards: FlashcardQuestion[] = []
 
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiApiKey) {
-      throw new Error('OpenAI API key not configured');
+      throw new Error('OpenAI API key not configured')
     }
 
     try {
-      const systemPrompt = `You are an expert educator creating study flashcards from document content.
+      const systemPrompt = `You are an expert educator creating study flashcards from OCR-processed content.
 
 REQUIREMENTS:
-- Generate EXACTLY 20 flashcards from the provided content
-- Base questions on the actual content that was extracted
+- Generate EXACTLY 20 flashcards from the provided OCR-extracted content
+- Base questions on the actual content that was extracted via OCR
+- Account for potential OCR errors and focus on clear, meaningful content
 - Create questions that test understanding of the material
 - Provide complete, accurate answers
 - Distribute difficulty: 6 easy, 8 medium, 6 hard
@@ -477,14 +480,14 @@ REQUIREMENTS:
 Return ONLY a JSON array:
 [
   {
-    "question": "Specific question based on content",
+    "question": "Specific question based on OCR content",
     "answer": "Complete, accurate answer",
     "difficulty": "easy|medium|hard",
     "topic": "specific topic area from content"
   }
 ]
 
-No text before or after the JSON.`;
+No text before or after the JSON.`
 
       const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -501,64 +504,64 @@ No text before or after the JSON.`;
             },
             {
               role: 'user',
-              content: `Create 20 flashcards from this ${material.course} material:
+              content: `Create 20 flashcards from this OCR-processed ${material.course} material:
 
 ${cleanText.substring(0, 12000)}
 
 Course: ${material.course}
 Type: ${material.material_type}
 Title: ${material.name}
-Processing: Direct Vision API Processing`
+Processing: OCR-Only Extraction`
             }
           ],
           temperature: 0.3,
           max_tokens: 4000,
         }),
-      });
+      })
 
       if (!openaiResponse.ok) {
-        const errorText = await openaiResponse.text();
-        console.error('OpenAI API error:', errorText);
-        throw new Error(`OpenAI API failed: ${openaiResponse.status}`);
+        const errorText = await openaiResponse.text()
+        console.error('OpenAI API error:', errorText)
+        throw new Error(`OpenAI API failed: ${openaiResponse.status}`)
       }
 
-      const openaiData = await openaiResponse.json();
-      const flashcardsContent = openaiData.choices[0]?.message?.content;
+      const openaiData = await openaiResponse.json()
+      const flashcardsContent = openaiData.choices[0]?.message?.content
 
       if (!flashcardsContent) {
-        throw new Error('No flashcards received from OpenAI');
+        throw new Error('No flashcards received from OpenAI')
       }
 
-      flashcards = JSON.parse(flashcardsContent);
+      flashcards = JSON.parse(flashcardsContent)
       
       if (!Array.isArray(flashcards) || flashcards.length !== 20) {
-        console.warn(`Expected 20 flashcards, got ${flashcards.length}`);
+        console.warn(`Expected 20 flashcards, got ${flashcards.length}`)
         if (flashcards.length < 20) {
           while (flashcards.length < 20) {
-            const randomCard = flashcards[Math.floor(Math.random() * flashcards.length)];
-            flashcards.push({ ...randomCard });
+            const randomCard = flashcards[Math.floor(Math.random() * flashcards.length)]
+            flashcards.push({ ...randomCard })
           }
         } else {
-          flashcards = flashcards.slice(0, 20);
+          flashcards = flashcards.slice(0, 20)
         }
       }
 
-      console.log(`Successfully generated ${flashcards.length} flashcards using OpenAI`);
+      console.log(`Successfully generated ${flashcards.length} flashcards using OpenAI`)
     } catch (openaiError) {
-      console.error('OpenAI processing failed:', openaiError);
-      throw new Error(`Flashcard generation failed: ${openaiError.message}`);
+      console.error('OpenAI processing failed:', openaiError)
+      throw new Error(`Flashcard generation failed: ${openaiError.message}`)
     }
 
     await supabase
       .from('cramintel_materials')
       .update({ 
         processing_status: 'saving_flashcards',
-        processing_progress: 90 
+        processing_progress: 80 
       })
-      .eq('id', materialId);
+      .eq('id', materialId)
 
-    const deckName = `${material.name} - Flashcards`;
-    const deckDescription = `Generated from direct Vision API processing for ${material.course}`;
+    const deckName = `${material.name} - OCR Flashcards`
+    const deckDescription = `Generated from OCR-processed content for ${material.course}`
 
     const { data: deck, error: deckError } = await supabase
       .from('cramintel_decks')
@@ -572,11 +575,11 @@ Processing: Direct Vision API Processing`
         total_cards: flashcards.length
       })
       .select()
-      .single();
+      .single()
 
     if (deckError) {
-      console.error('Error creating deck:', deckError);
-      throw new Error('Failed to create flashcard deck');
+      console.error('Error creating deck:', deckError)
+      throw new Error('Failed to create flashcard deck')
     }
 
     const flashcardInserts = flashcards.map(card => ({
@@ -586,29 +589,29 @@ Processing: Direct Vision API Processing`
       difficulty_level: card.difficulty || 'medium',
       material_id: materialId,
       user_id: user.id
-    }));
+    }))
 
     const { data: savedFlashcards, error: flashcardError } = await supabase
       .from('cramintel_flashcards')
       .insert(flashcardInserts)
-      .select();
+      .select()
 
     if (flashcardError) {
-      console.error('Error saving flashcards:', flashcardError);
-      throw new Error('Failed to save flashcards');
+      console.error('Error saving flashcards:', flashcardError)
+      throw new Error('Failed to save flashcards')
     }
 
     const deckFlashcardInserts = savedFlashcards.map(flashcard => ({
       deck_id: deck.id,
       flashcard_id: flashcard.id
-    }));
+    }))
 
     const { error: linkError } = await supabase
       .from('cramintel_deck_flashcards')
-      .insert(deckFlashcardInserts);
+      .insert(deckFlashcardInserts)
 
     if (linkError) {
-      console.error('Error linking flashcards:', linkError);
+      console.error('Error linking flashcards:', linkError)
     }
 
     await supabase
@@ -618,33 +621,31 @@ Processing: Direct Vision API Processing`
         processing_status: 'completed',
         processing_progress: 100 
       })
-      .eq('id', materialId);
+      .eq('id', materialId)
 
-    console.log('Material processing completed successfully with direct Vision API approach');
+    console.log('Material processing completed successfully with OCR-only approach')
 
     return new Response(JSON.stringify({
       success: true,
       flashcards_generated: flashcards.length,
       deck_id: deck.id,
-      direct_processing: true,
+      ocr_processed: true,
       extraction_confidence: extractionConfidence,
-      processing_method: processingMethod,
-      text_length: extractedText.length,
-      message: `Successfully generated ${flashcards.length} flashcards using direct Vision API processing`
+      message: `Successfully generated ${flashcards.length} flashcards using OCR-only processing`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    })
 
   } catch (error) {
-    console.error('Error in direct process-material function:', error);
+    console.error('Error in OCR-only process-material function:', error)
     
     try {
-      const { materialId } = requestBody;
+      const { materialId } = requestBody
       if (materialId) {
         const supabase = createClient(
           Deno.env.get('SUPABASE_URL') ?? '',
           Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        );
+        )
         
         await supabase
           .from('cramintel_materials')
@@ -652,18 +653,18 @@ Processing: Direct Vision API Processing`
             processing_status: 'error',
             processing_progress: 0 
           })
-          .eq('id', materialId);
+          .eq('id', materialId)
       }
     } catch (updateError) {
-      console.error('Failed to update error status:', updateError);
+      console.error('Failed to update error status:', updateError)
     }
 
     return new Response(JSON.stringify({ 
       error: error.message,
-      details: 'Direct Vision API material processing failed'
+      details: 'OCR-only material processing failed'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    })
   }
-});
+})
