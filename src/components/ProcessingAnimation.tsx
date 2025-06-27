@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 
 interface ProcessingAnimationProps {
-  status: 'pending' | 'extracting_text' | 'processing_content' | 'generating_flashcards' | 'saving_flashcards' | 'completed' | 'error';
+  status: 'pending' | 'processing' | 'extracting_text' | 'processing_content' | 'generating_flashcards' | 'saving_flashcards' | 'completed' | 'error';
   progress: number;
   fileName: string;
 }
@@ -21,11 +21,18 @@ export function ProcessingAnimation({ status, progress, fileName }: ProcessingAn
           description: 'Setting up processing pipeline for your document...',
           color: 'text-gray-500'
         };
+      case 'processing':
+        return {
+          icon: FileText,
+          title: 'Processing File',
+          description: 'Analyzing your document structure...',
+          color: 'text-blue-500'
+        };
       case 'extracting_text':
         return {
           icon: FileText,
           title: 'Extracting Content',
-          description: 'Reading and extracting text from your document...',
+          description: 'Using Google Vision AI to extract text from your document...',
           color: 'text-blue-500'
         };
       case 'processing_content':
@@ -112,19 +119,19 @@ export function ProcessingAnimation({ status, progress, fileName }: ProcessingAn
             </div>
           </div>
 
-          {/* Processing Steps */}
+          {/* Processing Steps - Updated for direct processing */}
           <div className="space-y-2 text-left">
             <div className="flex items-center space-x-2 text-xs">
               <div className={`w-2 h-2 rounded-full ${progress >= 10 ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className={progress >= 10 ? 'text-green-600' : 'text-gray-500'}>Extract content</span>
+              <span className={progress >= 10 ? 'text-green-600' : 'text-gray-500'}>Process file</span>
             </div>
             <div className="flex items-center space-x-2 text-xs">
               <div className={`w-2 h-2 rounded-full ${progress >= 30 ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className={progress >= 30 ? 'text-green-600' : 'text-gray-500'}>Analyze structure</span>
+              <span className={progress >= 30 ? 'text-green-600' : 'text-gray-500'}>Extract text content</span>
             </div>
             <div className="flex items-center space-x-2 text-xs">
-              <div className={`w-2 h-2 rounded-full ${progress >= 70 ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className={progress >= 70 ? 'text-green-600' : 'text-gray-500'}>Generate flashcards</span>
+              <div className={`w-2 h-2 rounded-full ${progress >= 60 ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <span className={progress >= 60 ? 'text-green-600' : 'text-gray-500'}>Generate flashcards</span>
             </div>
             <div className="flex items-center space-x-2 text-xs">
               <div className={`w-2 h-2 rounded-full ${progress >= 90 ? 'bg-green-500' : 'bg-gray-300'}`} />
@@ -135,7 +142,7 @@ export function ProcessingAnimation({ status, progress, fileName }: ProcessingAn
           {/* Estimated Time */}
           {status !== 'completed' && status !== 'error' && (
             <p className="text-xs text-gray-500">
-              Estimated time: {Math.max(1, Math.ceil((100 - progress) / 25))} minutes
+              Estimated time: {Math.max(1, Math.ceil((100 - progress) / 30))} minutes
             </p>
           )}
         </div>

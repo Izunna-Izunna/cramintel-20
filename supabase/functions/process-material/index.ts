@@ -15,104 +15,6 @@ interface FlashcardQuestion {
   topic?: string;
 }
 
-// Convert PDF to images using PDF.js
-async function convertPdfToImages(pdfBuffer: Uint8Array): Promise<Uint8Array[]> {
-  try {
-    // Import PDF.js for server-side use
-    const pdfjsLib = await import('https://esm.sh/pdfjs-dist@3.11.174/legacy/build/pdf.js')
-    
-    const loadingTask = pdfjsLib.getDocument({ 
-      data: pdfBuffer,
-      verbosity: 0
-    })
-    const pdf = await loadingTask.promise
-    
-    const images: Uint8Array[] = []
-    
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      try {
-        const page = await pdf.getPage(pageNum)
-        const scale = 2.0
-        const viewport = page.getViewport({ scale })
-        
-        // Create canvas for rendering
-        const canvas = new OffscreenCanvas(viewport.width, viewport.height)
-        const context = canvas.getContext('2d')
-        
-        if (!context) {
-          throw new Error('Could not get canvas context')
-        }
-        
-        const renderContext = {
-          canvasContext: context,
-          viewport: viewport,
-        }
-        
-        await page.render(renderContext).promise
-        
-        // Convert canvas to PNG blob
-        const blob = await canvas.convertToBlob({ type: 'image/png' })
-        const arrayBuffer = await blob.arrayBuffer()
-        const imageBuffer = new Uint8Array(arrayBuffer)
-        
-        images.push(imageBuffer)
-        console.log(`Converted PDF page ${pageNum} to image (${imageBuffer.length} bytes)`)
-      } catch (pageError) {
-        console.error(`Error converting page ${pageNum}:`, pageError)
-      }
-    }
-    
-    return images
-  } catch (error) {
-    console.error('Error converting PDF to images:', error)
-    throw new Error(`Failed to convert PDF to images: ${error.message}`)
-  }
-}
-
-// Convert text content to image for OCR processing
-async function convertTextToImage(textContent: string): Promise<Uint8Array> {
-  try {
-    console.log('Converting text content to image for OCR processing')
-    
-    // Create canvas with appropriate size for text
-    const canvas = new OffscreenCanvas(800, 1000)
-    const context = canvas.getContext('2d')
-    
-    if (!context) {
-      throw new Error('Could not get canvas context')
-    }
-    
-    // Set up text rendering
-    context.fillStyle = 'white'
-    context.fillRect(0, 0, 800, 1000)
-    context.fillStyle = 'black'
-    context.font = '14px Arial'
-    
-    // Split text into lines and render
-    const lines = textContent.split('\n')
-    const lineHeight = 20
-    let y = 30
-    
-    for (const line of lines) {
-      if (y > 980) break // Don't overflow canvas
-      context.fillText(line.substring(0, 100), 20, y) // Limit line length
-      y += lineHeight
-    }
-    
-    // Convert canvas to PNG
-    const blob = await canvas.convertToBlob({ type: 'image/png' })
-    const arrayBuffer = await blob.arrayBuffer()
-    const imageBuffer = new Uint8Array(arrayBuffer)
-    
-    console.log(`Converted text to image (${imageBuffer.length} bytes)`)
-    return imageBuffer
-    
-  } catch (error) {
-    console.error('Error converting text to image:', error)
-    throw new Error(`Failed to convert text to image: ${error.message}`)
-  }
-}
-
 // Function to validate text quality
 function isValidExtractedText(text: string): boolean {
   if (!text || text.trim().length < 50) return false
@@ -173,23 +75,24 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary)
 }
 
-// OCR function using Google Vision API
-async function extractTextFromImage(imageBuffer: Uint8Array): Promise<string> {
+// Enhanced function to extract text from both images and PDFs using Google Vision API
+async function extractTextFromFile(fileBuffer: Uint8Array, fileType: string): Promise<string> {
   const googleVisionApiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY')
   if (!googleVisionApiKey) {
     throw new Error('Google Vision API key not configured')
   }
 
   const maxFileSize = 20 * 1024 * 1024
-  if (imageBuffer.byteLength > maxFileSize) {
-    throw new Error(`Image file too large: ${(imageBuffer.byteLength / 1024 / 1024).toFixed(1)}MB. Maximum allowed: 20MB`)
+  if (fileBuffer.byteLength > maxFileSize) {
+    throw new Error(`File too large: ${(fileBuffer.byteLength / 1024 / 1024).toFixed(1)}MB. Maximum allowed: 20MB`)
   }
 
   try {
-    console.log(`Processing image of size: ${(imageBuffer.byteLength / 1024 / 1024).toFixed(2)}MB with OCR`)
+    console.log(`Processing ${fileType} file of size: ${(fileBuffer.byteLength / 1024 / 1024).toFixed(2)}MB with Google Vision API`)
     
-    const base64Image = arrayBufferToBase64(imageBuffer.buffer)
+    const base64File = arrayBufferToBase64(fileBuffer.buffer)
     
+    // Use DOCUMENT_TEXT_DETECTION for both PDFs and images for better text extraction
     const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${googleVisionApiKey}`, {
       method: 'POST',
       headers: {
@@ -199,7 +102,7 @@ async function extractTextFromImage(imageBuffer: Uint8Array): Promise<string> {
         requests: [
           {
             image: {
-              content: base64Image,
+              content: base64File,
             },
             features: [
               {
@@ -207,6 +110,9 @@ async function extractTextFromImage(imageBuffer: Uint8Array): Promise<string> {
                 maxResults: 1,
               },
             ],
+            imageContext: {
+              languageHints: ['en'], // Optimize for English text
+            },
           },
         ],
       }),
@@ -228,10 +134,10 @@ async function extractTextFromImage(imageBuffer: Uint8Array): Promise<string> {
         throw new Error(`Google Vision API error: ${responseData.error.message}`)
       }
       
-      // Try document text detection first
+      // Try document text detection first (best for PDFs and complex documents)
       if (responseData.fullTextAnnotation && responseData.fullTextAnnotation.text) {
         const extractedText = responseData.fullTextAnnotation.text
-        console.log(`OCR extracted ${extractedText.length} characters using document detection`)
+        console.log(`Extracted ${extractedText.length} characters using document detection`)
         return extractedText
       }
       
@@ -239,16 +145,16 @@ async function extractTextFromImage(imageBuffer: Uint8Array): Promise<string> {
       const textAnnotations = responseData.textAnnotations
       if (textAnnotations && textAnnotations.length > 0) {
         const extractedText = textAnnotations[0].description || ''
-        console.log(`OCR extracted ${extractedText.length} characters using text detection`)
+        console.log(`Extracted ${extractedText.length} characters using text detection`)
         return extractedText
       }
     }
     
-    console.log('No text detected in image')
+    console.log('No text detected in file')
     return ''
   } catch (error) {
-    console.error('OCR extraction failed:', error)
-    throw new Error(`OCR processing failed: ${error.message}`)
+    console.error('Text extraction failed:', error)
+    throw new Error(`Text extraction failed: ${error.message}`)
   }
 }
 
@@ -300,7 +206,7 @@ serve(async (req) => {
       })
     }
 
-    console.log('Processing material with OCR-only approach:', materialId)
+    console.log('Processing material with direct file processing:', materialId)
 
     // Get material details
     const { data: material, error: materialError } = await supabase
@@ -318,11 +224,11 @@ serve(async (req) => {
       })
     }
 
-    // Update processing status - all files now go through OCR
+    // Update processing status
     await supabase
       .from('cramintel_materials')
       .update({ 
-        processing_status: 'processing_ocr',
+        processing_status: 'processing',
         processing_progress: 10 
       })
       .eq('id', materialId)
@@ -347,78 +253,25 @@ serve(async (req) => {
       await supabase
         .from('cramintel_materials')
         .update({ 
-          processing_status: 'converting_to_images',
-          processing_progress: 25 
+          processing_status: 'extracting_text',
+          processing_progress: 30 
         })
         .eq('id', materialId)
 
-      let imagesToProcess: Uint8Array[] = []
-
-      // Convert all file types to images for OCR processing
-      if (material.file_type?.includes('pdf')) {
-        console.log('Converting PDF to images for OCR processing')
-        imagesToProcess = await convertPdfToImages(fileBuffer)
-      } else if (material.file_type?.includes('image')) {
-        console.log('Processing image file with OCR')
-        imagesToProcess = [fileBuffer]
-      } else if (material.file_type?.includes('text')) {
-        console.log('Converting text file to image for OCR processing')
-        const textContent = new TextDecoder().decode(fileBuffer)
-        const textImage = await convertTextToImage(textContent)
-        imagesToProcess = [textImage]
-      } else {
-        // Default: treat as text and convert to image
-        console.log('Unknown file type, treating as text and converting to image')
-        const textContent = new TextDecoder().decode(fileBuffer)
-        const textImage = await convertTextToImage(textContent)
-        imagesToProcess = [textImage]
-      }
-
-      if (imagesToProcess.length === 0) {
-        throw new Error('No images could be generated for OCR processing')
-      }
-
-      await supabase
-        .from('cramintel_materials')
-        .update({ 
-          processing_status: 'extracting_text_ocr',
-          processing_progress: 40 
-        })
-        .eq('id', materialId)
-
-      // Process each image with OCR
-      const textPages = await Promise.all(
-        imagesToProcess.map(async (imageBuffer, index) => {
-          try {
-            console.log(`Processing image ${index + 1}/${imagesToProcess.length} with OCR`)
-            return await extractTextFromImage(imageBuffer)
-          } catch (error) {
-            console.error(`OCR failed for image ${index + 1}:`, error)
-            return `[OCR processing failed for page ${index + 1}: ${error.message}]`
-          }
-        })
-      )
-
-      // Combine all extracted text
-      if (imagesToProcess.length > 1) {
-        extractedText = textPages.map((text, index) => 
-          `--- Page ${index + 1} ---\n\n${text}\n\n`
-        ).join('')
-      } else {
-        extractedText = textPages[0] || ''
-      }
-
-      extractionConfidence = isValidExtractedText(extractedText) ? 85 : 35
+      // Process file directly with Google Vision API (works for both PDFs and images)
+      extractedText = await extractTextFromFile(fileBuffer, material.file_type || 'unknown')
       
-      console.log('OCR processing completed, text length:', extractedText.length, 'confidence:', extractionConfidence)
+      extractionConfidence = isValidExtractedText(extractedText) ? 90 : 40
+      
+      console.log('Text extraction completed, text length:', extractedText.length, 'confidence:', extractionConfidence)
       
       if (!isValidExtractedText(extractedText)) {
-        throw new Error('OCR extracted text is of poor quality or insufficient')
+        throw new Error('Extracted text is of poor quality or insufficient')
       }
       
     } catch (extractionError) {
-      console.error('OCR processing failed:', extractionError)
-      throw new Error(`OCR processing failed: ${extractionError.message}`)
+      console.error('Text extraction failed:', extractionError)
+      throw new Error(`Text extraction failed: ${extractionError.message}`)
     }
 
     // Store the extracted text in the database
@@ -426,7 +279,7 @@ serve(async (req) => {
       supabase, 
       materialId, 
       extractedText, 
-      'ocr_only',
+      'google_vision_direct',
       extractionConfidence
     )
 
@@ -466,12 +319,11 @@ serve(async (req) => {
     }
 
     try {
-      const systemPrompt = `You are an expert educator creating study flashcards from OCR-processed content.
+      const systemPrompt = `You are an expert educator creating study flashcards from extracted content.
 
 REQUIREMENTS:
-- Generate EXACTLY 20 flashcards from the provided OCR-extracted content
-- Base questions on the actual content that was extracted via OCR
-- Account for potential OCR errors and focus on clear, meaningful content
+- Generate EXACTLY 20 flashcards from the provided content
+- Base questions on the actual content that was extracted
 - Create questions that test understanding of the material
 - Provide complete, accurate answers
 - Distribute difficulty: 6 easy, 8 medium, 6 hard
@@ -480,7 +332,7 @@ REQUIREMENTS:
 Return ONLY a JSON array:
 [
   {
-    "question": "Specific question based on OCR content",
+    "question": "Specific question based on content",
     "answer": "Complete, accurate answer",
     "difficulty": "easy|medium|hard",
     "topic": "specific topic area from content"
@@ -504,14 +356,13 @@ No text before or after the JSON.`
             },
             {
               role: 'user',
-              content: `Create 20 flashcards from this OCR-processed ${material.course} material:
+              content: `Create 20 flashcards from this ${material.course} material:
 
 ${cleanText.substring(0, 12000)}
 
 Course: ${material.course}
 Type: ${material.material_type}
-Title: ${material.name}
-Processing: OCR-Only Extraction`
+Title: ${material.name}`
             }
           ],
           temperature: 0.3,
@@ -560,8 +411,8 @@ Processing: OCR-Only Extraction`
       })
       .eq('id', materialId)
 
-    const deckName = `${material.name} - OCR Flashcards`
-    const deckDescription = `Generated from OCR-processed content for ${material.course}`
+    const deckName = `${material.name} - Flashcards`
+    const deckDescription = `Generated from ${material.course} material using direct text extraction`
 
     const { data: deck, error: deckError } = await supabase
       .from('cramintel_decks')
@@ -623,21 +474,21 @@ Processing: OCR-Only Extraction`
       })
       .eq('id', materialId)
 
-    console.log('Material processing completed successfully with OCR-only approach')
+    console.log('Material processing completed successfully with direct file processing')
 
     return new Response(JSON.stringify({
       success: true,
       flashcards_generated: flashcards.length,
       deck_id: deck.id,
-      ocr_processed: true,
+      extraction_method: 'google_vision_direct',
       extraction_confidence: extractionConfidence,
-      message: `Successfully generated ${flashcards.length} flashcards using OCR-only processing`
+      message: `Successfully generated ${flashcards.length} flashcards using direct file processing`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
 
   } catch (error) {
-    console.error('Error in OCR-only process-material function:', error)
+    console.error('Error in process-material function:', error)
     
     try {
       const { materialId } = requestBody
@@ -661,7 +512,7 @@ Processing: OCR-Only Extraction`
 
     return new Response(JSON.stringify({ 
       error: error.message,
-      details: 'OCR-only material processing failed'
+      details: 'Direct file processing failed'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
