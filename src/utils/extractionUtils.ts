@@ -1,5 +1,5 @@
 
-import { createWorker } from 'tesseract.js';
+import { createWorker, Worker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure PDF.js worker
@@ -35,18 +35,16 @@ export async function extractTextFromImage(
 ): Promise<ExtractionResult> {
   const startTime = Date.now();
   
-  const worker = await createWorker();
-  
-  await worker.loadLanguage(language);
-  await worker.initialize(language);
-  
-  const { data: { text, confidence } } = await worker.recognize(imageData, {
+  // Use the new v6 API - create worker with language directly
+  const worker = await createWorker(language, 1, {
     logger: (m) => {
       if (m.status === 'recognizing text' && onProgress) {
         onProgress(m.progress * 100);
       }
     }
   });
+  
+  const { data: { text, confidence } } = await worker.recognize(imageData);
   
   await worker.terminate();
   
@@ -114,9 +112,14 @@ export async function extractPdfToImageText(
   const numPages = pdf.numPages;
   let totalConfidence = 0;
   
-  const worker = await createWorker();
-  await worker.loadLanguage(language);
-  await worker.initialize(language);
+  // Use the new v6 API - create worker with language directly
+  const worker = await createWorker(language, 1, {
+    logger: (m) => {
+      if (m.status === 'recognizing text' && onProgress) {
+        onProgress((m.progress * 100) / numPages);
+      }
+    }
+  });
   
   for (let i = 1; i <= numPages; i++) {
     const page = await pdf.getPage(i);
