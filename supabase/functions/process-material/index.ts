@@ -114,18 +114,38 @@ serve(async (req) => {
       })
       .eq('id', materialId)
 
-    // Extract text using improved method
-    let extractedText = ''
-    const fileExtension = material.file_name.toLowerCase().split('.').pop()
+    // FIXED: Stack overflow prevention - convert to base64 safely
+    const arrayBuffer = await fileData.arrayBuffer()
+    const uint8Array = new Uint8Array(arrayBuffer)
+    
+    // Check file size to prevent memory issues
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
+    if (arrayBuffer.byteLength > MAX_FILE_SIZE) {
+      throw new Error(`File too large (${Math.round(arrayBuffer.byteLength / 1024 / 1024)}MB). Maximum size is 10MB.`)
+    }
 
-    try {
-      if (fileExtension === 'pdf') {
-        console.log('Processing PDF file')
-        extractedText = await extractTextFromFile(fileData, 'pdf')
-      } else {
-        console.log('Processing image file')
-        extractedText = await extractTextFromFile(fileData, 'image')
+    console.log(`Processing file of size: ${Math.round(arrayBuffer.byteLength / 1024)}KB`)
+
+    // FIXED: Byte-by-byte conversion to prevent stack overflow
+    let base64Content = ''
+    const chunkSize = 8192 // Process 8KB at a time
+    
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.slice(i, i + chunkSize)
+      // Convert chunk to string byte-by-byte (NO spread operator)
+      let chunkString = ''
+      for (let j = 0; j < chunk.length; j++) {
+        chunkString += String.fromCharCode(chunk[j])
       }
+      base64Content += btoa(chunkString)
+    }
+    
+    console.log(`File converted to base64, size: ${Math.round(base64Content.length / 1024)}KB`)
+
+    // Extract text using Google Vision API
+    let extractedText = ''
+    try {
+      extractedText = await extractTextFromFile(base64Content)
     } catch (extractionError) {
       console.error('Text extraction failed:', extractionError)
       throw new Error(`Text extraction failed: ${extractionError.message}`)
@@ -281,36 +301,14 @@ serve(async (req) => {
   }
 })
 
-// FIXED: Improved text extraction with better memory management
-async function extractTextFromFile(fileData: Blob, fileType: string): Promise<string> {
+// FIXED: Text extraction with proper error handling
+async function extractTextFromFile(base64Content: string): Promise<string> {
   const apiKey = Deno.env.get('GOOGLE_CLOUD_API_KEY') || Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY')
   if (!apiKey) {
     throw new Error('Google Cloud Vision API key not configured')
   }
 
-  // FIXED: Check file size to prevent memory issues
-  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
-  if (fileData.size > MAX_FILE_SIZE) {
-    throw new Error(`File too large (${Math.round(fileData.size / 1024 / 1024)}MB). Maximum size is 10MB.`)
-  }
-
-  console.log(`Processing file of size: ${Math.round(fileData.size / 1024)}KB`)
-
-  // FIXED: More efficient base64 conversion to prevent stack overflow
-  const arrayBuffer = await fileData.arrayBuffer()
-  const uint8Array = new Uint8Array(arrayBuffer)
-  
-  // Convert in chunks to prevent stack overflow
-  const chunkSize = 1024 * 1024; // 1MB chunks
-  let base64Content = ''
-  
-  for (let i = 0; i < uint8Array.length; i += chunkSize) {
-    const chunk = uint8Array.slice(i, i + chunkSize)
-    const chunkArray = Array.from(chunk)
-    base64Content += btoa(String.fromCharCode(...chunkArray))
-  }
-  
-  console.log(`File converted to base64, size: ${Math.round(base64Content.length / 1024)}KB`)
+  console.log(`Processing base64 content of size: ${Math.round(base64Content.length / 1024)}KB`)
 
   // Use Google Vision API REST endpoint
   const response = await fetch(
