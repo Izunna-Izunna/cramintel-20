@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -15,6 +16,7 @@ import StudentSupport from './pages/StudentSupport';
 import TermsOfService from './pages/TermsOfService';
 import TestPdfExtraction from './pages/TestPdfExtraction';
 import TestPredictions from './pages/TestPredictions';
+import TextExtractionTest from './pages/TextExtractionTest';
 import Waitlist from './pages/Waitlist';
 import ProtectedRoute from './components/ProtectedRoute';
 import SEO from './components/SEO';
@@ -41,6 +43,7 @@ function App() {
               <Route path="/support" element={<StudentSupport />} />
               <Route path="/waitlist" element={<Waitlist />} />
               <Route path="/test-pdf" element={<TestPdfExtraction />} />
+              <Route path="/test-extraction" element={<TextExtractionTest />} />
               <Route path="/test-predictions" element={<ProtectedRoute><TestPredictions /></ProtectedRoute>} />
               <Route 
                 path="/dashboard" 
