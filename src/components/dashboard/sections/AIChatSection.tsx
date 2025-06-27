@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, AlertCircle, Trash2, Heart, Sparkles } from 'lucide-react';
+import { Send, AlertCircle, Trash2 } from 'lucide-react';
 import { AIModeSelector, AIMode } from './ai-chat/AIModeSelector';
 import { MaterialAttachment } from './ai-chat/MaterialAttachment';
 import { ChatMessage } from './ai-chat/ChatMessage';
@@ -108,7 +108,7 @@ export function AIChatSection() {
         .from('cramintel_chat_conversations')
         .insert({
           user_id: user.id,
-          title: 'Study Session',
+          title: 'AI Tutor Chat',
           course: 'General'
         })
         .select()
@@ -128,19 +128,10 @@ export function AIChatSection() {
   };
 
   const addWelcomeMessage = () => {
-    const welcomeMessages = {
-      tutor: "Hey there! I'm so excited to be your study buddy today! 🌟 I'm ready to help you understand any topic step by step. What would you like to explore together?",
-      explain: "Hello! I'm here to make complex concepts crystal clear for you! ✨ What topic can I help you understand better today?",
-      quiz: "Hi study champion! Ready to test your knowledge and have some fun with it? 🎯 I can create custom quizzes from your materials!",
-      summarize: "Hey there, organized learner! I love turning complex information into clear, memorable summaries! 📝 What would you like me to break down for you?",
-      analyze: "Hello, deep thinker! I'm excited to help you analyze and connect ideas in new ways! 🔍 What concepts shall we explore together?",
-      practice: "Hey future exam ace! Let's practice and build your confidence! 💪 I'm here to help you succeed - what subject are we tackling today?"
-    };
-
     const welcomeMessage: Message = {
       id: Date.now().toString(),
       type: 'bot',
-      content: welcomeMessages[selectedMode],
+      content: `Hello! I'm your AI tutor. I'm currently in ${selectedMode} mode, ready to help you learn. You can attach materials and ask me questions about them, or just chat directly!`,
       mode: selectedMode,
       timestamp: new Date().toISOString()
     };
@@ -192,19 +183,10 @@ export function AIChatSection() {
 
   const handleModeChange = (mode: AIMode) => {
     setSelectedMode(mode);
-    const modeMessages = {
-      tutor: "Perfect! I'm now in tutor mode - ready to guide you through any concept step by step! 📚 What would you like to learn?",
-      explain: "Great choice! I'm in explanation mode - ready to make any topic super clear with examples and connections! 💡 What shall we dive into?",
-      quiz: "Awesome! Quiz mode activated - let's test your knowledge and make learning interactive! 🎯 Ready for some questions?",
-      summarize: "Excellent! I'm in summary mode - ready to organize and highlight the key points from your materials! 📋 What needs summarizing?",
-      analyze: "Wonderful! Analysis mode engaged - let's explore patterns, connections, and deeper insights together! 🔍 What shall we analyze?",
-      practice: "Perfect! Practice mode ready - let's build your skills and confidence with targeted exercises! 💪 What subject are we practicing?"
-    };
-
     const modeMessage: Message = {
       id: Date.now().toString(),
       type: 'bot',
-      content: modeMessages[mode],
+      content: `I'm now in ${mode} mode. ${getModeDescription(mode)} How can I help you?`,
       mode: mode,
       timestamp: new Date().toISOString()
     };
@@ -297,12 +279,12 @@ export function AIChatSection() {
     } catch (error: any) {
       console.error('Error sending message:', error);
       
-      let errorMessage = "Oops! I hit a little snag there. Let me try again - I'm determined to help you! 💪";
+      let errorMessage = 'Sorry, I encountered an error. Please try again.';
       
       if (error.message?.includes('OpenAI')) {
-        errorMessage = "I'm having trouble connecting to my knowledge base right now. The OpenAI service might need attention from our tech team!";
+        errorMessage = 'AI service is currently unavailable. Please check if the OpenAI API key is configured.';
       } else if (error.message?.includes('Unauthorized')) {
-        errorMessage = "Looks like we need to refresh your connection. Try signing in again and I'll be right here waiting to help!";
+        errorMessage = 'Authentication error. Please try signing in again.';
       }
 
       setError(errorMessage);
@@ -338,11 +320,8 @@ export function AIChatSection() {
     <div className="space-y-6 relative">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-800 font-space mb-2 flex items-center gap-2">
-            <Heart className="w-8 h-8 text-red-500" />
-            Your Study Buddy
-          </h2>
-          <p className="text-gray-600">Your dedicated learning companion who knows your materials inside and out! 🌟</p>
+          <h2 className="text-3xl font-bold text-gray-800 font-space mb-2">AI Tutor</h2>
+          <p className="text-gray-600">Get personalized help with different AI modes and attach your materials for context</p>
         </div>
         <Button
           onClick={clearChatHistory}
@@ -351,7 +330,7 @@ export function AIChatSection() {
           className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
         >
           <Trash2 className="w-4 h-4" />
-          Fresh Start
+          Clear History
         </Button>
       </div>
 
@@ -362,7 +341,7 @@ export function AIChatSection() {
         </div>
       )}
 
-      <Card className="h-[calc(100vh-200px)] flex flex-col border-2 border-blue-100">
+      <Card className="h-[calc(100vh-200px)] flex flex-col">
         <AIModeSelector selectedMode={selectedMode} onModeChange={handleModeChange} />
         
         <MaterialAttachment
@@ -374,7 +353,7 @@ export function AIChatSection() {
         <CardContent className="flex-1 flex flex-col p-0">
           <div 
             ref={chatContainerRef}
-            className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-blue-50/30 to-white"
+            className="flex-1 overflow-y-auto p-4 space-y-4"
           >
             {messages.map((msg) => (
               <ChatMessage
@@ -387,38 +366,36 @@ export function AIChatSection() {
             ))}
             {isLoading && (
               <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-blue-600 animate-pulse" />
+                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
                 </div>
-                <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-3">
-                  <div className="text-sm text-blue-700 font-medium">I'm thinking of the perfect way to help you... ✨</div>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div className="text-sm text-gray-500">AI is thinking...</div>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="border-t border-gray-200 p-4 bg-white">
+          <div className="border-t border-gray-200 p-4">
             <div className="flex gap-2">
               <Input
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                placeholder={`What would you like to explore today? I'm excited to help! 🌟`}
-                className="flex-1 border-2 border-blue-100 focus:border-blue-300"
+                placeholder={`Ask something in ${selectedMode} mode...`}
+                className="flex-1"
                 disabled={isLoading || !user}
               />
               <Button 
                 onClick={handleSendMessage}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                className="bg-gray-800 hover:bg-gray-700"
                 disabled={isLoading || !message.trim() || !user}
               >
                 <Send className="w-4 h-4" />
               </Button>
             </div>
-            {!user ? (
-              <p className="text-xs text-gray-500 mt-2">Please sign in to chat with your study buddy!</p>
-            ) : (
-              <p className="text-xs text-blue-600 mt-2">💡 Tip: Attach your study materials so I can give you personalized help!</p>
+            {!user && (
+              <p className="text-xs text-gray-500 mt-2">Please sign in to use the AI tutor.</p>
             )}
           </div>
         </CardContent>
