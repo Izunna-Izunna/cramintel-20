@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, Copy, Trash2, Image, Clock, Zap } from 'lucide-react';
-import { extractTextFromImage, ExtractionResult, supportedLanguages } from '@/utils/extractionUtils';
+import { extractTextFromImageFile, ExtractionResult, supportedLanguages } from '@/utils/extractionUtils';
 import { toast } from 'sonner';
 
 const ImageTextExtractor = () => {
@@ -37,7 +37,7 @@ const ImageTextExtractor = () => {
     setProgress(0);
     
     try {
-      const result = await extractTextFromImage(file, language, setProgress);
+      const result = await extractTextFromImageFile(file, language, setProgress);
       setExtractedText(result.text);
       setResult(result);
       toast.success('Text extracted successfully!');

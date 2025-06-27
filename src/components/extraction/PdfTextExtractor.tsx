@@ -64,11 +64,11 @@ const PdfTextExtractor = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="w-5 h-5 text-blue-600" />
-          Direct PDF Text Extraction
+          Enhanced PDF Text Extraction
         </CardTitle>
         <CardDescription>
-          Extract native text content directly from PDF files using PDF.js. 
-          Best for PDFs with selectable text content.
+          Extract native text content and embedded images from PDF files using PDF.js and OCR. 
+          Best for PDFs with both text and image content.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -108,7 +108,7 @@ const PdfTextExtractor = () => {
               disabled={!file || isProcessing}
               className="flex-1"
             >
-              {isProcessing ? 'Extracting...' : 'Extract Text'}
+              {isProcessing ? 'Extracting...' : 'Extract Text + Images'}
             </Button>
             {extractedText && (
               <>

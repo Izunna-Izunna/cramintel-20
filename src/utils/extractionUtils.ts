@@ -1,12 +1,10 @@
 
 import { createWorker, Worker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
+import { extractTextFromImage } from '@/lib/imageUtils';
 
-// Configure PDF.js worker - Use local worker instead of CDN
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url
-).toString();
+// Configure PDF.js worker - Use CDN worker for compatibility
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export interface ExtractionResult {
   text: string;
@@ -31,7 +29,7 @@ export const supportedLanguages = [
   { code: 'hin', name: 'Hindi' },
 ];
 
-export async function extractTextFromImage(
+export async function extractTextFromImageFile(
   imageData: string | File, 
   language: string = 'eng',
   onProgress?: (progress: number) => void
@@ -95,6 +93,25 @@ export async function extractDirectPdfText(
       if (pageText) {
         fullText += pageText + '\n\n';
       }
+
+      // Extract text from embedded images
+      try {
+        const operatorList = await page.getOperatorList();
+        for (let j = 0; j < operatorList.fnArray.length; j++) {
+          if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
+            const imageIndex = operatorList.argsArray[j][0];
+            const image = await page.objs.get(imageIndex);
+            if (image && image.src) {
+              const imageText = await extractTextFromImage(image.src);
+              if (imageText.trim()) {
+                fullText += `[Image Text: ${imageText.trim()}]\n\n`;
+              }
+            }
+          }
+        }
+      } catch (imageError) {
+        console.warn('Error extracting images from page', i, ':', imageError);
+      }
     }
     
     const processingTime = Date.now() - startTime;
@@ -103,7 +120,7 @@ export async function extractDirectPdfText(
       text: fullText.trim(),
       processingTime,
       pageCount: numPages,
-      method: 'PDF.js Direct Text'
+      method: 'PDF.js Direct Text + Image OCR'
     };
   } catch (error) {
     console.error('PDF text extraction failed:', error);
