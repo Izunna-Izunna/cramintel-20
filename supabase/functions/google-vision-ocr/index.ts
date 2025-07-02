@@ -144,64 +144,122 @@ serve(async (req) => {
 
 async function convertPdfToImages(pdfArrayBuffer: ArrayBuffer): Promise<string[]> {
   try {
-    // Use pdf-lib to parse the PDF
-    const { PDFDocument } = await import('https://esm.sh/pdf-lib@1.17.1');
+    // Import PDF.js and canvas for server-side PDF rendering
+    const { getDocument, GlobalWorkerOptions } = await import('https://esm.sh/pdfjs-dist@3.11.174');
+    const { createCanvas } = await import('https://esm.sh/canvas@2.11.2');
     
-    const pdfDoc = await PDFDocument.load(pdfArrayBuffer);
-    const pageCount = pdfDoc.getPageCount();
+    // Set up PDF.js worker
+    GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
     
-    // Limit to 10 pages to prevent timeouts
+    console.log('Loading PDF document...');
+    const pdfDoc = await getDocument({ data: pdfArrayBuffer }).promise;
+    const pageCount = pdfDoc.numPages;
+    
+    // Limit to 10 pages to prevent timeouts and excessive processing
     const maxPages = Math.min(pageCount, 10);
     const images: string[] = [];
     
     console.log(`Converting ${maxPages} pages from PDF to images`);
     
+    for (let i = 1; i <= maxPages; i++) {
+      console.log(`Converting page ${i}/${maxPages} to image...`);
+      
+      const page = await pdfDoc.getPage(i);
+      const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR quality
+      
+      // Create canvas with appropriate dimensions
+      const canvas = createCanvas(viewport.width, viewport.height);
+      const context = canvas.getContext('2d');
+      
+      // Render PDF page to canvas
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+      
+      // Convert canvas to PNG base64
+      const imageBuffer = canvas.toBuffer('image/png');
+      const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+      
+      // Validate that we have actual PNG data
+      if (!base64Image.startsWith('iVBORw0KGgo')) {
+        console.warn(`Page ${i} conversion may have failed - not valid PNG data`);
+      }
+      
+      images.push(base64Image);
+      console.log(`Page ${i} converted successfully (${Math.round(base64Image.length / 1024)}KB)`);
+    }
+    
+    console.log(`Successfully converted ${images.length} pages to images`);
+    return images;
+    
+  } catch (error) {
+    console.error('Error converting PDF to images:', error);
+    
+    // If canvas approach fails, fall back to a simpler method
+    console.log('Falling back to simpler PDF processing...');
+    return await fallbackPdfProcessing(pdfArrayBuffer);
+  }
+}
+
+async function fallbackPdfProcessing(pdfArrayBuffer: ArrayBuffer): Promise<string[]> {
+  try {
+    // Simple fallback: use pdf-lib to extract pages and send as single-page PDFs
+    // This is less ideal but should work as a backup
+    const { PDFDocument } = await import('https://esm.sh/pdf-lib@1.17.1');
+    
+    const pdfDoc = await PDFDocument.load(pdfArrayBuffer);
+    const pageCount = pdfDoc.getPageCount();
+    const maxPages = Math.min(pageCount, 5); // Reduce pages for fallback
+    const pdfPages: string[] = [];
+    
+    console.log(`Fallback: Processing ${maxPages} pages as single-page PDFs`);
+    
     for (let i = 0; i < maxPages; i++) {
-      // Create a new PDF with just one page
       const singlePagePdf = await PDFDocument.create();
       const [copiedPage] = await singlePagePdf.copyPages(pdfDoc, [i]);
       singlePagePdf.addPage(copiedPage);
       
-      // Convert to bytes
       const pdfBytes = await singlePagePdf.save();
-      
-      // Convert PDF page to image using canvas (simplified approach)
-      // For production, you might want to use a more robust PDF-to-image converter
       const base64Pdf = btoa(String.fromCharCode(...pdfBytes));
-      
-      // Since we can't easily render PDF to canvas in Deno edge runtime,
-      // we'll use a different approach: send the single-page PDF to Vision API
-      // using the files endpoint which can handle PDFs
-      const pageImage = await convertSinglePagePdfToImage(base64Pdf);
-      images.push(pageImage);
+      pdfPages.push(base64Pdf);
     }
     
-    return images;
+    return pdfPages;
   } catch (error) {
-    console.error('Error converting PDF to images:', error);
-    throw new Error(`PDF conversion failed: ${error.message}`);
+    console.error('Fallback PDF processing also failed:', error);
+    throw new Error(`PDF processing completely failed: ${error.message}`);
   }
-}
-
-async function convertSinglePagePdfToImage(base64Pdf: string): Promise<string> {
-  // For now, we'll create a placeholder approach
-  // In a real implementation, you would use a proper PDF-to-image converter
-  // Since we're in a Deno environment, options are limited
-  
-  // As a fallback, we'll return the PDF data and let Vision API handle it
-  // using the document detection on the raw PDF data
-  return base64Pdf;
 }
 
 async function processImageWithVision(base64Content: string, apiKey: string): Promise<{text: string, confidence?: number}> {
   try {
-    // Determine if this is likely a PDF or an image
-    const isPdfContent = base64Content.startsWith('JVBERi') || base64Content.includes('PDF');
+    // Check if content is PNG image data (starts with PNG signature)
+    const isPngImage = base64Content.startsWith('iVBORw0KGgo');
+    // Check if content is JPEG image data (starts with JPEG signature)
+    const isJpegImage = base64Content.startsWith('/9j/');
+    // Check if it's still PDF data (fallback case)
+    const isPdfContent = base64Content.startsWith('JVBERi');
+    
+    console.log(`Processing content: PNG=${isPngImage}, JPEG=${isJpegImage}, PDF=${isPdfContent}`);
     
     let visionRequest;
     
-    if (isPdfContent) {
-      // Use document text detection for PDF content
+    if (isPngImage || isJpegImage) {
+      // Use image text detection for actual image data
+      visionRequest = {
+        requests: [{
+          image: {
+            content: base64Content
+          },
+          features: [{
+            type: 'DOCUMENT_TEXT_DETECTION'
+          }]
+        }]
+      };
+    } else if (isPdfContent) {
+      // For fallback PDF processing, use document text detection
+      console.log('Processing PDF content directly (fallback mode)');
       visionRequest = {
         requests: [{
           image: {
@@ -213,7 +271,7 @@ async function processImageWithVision(base64Content: string, apiKey: string): Pr
         }]
       };
     } else {
-      // Use text detection for images
+      console.warn('Unknown content type, treating as image');
       visionRequest = {
         requests: [{
           image: {
@@ -227,6 +285,7 @@ async function processImageWithVision(base64Content: string, apiKey: string): Pr
       };
     }
 
+    console.log('Sending request to Google Vision API...');
     const response = await fetch(
       `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
       {
@@ -240,10 +299,12 @@ async function processImageWithVision(base64Content: string, apiKey: string): Pr
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('Vision API HTTP Error:', response.status, errorText);
       throw new Error(`Vision API error: ${response.status} - ${errorText}`);
     }
 
     const visionResponse = await response.json();
+    console.log('Vision API response received');
     
     // Check for API errors
     if (visionResponse.responses?.[0]?.error) {
@@ -254,41 +315,40 @@ async function processImageWithVision(base64Content: string, apiKey: string): Pr
     let extractedText = '';
     let confidence = 0;
 
-    if (isPdfContent) {
-      // Handle document text detection response
-      if (visionResponse.responses?.[0]?.fullTextAnnotation) {
-        extractedText = visionResponse.responses[0].fullTextAnnotation.text || '';
-        
-        // Calculate confidence from pages if available
-        const pages = visionResponse.responses[0].fullTextAnnotation.pages || [];
-        if (pages.length > 0) {
-          const confidenceSum = pages.reduce((sum: number, page: any) => {
-            const pageConfidence = page.blocks?.reduce((blockSum: number, block: any) => 
-              blockSum + (block.confidence || 0), 0) || 0;
-            return sum + (pageConfidence / (page.blocks?.length || 1));
-          }, 0);
-          confidence = confidenceSum / pages.length;
-        }
+    // Handle document text detection response
+    if (visionResponse.responses?.[0]?.fullTextAnnotation) {
+      extractedText = visionResponse.responses[0].fullTextAnnotation.text || '';
+      
+      // Calculate confidence from pages if available
+      const pages = visionResponse.responses[0].fullTextAnnotation.pages || [];
+      if (pages.length > 0) {
+        const confidenceSum = pages.reduce((sum: number, page: any) => {
+          const pageConfidence = page.blocks?.reduce((blockSum: number, block: any) => 
+            blockSum + (block.confidence || 0), 0) || 0;
+          return sum + (pageConfidence / (page.blocks?.length || 1));
+        }, 0);
+        confidence = confidenceSum / pages.length;
       }
-    } else {
-      // Handle regular text detection response
-      if (visionResponse.responses?.[0]?.textAnnotations?.[0]) {
-        extractedText = visionResponse.responses[0].textAnnotations[0].description || '';
-        
-        // Calculate average confidence from all detected text
-        const annotations = visionResponse.responses[0].textAnnotations;
-        if (annotations.length > 1) {
-          const confidenceSum = annotations.slice(1).reduce((sum: number, annotation: any) => 
-            sum + (annotation.confidence || 0), 0);
-          confidence = confidenceSum / (annotations.length - 1);
-        }
+    } 
+    // Handle regular text detection response (fallback)
+    else if (visionResponse.responses?.[0]?.textAnnotations?.[0]) {
+      extractedText = visionResponse.responses[0].textAnnotations[0].description || '';
+      
+      // Calculate average confidence from all detected text
+      const annotations = visionResponse.responses[0].textAnnotations;
+      if (annotations.length > 1) {
+        const confidenceSum = annotations.slice(1).reduce((sum: number, annotation: any) => 
+          sum + (annotation.confidence || 0), 0);
+        confidence = confidenceSum / (annotations.length - 1);
       }
     }
 
+    console.log(`Extracted ${extractedText.length} characters with confidence: ${confidence}`);
     return {
       text: extractedText,
       confidence: confidence > 0 ? confidence : undefined
     };
+    
   } catch (error) {
     console.error('Error processing with Vision API:', error);
     throw error;
