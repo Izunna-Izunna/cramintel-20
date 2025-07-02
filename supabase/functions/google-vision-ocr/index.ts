@@ -27,6 +27,8 @@ serve(async (req) => {
       );
     }
 
+    console.log(`Processing file: ${filePath}`);
+
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -50,6 +52,7 @@ serve(async (req) => {
 
     // Convert file to array buffer for processing
     const arrayBuffer = await fileData.arrayBuffer();
+    const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
     
     // Determine file type
     const isImage = filePath.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|bmp)$/);
@@ -67,63 +70,24 @@ serve(async (req) => {
       );
     }
 
-    let extractedText = '';
-    let totalConfidence = 0;
-    let pageCount = 1;
-    let confidenceCount = 0;
+    console.log(`File type detected - Image: ${!!isImage}, PDF: ${!!isPdf}`);
 
-    if (isImage) {
-      // Process image directly
-      const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-      const result = await processImageWithVision(base64Content, apiKey);
-      extractedText = result.text;
-      totalConfidence = result.confidence || 0;
-      confidenceCount = result.confidence ? 1 : 0;
-    } else if (isPdf) {
-      // Convert PDF to images and process each page
-      const pdfImages = await convertPdfToImages(arrayBuffer);
-      pageCount = pdfImages.length;
-      
-      console.log(`Processing ${pageCount} pages from PDF`);
-      
-      for (let i = 0; i < pdfImages.length; i++) {
-        console.log(`Processing page ${i + 1}/${pageCount}`);
-        
-        const result = await processImageWithVision(pdfImages[i], apiKey);
-        
-        if (result.text.trim()) {
-          extractedText += `--- Page ${i + 1} ---\n${result.text.trim()}\n\n`;
-        }
-        
-        if (result.confidence) {
-          totalConfidence += result.confidence;
-          confidenceCount++;
-        }
-      }
-    } else {
-      return new Response(
-        JSON.stringify({ error: 'Unsupported file type. Please upload JPEG, PNG, or PDF files.' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    // Calculate average confidence
-    const avgConfidence = confidenceCount > 0 ? totalConfidence / confidenceCount : undefined;
+    // Process with Google Vision API
+    const result = await processWithGoogleVision(base64Content, apiKey, isPdf);
 
     // Clean up: delete the uploaded file from storage
     await supabase.storage
       .from('cramintel-materials')
       .remove([filePath]);
 
+    console.log('Processing completed successfully');
+
     return new Response(
       JSON.stringify({
-        extractedText: extractedText.trim(),
-        confidence: avgConfidence,
-        pages: isPdf ? pageCount : undefined,
-        fileType: isImage ? 'image' : 'pdf'
+        extractedText: result.text,
+        confidence: result.confidence,
+        fileType: isPdf ? 'pdf' : 'image',
+        processingMethod: 'google-vision-api'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -133,7 +97,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in google-vision-ocr function:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ 
+        error: error.message || 'Internal server error',
+        stack: error.stack 
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -142,148 +109,24 @@ serve(async (req) => {
   }
 });
 
-async function convertPdfToImages(pdfArrayBuffer: ArrayBuffer): Promise<string[]> {
+async function processWithGoogleVision(base64Content: string, apiKey: string, isPdf: boolean): Promise<{text: string, confidence?: number}> {
   try {
-    // Import PDF.js and canvas for server-side PDF rendering
-    const { getDocument, GlobalWorkerOptions } = await import('https://esm.sh/pdfjs-dist@3.11.174');
-    const { createCanvas } = await import('https://esm.sh/canvas@2.11.2');
+    console.log(`Processing with Google Vision API - Content size: ${base64Content.length} chars, PDF: ${isPdf}`);
     
-    // Set up PDF.js worker
-    GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    // Choose the appropriate feature type based on file type
+    const featureType = isPdf ? 'DOCUMENT_TEXT_DETECTION' : 'TEXT_DETECTION';
     
-    console.log('Loading PDF document...');
-    const pdfDoc = await getDocument({ data: pdfArrayBuffer }).promise;
-    const pageCount = pdfDoc.numPages;
-    
-    // Limit to 10 pages to prevent timeouts and excessive processing
-    const maxPages = Math.min(pageCount, 10);
-    const images: string[] = [];
-    
-    console.log(`Converting ${maxPages} pages from PDF to images`);
-    
-    for (let i = 1; i <= maxPages; i++) {
-      console.log(`Converting page ${i}/${maxPages} to image...`);
-      
-      const page = await pdfDoc.getPage(i);
-      const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR quality
-      
-      // Create canvas with appropriate dimensions
-      const canvas = createCanvas(viewport.width, viewport.height);
-      const context = canvas.getContext('2d');
-      
-      // Render PDF page to canvas
-      await page.render({
-        canvasContext: context,
-        viewport: viewport
-      }).promise;
-      
-      // Convert canvas to PNG base64
-      const imageBuffer = canvas.toBuffer('image/png');
-      const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-      
-      // Validate that we have actual PNG data
-      if (!base64Image.startsWith('iVBORw0KGgo')) {
-        console.warn(`Page ${i} conversion may have failed - not valid PNG data`);
-      }
-      
-      images.push(base64Image);
-      console.log(`Page ${i} converted successfully (${Math.round(base64Image.length / 1024)}KB)`);
-    }
-    
-    console.log(`Successfully converted ${images.length} pages to images`);
-    return images;
-    
-  } catch (error) {
-    console.error('Error converting PDF to images:', error);
-    
-    // If canvas approach fails, fall back to a simpler method
-    console.log('Falling back to simpler PDF processing...');
-    return await fallbackPdfProcessing(pdfArrayBuffer);
-  }
-}
-
-async function fallbackPdfProcessing(pdfArrayBuffer: ArrayBuffer): Promise<string[]> {
-  try {
-    // Simple fallback: use pdf-lib to extract pages and send as single-page PDFs
-    // This is less ideal but should work as a backup
-    const { PDFDocument } = await import('https://esm.sh/pdf-lib@1.17.1');
-    
-    const pdfDoc = await PDFDocument.load(pdfArrayBuffer);
-    const pageCount = pdfDoc.getPageCount();
-    const maxPages = Math.min(pageCount, 5); // Reduce pages for fallback
-    const pdfPages: string[] = [];
-    
-    console.log(`Fallback: Processing ${maxPages} pages as single-page PDFs`);
-    
-    for (let i = 0; i < maxPages; i++) {
-      const singlePagePdf = await PDFDocument.create();
-      const [copiedPage] = await singlePagePdf.copyPages(pdfDoc, [i]);
-      singlePagePdf.addPage(copiedPage);
-      
-      const pdfBytes = await singlePagePdf.save();
-      const base64Pdf = btoa(String.fromCharCode(...pdfBytes));
-      pdfPages.push(base64Pdf);
-    }
-    
-    return pdfPages;
-  } catch (error) {
-    console.error('Fallback PDF processing also failed:', error);
-    throw new Error(`PDF processing completely failed: ${error.message}`);
-  }
-}
-
-async function processImageWithVision(base64Content: string, apiKey: string): Promise<{text: string, confidence?: number}> {
-  try {
-    // Check if content is PNG image data (starts with PNG signature)
-    const isPngImage = base64Content.startsWith('iVBORw0KGgo');
-    // Check if content is JPEG image data (starts with JPEG signature)
-    const isJpegImage = base64Content.startsWith('/9j/');
-    // Check if it's still PDF data (fallback case)
-    const isPdfContent = base64Content.startsWith('JVBERi');
-    
-    console.log(`Processing content: PNG=${isPngImage}, JPEG=${isJpegImage}, PDF=${isPdfContent}`);
-    
-    let visionRequest;
-    
-    if (isPngImage || isJpegImage) {
-      // Use image text detection for actual image data
-      visionRequest = {
-        requests: [{
-          image: {
-            content: base64Content
-          },
-          features: [{
-            type: 'DOCUMENT_TEXT_DETECTION'
-          }]
+    const visionRequest = {
+      requests: [{
+        image: {
+          content: base64Content
+        },
+        features: [{
+          type: featureType,
+          maxResults: 1
         }]
-      };
-    } else if (isPdfContent) {
-      // For fallback PDF processing, use document text detection
-      console.log('Processing PDF content directly (fallback mode)');
-      visionRequest = {
-        requests: [{
-          image: {
-            content: base64Content
-          },
-          features: [{
-            type: 'DOCUMENT_TEXT_DETECTION'
-          }]
-        }]
-      };
-    } else {
-      console.warn('Unknown content type, treating as image');
-      visionRequest = {
-        requests: [{
-          image: {
-            content: base64Content
-          },
-          features: [{
-            type: 'TEXT_DETECTION',
-            maxResults: 1
-          }]
-        }]
-      };
-    }
+      }]
+    };
 
     console.log('Sending request to Google Vision API...');
     const response = await fetch(
@@ -315,12 +158,14 @@ async function processImageWithVision(base64Content: string, apiKey: string): Pr
     let extractedText = '';
     let confidence = 0;
 
-    // Handle document text detection response
-    if (visionResponse.responses?.[0]?.fullTextAnnotation) {
-      extractedText = visionResponse.responses[0].fullTextAnnotation.text || '';
+    const responseData = visionResponse.responses?.[0];
+    
+    if (responseData?.fullTextAnnotation) {
+      // Use fullTextAnnotation for better text extraction (especially for PDFs)
+      extractedText = responseData.fullTextAnnotation.text || '';
       
       // Calculate confidence from pages if available
-      const pages = visionResponse.responses[0].fullTextAnnotation.pages || [];
+      const pages = responseData.fullTextAnnotation.pages || [];
       if (pages.length > 0) {
         const confidenceSum = pages.reduce((sum: number, page: any) => {
           const pageConfidence = page.blocks?.reduce((blockSum: number, block: any) => 
@@ -329,13 +174,12 @@ async function processImageWithVision(base64Content: string, apiKey: string): Pr
         }, 0);
         confidence = confidenceSum / pages.length;
       }
-    } 
-    // Handle regular text detection response (fallback)
-    else if (visionResponse.responses?.[0]?.textAnnotations?.[0]) {
-      extractedText = visionResponse.responses[0].textAnnotations[0].description || '';
+    } else if (responseData?.textAnnotations?.[0]) {
+      // Fallback to textAnnotations
+      extractedText = responseData.textAnnotations[0].description || '';
       
       // Calculate average confidence from all detected text
-      const annotations = visionResponse.responses[0].textAnnotations;
+      const annotations = responseData.textAnnotations;
       if (annotations.length > 1) {
         const confidenceSum = annotations.slice(1).reduce((sum: number, annotation: any) => 
           sum + (annotation.confidence || 0), 0);
@@ -344,6 +188,7 @@ async function processImageWithVision(base64Content: string, apiKey: string): Pr
     }
 
     console.log(`Extracted ${extractedText.length} characters with confidence: ${confidence}`);
+    
     return {
       text: extractedText,
       confidence: confidence > 0 ? confidence : undefined
