@@ -3,6 +3,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
+import { Toaster } from 'react-hot-toast';
 import Index from './pages/Index';
 import About from './pages/About';
 import Auth from './pages/Auth';
@@ -17,6 +18,7 @@ import TermsOfService from './pages/TermsOfService';
 import TestPdfExtraction from './pages/TestPdfExtraction';
 import TestPredictions from './pages/TestPredictions';
 import TextExtractionTest from './pages/TextExtractionTest';
+import GoogleVisionTest from './pages/GoogleVisionTest';
 import Waitlist from './pages/Waitlist';
 import ProtectedRoute from './components/ProtectedRoute';
 import SEO from './components/SEO';
@@ -44,6 +46,7 @@ function App() {
               <Route path="/waitlist" element={<Waitlist />} />
               <Route path="/test-pdf" element={<TestPdfExtraction />} />
               <Route path="/test-extraction" element={<TextExtractionTest />} />
+              <Route path="/google-vision-test" element={<GoogleVisionTest />} />
               <Route path="/test-predictions" element={<ProtectedRoute><TestPredictions /></ProtectedRoute>} />
               <Route 
                 path="/dashboard" 
@@ -55,6 +58,7 @@ function App() {
               />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <Toaster position="top-right" />
           </div>
         </BrowserRouter>
       </QueryClientProvider>
