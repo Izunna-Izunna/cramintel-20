@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Upload, FileText, Download, Loader2, AlertCircle, CheckCircle, FileX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +15,7 @@ interface ApiResponse {
   extractedText?: string;
   error?: string;
   details?: string;
+  pageCount?: number;
 }
 
 const GoogleVisionExtractor: React.FC = () => {
@@ -24,6 +24,7 @@ const GoogleVisionExtractor: React.FC = () => {
   const [extractedText, setExtractedText] = useState('');
   const [error, setError] = useState('');
   const [processingStep, setProcessingStep] = useState('');
+  const [pageCount, setPageCount] = useState<number | null>(null);
   const { toast } = useToast();
 
   const validateFile = (selectedFile: File): { valid: boolean; error?: string } => {
@@ -66,6 +67,7 @@ const GoogleVisionExtractor: React.FC = () => {
     setFile(selectedFile);
     setError('');
     setExtractedText('');
+    setPageCount(null);
     console.log('File validation passed');
   };
 
@@ -97,11 +99,16 @@ const GoogleVisionExtractor: React.FC = () => {
     console.log('Starting file processing...');
     setIsProcessing(true);
     setError('');
-    setProcessingStep('Preparing file...');
+    setProcessingStep(file.type === 'application/pdf' ? 'Converting PDF to images...' : 'Preparing file...');
 
     try {
-      // Try JSON method first (more reliable)
-      setProcessingStep('Converting file to base64...');
+      // Set appropriate processing steps based on file type
+      if (file.type === 'application/pdf') {
+        setProcessingStep('Converting PDF pages to images...');
+      } else {
+        setProcessingStep('Converting file to base64...');
+      }
+      
       console.log('Converting file to base64...');
       
       const reader = new FileReader();
@@ -114,7 +121,11 @@ const GoogleVisionExtractor: React.FC = () => {
       const base64Data = await base64Promise;
       console.log(`Base64 conversion complete, length: ${base64Data.length}`);
       
-      setProcessingStep('Sending to Google Vision API...');
+      if (file.type === 'application/pdf') {
+        setProcessingStep('Processing PDF pages with Google Vision API...');
+      } else {
+        setProcessingStep('Sending to Google Vision API...');
+      }
       
       const jsonPayload = {
         file: base64Data,
@@ -146,12 +157,17 @@ const GoogleVisionExtractor: React.FC = () => {
 
       if (result.success) {
         setExtractedText(result.extractedText || '');
+        setPageCount(result.pageCount || null);
         setProcessingStep('');
         console.log('Text extraction successful!');
         
+        const successMessage = file.type === 'application/pdf' 
+          ? `Extracted text from ${result.pageCount || 1} page(s) of ${file.name}`
+          : `Extracted ${result.extractedText?.length || 0} characters from ${file.name}`;
+        
         toast({
           title: "Success!",
-          description: `Extracted ${result.extractedText?.length || 0} characters from ${file.name}`,
+          description: successMessage,
         });
       } else {
         throw new Error(result.error || 'Failed to extract text');
@@ -195,9 +211,9 @@ const GoogleVisionExtractor: React.FC = () => {
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Google Vision OCR Text Extractor</h1>
-        <p className="text-gray-600">Upload PDFs or images to extract text using Google Cloud Vision API</p>
+        <p className="text-gray-600">Upload PDFs or images to extract text using Google Cloud Vision API with advanced document analysis</p>
         <div className="mt-2 text-sm text-gray-500">
-          Maximum file size: {MAX_FILE_SIZE / 1024 / 1024}MB
+          Maximum file size: {MAX_FILE_SIZE / 1024 / 1024}MB | Supports: PDF, JPEG, PNG, GIF, WebP
         </div>
       </div>
 
@@ -234,7 +250,7 @@ const GoogleVisionExtractor: React.FC = () => {
             <div className="flex items-center justify-center gap-2">
               <CheckCircle className="h-4 w-4 text-green-600" />
               <span className="text-sm text-gray-700">
-                📄 {file.name} ({formatFileSize(file.size)})
+                {file.type === 'application/pdf' ? '📄' : '🖼️'} {file.name} ({formatFileSize(file.size)})
               </span>
             </div>
           </div>
@@ -252,7 +268,7 @@ const GoogleVisionExtractor: React.FC = () => {
             {isProcessing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
+                {file.type === 'application/pdf' ? 'Processing PDF...' : 'Processing...'}
               </>
             ) : (
               <>
@@ -271,6 +287,11 @@ const GoogleVisionExtractor: React.FC = () => {
             <Loader2 className="h-5 w-5 text-blue-600 mr-2 animate-spin" />
             <p className="text-blue-700 font-medium">{processingStep}</p>
           </div>
+          {file?.type === 'application/pdf' && (
+            <p className="text-sm text-blue-600 mt-1">
+              PDF files may take longer to process as each page is converted to an image
+            </p>
+          )}
         </div>
       )}
 
@@ -289,7 +310,12 @@ const GoogleVisionExtractor: React.FC = () => {
         <div className="mt-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-800">Extracted Text</h2>
-            <div className="flex gap-2">
+            <div className="flex gap-4 items-center">
+              {pageCount && pageCount > 1 && (
+                <span className="text-sm text-gray-600">
+                  {pageCount} pages processed
+                </span>
+              )}
               <span className="text-sm text-gray-600">
                 {extractedText.length} characters
               </span>
