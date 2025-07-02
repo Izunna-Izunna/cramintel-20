@@ -13,25 +13,29 @@ const GoogleVisionExtractor: React.FC = () => {
   const [error, setError] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  const validateAndSetFile = (selectedFile: File) => {
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(selectedFile.type)) {
+      setError('Please select a PDF, JPEG, PNG, GIF, or WebP file.');
+      return;
+    }
+    
+    // Validate file size (max 10MB)
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      setError('File size must be less than 10MB.');
+      return;
+    }
+    
+    setFile(selectedFile);
+    setError('');
+    setExtractedText('');
+  };
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      // Validate file type
-      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (!allowedTypes.includes(selectedFile.type)) {
-        setError('Please select a PDF, JPEG, PNG, GIF, or WebP file.');
-        return;
-      }
-      
-      // Validate file size (max 10MB)
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        setError('File size must be less than 10MB.');
-        return;
-      }
-      
-      setFile(selectedFile);
-      setError('');
-      setExtractedText('');
+      validateAndSetFile(selectedFile);
     }
   };
 
@@ -39,8 +43,7 @@ const GoogleVisionExtractor: React.FC = () => {
     event.preventDefault();
     const droppedFile = event.dataTransfer.files[0];
     if (droppedFile) {
-      const fakeEvent = { target: { files: [droppedFile] } } as React.ChangeEvent<HTMLInputElement>;
-      handleFileChange(fakeEvent);
+      validateAndSetFile(droppedFile);
     }
   };
 
