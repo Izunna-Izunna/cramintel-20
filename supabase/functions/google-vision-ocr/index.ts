@@ -1,37 +1,80 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import "https://deno.land/x/xhr@0.1.0/mod.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Types
-interface ProcessedPage {
-  pageNumber: number;
-  imageBuffer: Uint8Array;
-  mimeType: string;
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface OCRResult {
-  pageNumber: number;
-  text: string;
-  confidence?: number;
+interface VisionAPIResponse {
+  responses: Array<{
+    fullTextAnnotation?: {
+      text: string;
+    };
+    error?: {
+      code: number;
+      message: string;
+    };
+  }>;
 }
 
 serve(async (req) => {
-  // CORS headers
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  }
-
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
     console.log('Starting PDF OCR processing...');
+    console.log('Request method:', req.method);
+    console.log('Content-Type:', req.headers.get('content-type'));
     
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
+    let file: File;
+    
+    // Check if the request is multipart/form-data
+    const contentType = req.headers.get('content-type') || '';
+    console.log('Full content type:', contentType);
+    
+    if (contentType.includes('multipart/form-data')) {
+      console.log('Processing as form data...');
+      try {
+        const formData = await req.formData();
+        file = formData.get('file') as File;
+        console.log('FormData processed successfully');
+      } catch (formDataError) {
+        console.error('FormData processing failed:', formDataError);
+        throw new Error(`Failed to process form data: ${formDataError.message}`);
+      }
+    } else if (contentType.includes('application/json')) {
+      console.log('Processing as JSON...');
+      try {
+        const body = await req.json();
+        console.log('JSON body received:', Object.keys(body));
+        
+        // Handle base64 encoded file from JSON
+        if (body.file && body.fileName && body.fileType) {
+          const base64Data = body.file.split(',')[1] || body.file; // Remove data:mime;base64, prefix if present
+          const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+          file = new File([binaryData], body.fileName, { type: body.fileType });
+          console.log('JSON file processed successfully');
+        } else {
+          throw new Error('Invalid JSON format. Expected {file, fileName, fileType}');
+        }
+      } catch (jsonError) {
+        console.error('JSON processing failed:', jsonError);
+        throw new Error(`Failed to process JSON: ${jsonError.message}`);
+      }
+    } else {
+      // Try to read as text to see what we're actually getting
+      try {
+        const text = await req.text();
+        console.log('Raw request body (first 500 chars):', text.substring(0, 500));
+        throw new Error(`Unsupported content type: ${contentType}. Expected multipart/form-data or application/json. Raw body: ${text.substring(0, 100)}...`);
+      } catch (textError) {
+        throw new Error(`Unsupported content type: ${contentType}. Expected multipart/form-data or application/json. Could not read body: ${textError.message}`);
+      }
+    }
     
     if (!file) {
       throw new Error('No file provided');
@@ -39,171 +82,102 @@ serve(async (req) => {
 
     console.log(`Processing file: ${file.name}, size: ${file.size} bytes, type: ${file.type}`);
 
-    // Handle both PDFs and images
-    if (file.type === 'application/pdf') {
-      // Process PDF
-      const pdfBuffer = await file.arrayBuffer();
-      const pdfBytes = new Uint8Array(pdfBuffer);
-
-      console.log('Converting PDF to processable format...');
-      const processedPages = await processPdfDirectly(pdfBytes);
-      console.log(`Successfully processed PDF into ${processedPages.length} pages`);
-
-      // Process each page with Google Vision OCR
-      console.log('Starting OCR processing...');
-      const ocrResults: OCRResult[] = [];
-      
-      for (const page of processedPages) {
-        try {
-          const ocrResult = await performOCR(page);
-          ocrResults.push(ocrResult);
-          console.log(`Completed OCR for page ${page.pageNumber}`);
-        } catch (error) {
-          console.error(`OCR failed for page ${page.pageNumber}:`, error);
-          ocrResults.push({
-            pageNumber: page.pageNumber,
-            text: '',
-            confidence: 0
-          });
-        }
-      }
-
-      // Combine results
-      const combinedText = ocrResults
-        .sort((a, b) => a.pageNumber - b.pageNumber)
-        .map(result => `--- Page ${result.pageNumber} ---\n${result.text}`)
-        .join('\n\n');
-
-      const response = {
-        success: true,
-        totalPages: processedPages.length,
-        extractedText: combinedText,
-        pageResults: ocrResults,
-        metadata: {
-          fileName: file.name,
-          fileSize: file.size,
-          processedAt: new Date().toISOString()
-        }
-      };
-
-      return new Response(JSON.stringify(response), {
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        },
-      });
-
-    } else if (file.type.startsWith('image/')) {
-      // Process single image
-      console.log('Processing single image...');
-      const imageBuffer = await file.arrayBuffer();
-      const processedImage: ProcessedPage = {
-        pageNumber: 1,
-        imageBuffer: new Uint8Array(imageBuffer),
-        mimeType: file.type
-      };
-
-      const ocrResult = await performOCR(processedImage);
-      
-      const response = {
-        success: true,
-        totalPages: 1,
-        extractedText: ocrResult.text,
-        pageResults: [ocrResult],
-        metadata: {
-          fileName: file.name,
-          fileSize: file.size,
-          processedAt: new Date().toISOString()
-        }
-      };
-
-      return new Response(JSON.stringify(response), {
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        },
-      });
-
-    } else {
-      throw new Error(`Unsupported file type: ${file.type}. Please upload PDF, JPEG, or PNG files.`);
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error(`Unsupported file type: ${file.type}. Supported types: PDF, JPEG, PNG, GIF, WebP`);
     }
 
+    // Convert file to base64
+    const arrayBuffer = await file.arrayBuffer();
+    const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    
+    console.log('File converted to base64, length:', base64Content.length);
+
+    // Get Google Cloud API key - using the correct secret name
+    const apiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY');
+    if (!apiKey) {
+      throw new Error('Google Cloud Vision API key not configured');
+    }
+
+    // Process with Google Vision API
+    const extractedTexts = await processWithGoogleVision(base64Content, file.type, apiKey);
+    
+    console.log('Successfully extracted text from', extractedTexts.length, 'pages/images');
+
+    // Combine extracted texts for frontend compatibility
+    const combinedText = extractedTexts.join('\n\n--- Page Break ---\n\n');
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        extractedText: combinedText, // Frontend expects this format
+        totalPages: extractedTexts.length,
+        pageResults: extractedTexts.map((text, index) => ({
+          pageNumber: index + 1,
+          text: text,
+          confidence: undefined
+        })),
+        metadata: {
+          fileName: file.name,
+          fileSize: file.size,
+          processedAt: new Date().toISOString()
+        }
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+
   } catch (error) {
-    console.error('Error in PDF OCR function:', error);
+    console.error('Error in google-vision-ocr function:', error);
     
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message,
-        stack: error.stack
+        details: error.stack
       }),
       {
         status: 500,
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   }
 });
 
-async function processPdfDirectly(pdfBytes: Uint8Array): Promise<ProcessedPage[]> {
+async function processWithGoogleVision(
+  base64Content: string, 
+  mimeType: string, 
+  apiKey: string
+): Promise<string[]> {
   try {
-    console.log('Processing PDF directly for Google Vision...');
+    console.log('Sending request to Google Vision API...');
     
-    // For now, we'll send the entire PDF to Google Vision
-    // Google Vision API can handle multi-page PDFs directly
-    return [{
-      pageNumber: 1,
-      imageBuffer: pdfBytes,
-      mimeType: 'application/pdf'
-    }];
-
-  } catch (error) {
-    console.error('PDF processing error:', error);
-    throw new Error(`PDF processing failed: ${error.message}`);
-  }
-}
-
-async function performOCR(processedPage: ProcessedPage): Promise<OCRResult> {
-  const googleCloudApiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY');
-  
-  if (!googleCloudApiKey) {
-    throw new Error('GOOGLE_CLOUD_VISION_API_KEY environment variable is not set');
-  }
-
-  try {
-    // Convert buffer to base64
-    const base64Content = btoa(
-      String.fromCharCode(...processedPage.imageBuffer)
-    );
-
-    // Prepare Google Vision API request
-    const visionRequest = {
-      requests: [{
-        image: {
-          content: base64Content
-        },
-        features: [{
-          type: 'DOCUMENT_TEXT_DETECTION',
-          maxResults: 1
-        }]
-      }]
-    };
-
-    console.log(`Sending OCR request for page ${processedPage.pageNumber}, content size: ${base64Content.length} chars`);
+    const visionUrl = `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`;
     
-    const response = await fetch(
-      `https://vision.googleapis.com/v1/images:annotate?key=${googleCloudApiKey}`,
+    // For PDFs, we can use the PDF processing feature
+    const requestBody = mimeType === 'application/pdf' ? 
+      await processPdfWithGoogleVision(base64Content, apiKey) :
       {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(visionRequest),
-      }
-    );
+        requests: [{
+          image: {
+            content: base64Content
+          },
+          features: [{
+            type: 'DOCUMENT_TEXT_DETECTION',
+            maxResults: 1
+          }]
+        }]
+      };
+
+    const response = await fetch(visionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -211,38 +185,63 @@ async function performOCR(processedPage: ProcessedPage): Promise<OCRResult> {
       throw new Error(`Google Vision API error: ${response.status} - ${errorText}`);
     }
 
-    const result = await response.json();
+    const result: VisionAPIResponse = await response.json();
     console.log('Google Vision API response received');
-    
-    if (result.responses && result.responses[0]) {
-      const response = result.responses[0];
+
+    if (!result.responses || result.responses.length === 0) {
+      throw new Error('No responses from Google Vision API');
+    }
+
+    const extractedTexts: string[] = [];
+
+    for (let i = 0; i < result.responses.length; i++) {
+      const response = result.responses[i];
       
-      // Check for errors in the response
       if (response.error) {
-        throw new Error(`Google Vision API error: ${response.error.message}`);
+        console.error(`Error in response ${i}:`, response.error);
+        extractedTexts.push(`Error processing page ${i + 1}: ${response.error.message}`);
+        continue;
       }
-      
-      const annotation = response.fullTextAnnotation;
-      
-      if (annotation && annotation.text) {
-        return {
-          pageNumber: processedPage.pageNumber,
-          text: annotation.text,
-          confidence: annotation.pages?.[0]?.confidence || undefined
-        };
+
+      if (response.fullTextAnnotation?.text) {
+        extractedTexts.push(response.fullTextAnnotation.text);
+        console.log(`Extracted text from page ${i + 1}, length: ${response.fullTextAnnotation.text.length}`);
+      } else {
+        extractedTexts.push('No text detected');
+        console.log(`No text detected on page ${i + 1}`);
       }
     }
 
-    // No text found
-    console.log(`No text detected in page ${processedPage.pageNumber}`);
-    return {
-      pageNumber: processedPage.pageNumber,
-      text: '',
-      confidence: 0
-    };
+    return extractedTexts;
 
   } catch (error) {
-    console.error(`OCR error for page ${processedPage.pageNumber}:`, error);
-    throw error;
+    console.error('Error in processWithGoogleVision:', error);
+    throw new Error(`Google Vision processing failed: ${error.message}`);
   }
+}
+
+// For multi-page PDFs, we use Google Vision API's PDF processing capability
+async function processPdfWithGoogleVision(
+  base64Content: string,
+  apiKey: string
+): Promise<any> {
+  console.log('Processing PDF with Google Vision API...');
+  
+  return {
+    requests: [{
+      inputConfig: {
+        content: base64Content,
+        mimeType: 'application/pdf'
+      },
+      features: [{
+        type: 'DOCUMENT_TEXT_DETECTION'
+      }],
+      outputConfig: {
+        gcsDestination: {
+          uri: '' // Can be empty for synchronous processing
+        },
+        batchSize: 1
+      }
+    }]
+  };
 }
