@@ -167,10 +167,10 @@ async function processPdfDirectly(pdfBytes: Uint8Array): Promise<ProcessedPage[]
 }
 
 async function performOCR(processedPage: ProcessedPage): Promise<OCRResult> {
-  const googleCloudApiKey = Deno.env.get('GOOGLE_CLOUD_API_KEY');
+  const googleCloudApiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY');
   
   if (!googleCloudApiKey) {
-    throw new Error('GOOGLE_CLOUD_API_KEY environment variable is not set');
+    throw new Error('GOOGLE_CLOUD_VISION_API_KEY environment variable is not set');
   }
 
   try {
