@@ -94,30 +94,21 @@ serve(async (req) => {
     
     console.log('File converted to base64, length:', base64Content.length);
 
-    // Get Google Cloud API key - using the correct secret name
+    // Get Google Cloud API key
     const apiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY');
     if (!apiKey) {
       throw new Error('Google Cloud Vision API key not configured');
     }
 
-    // Process with Google Vision API
-    const extractedTexts = await processWithGoogleVision(base64Content, file.type, apiKey);
+    // Process with Google Vision API using simplified approach
+    const extractedText = await processWithGoogleVision(base64Content, file.type, apiKey);
     
-    console.log('Successfully extracted text from', extractedTexts.length, 'pages/images');
-
-    // Combine extracted texts for frontend compatibility
-    const combinedText = extractedTexts.join('\n\n--- Page Break ---\n\n');
+    console.log('Successfully extracted text, length:', extractedText.length);
 
     return new Response(
       JSON.stringify({
         success: true,
-        extractedText: combinedText, // Frontend expects this format
-        totalPages: extractedTexts.length,
-        pageResults: extractedTexts.map((text, index) => ({
-          pageNumber: index + 1,
-          text: text,
-          confidence: undefined
-        })),
+        extractedText: extractedText, // Single text string for frontend compatibility
         metadata: {
           fileName: file.name,
           fileSize: file.size,
@@ -150,26 +141,24 @@ async function processWithGoogleVision(
   base64Content: string, 
   mimeType: string, 
   apiKey: string
-): Promise<string[]> {
+): Promise<string> {
   try {
     console.log('Sending request to Google Vision API...');
     
     const visionUrl = `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`;
     
-    // For PDFs, we can use the PDF processing feature
-    const requestBody = mimeType === 'application/pdf' ? 
-      await processPdfWithGoogleVision(base64Content, apiKey) :
-      {
-        requests: [{
-          image: {
-            content: base64Content
-          },
-          features: [{
-            type: 'DOCUMENT_TEXT_DETECTION',
-            maxResults: 1
-          }]
+    // Use the same request structure for all file types (PDFs and images)
+    const requestBody = {
+      requests: [{
+        image: {
+          content: base64Content
+        },
+        features: [{
+          type: 'DOCUMENT_TEXT_DETECTION',
+          maxResults: 1
         }]
-      };
+      }]
+    };
 
     const response = await fetch(visionUrl, {
       method: 'POST',
@@ -192,56 +181,23 @@ async function processWithGoogleVision(
       throw new Error('No responses from Google Vision API');
     }
 
-    const extractedTexts: string[] = [];
-
-    for (let i = 0; i < result.responses.length; i++) {
-      const response = result.responses[i];
-      
-      if (response.error) {
-        console.error(`Error in response ${i}:`, response.error);
-        extractedTexts.push(`Error processing page ${i + 1}: ${response.error.message}`);
-        continue;
-      }
-
-      if (response.fullTextAnnotation?.text) {
-        extractedTexts.push(response.fullTextAnnotation.text);
-        console.log(`Extracted text from page ${i + 1}, length: ${response.fullTextAnnotation.text.length}`);
-      } else {
-        extractedTexts.push('No text detected');
-        console.log(`No text detected on page ${i + 1}`);
-      }
+    const response_data = result.responses[0];
+    
+    if (response_data.error) {
+      console.error('Error in Google Vision response:', response_data.error);
+      throw new Error(`Google Vision API error: ${response_data.error.message}`);
     }
 
-    return extractedTexts;
+    if (response_data.fullTextAnnotation?.text) {
+      console.log(`Extracted text length: ${response_data.fullTextAnnotation.text.length}`);
+      return response_data.fullTextAnnotation.text;
+    } else {
+      console.log('No text detected in the document');
+      return 'No text detected';
+    }
 
   } catch (error) {
     console.error('Error in processWithGoogleVision:', error);
     throw new Error(`Google Vision processing failed: ${error.message}`);
   }
-}
-
-// For multi-page PDFs, we use Google Vision API's PDF processing capability
-async function processPdfWithGoogleVision(
-  base64Content: string,
-  apiKey: string
-): Promise<any> {
-  console.log('Processing PDF with Google Vision API...');
-  
-  return {
-    requests: [{
-      inputConfig: {
-        content: base64Content,
-        mimeType: 'application/pdf'
-      },
-      features: [{
-        type: 'DOCUMENT_TEXT_DETECTION'
-      }],
-      outputConfig: {
-        gcsDestination: {
-          uri: '' // Can be empty for synchronous processing
-        },
-        batchSize: 1
-      }
-    }]
-  };
 }
