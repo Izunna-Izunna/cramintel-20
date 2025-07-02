@@ -6,6 +6,13 @@ import { Upload, FileText, Download, Loader2, AlertCircle } from 'lucide-react';
 const SUPABASE_URL = 'https://bccelkcfjpiuabvkcytj.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjY2Vsa2NmanBpdWFidmtjeXRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE4ODIxODcsImV4cCI6MjA1NzQ1ODE4N30.Y39av86ORWxMQZ_xgoFNqX9YYj25owKimduR4ek1ZTs';
 
+interface ApiResponse {
+  success: boolean;
+  extractedText?: string;
+  error?: string;
+  details?: string;
+}
+
 const GoogleVisionExtractor: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -63,34 +70,61 @@ const GoogleVisionExtractor: React.FC = () => {
 
     try {
       console.log('Starting upload process...');
+      console.log('File details:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
       
-      // Method 1: Try with FormData first (recommended)
+      // First, let's try the JSON method (more reliable with Supabase Edge Functions)
+      setUploadProgress(10);
+      
+      try {
+        console.log('Trying JSON upload method...');
+        const success = await uploadAsBase64();
+        if (success) {
+          console.log('JSON upload successful!');
+          return;
+        }
+      } catch (jsonError) {
+        console.log('JSON method failed, trying FormData...', jsonError);
+      }
+      
+      setUploadProgress(25);
+      
+      // Fallback to FormData method
+      console.log('Trying FormData upload method...');
       const formData = new FormData();
       formData.append('file', file);
       
-      setUploadProgress(25);
+      // Log the FormData contents
+      for (let [key, value] of formData.entries()) {
+        console.log('FormData entry:', key, typeof value, value instanceof File ? 'File object' : value);
+      }
+      
+      setUploadProgress(50);
       
       const response = await fetch(`${SUPABASE_URL}/functions/v1/google-vision-ocr`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          // Don't set Content-Type header - let browser set it with boundary for FormData
+          // Don't set Content-Type - let browser handle it for FormData
         },
         body: formData,
       });
 
       setUploadProgress(75);
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
       if (!response.ok) {
-        // If FormData fails, try with base64 JSON method
-        console.log('FormData method failed, trying base64 method...');
-        const base64Response = await uploadAsBase64();
-        if (base64Response) return; // Success with base64 method
-        
-        throw new Error(`Server responded with status ${response.status}`);
+        const errorText = await response.text();
+        console.error('Server error response:', errorText);
+        throw new Error(`Server error (${response.status}): ${errorText}`);
       }
 
-      const result = await response.json();
+      const result: ApiResponse = await response.json();
       setUploadProgress(100);
 
       if (result.success) {
@@ -109,7 +143,7 @@ const GoogleVisionExtractor: React.FC = () => {
     }
   };
 
-  // Fallback method using base64 encoding
+  // Primary upload method using base64 encoding (more reliable with Supabase)
   const uploadAsBase64 = async (): Promise<boolean> => {
     try {
       console.log('Converting file to base64...');
@@ -122,12 +156,19 @@ const GoogleVisionExtractor: React.FC = () => {
       });
       
       const base64Data = await base64Promise;
+      console.log('Base64 conversion complete, length:', base64Data.length);
       
       const jsonPayload = {
         file: base64Data,
         fileName: file!.name,
         fileType: file!.type
       };
+
+      console.log('Sending JSON payload:', {
+        fileName: jsonPayload.fileName,
+        fileType: jsonPayload.fileType,
+        fileSize: jsonPayload.file.length
+      });
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/google-vision-ocr`, {
         method: 'POST',
@@ -138,23 +179,28 @@ const GoogleVisionExtractor: React.FC = () => {
         body: JSON.stringify(jsonPayload),
       });
 
+      console.log('JSON response status:', response.status);
+
       if (!response.ok) {
-        throw new Error(`Base64 upload failed with status ${response.status}`);
+        const errorText = await response.text();
+        console.error('JSON upload error response:', errorText);
+        throw new Error(`JSON upload failed with status ${response.status}: ${errorText}`);
       }
 
-      const result = await response.json();
+      const result: ApiResponse = await response.json();
       
       if (result.success) {
         setExtractedText(result.extractedText || '');
-        console.log('Base64 text extraction successful!');
+        setUploadProgress(100);
+        console.log('JSON text extraction successful!');
         return true;
       } else {
-        throw new Error(result.error || 'Base64 extraction failed');
+        throw new Error(result.error || 'JSON extraction failed');
       }
       
     } catch (err) {
       console.error('Base64 upload error:', err);
-      return false;
+      throw err; // Re-throw to be handled by caller
     }
   };
 
