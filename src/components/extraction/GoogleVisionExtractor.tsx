@@ -99,16 +99,15 @@ const GoogleVisionExtractor: React.FC = () => {
     console.log('Starting file processing...');
     setIsProcessing(true);
     setError('');
-    setProcessingStep(file.type === 'application/pdf' ? 'Converting PDF to images...' : 'Preparing file...');
+    
+    // Set appropriate processing steps based on file type
+    if (file.type === 'application/pdf') {
+      setProcessingStep('Converting PDF pages to images...');
+    } else {
+      setProcessingStep('Preparing image for text extraction...');
+    }
 
     try {
-      // Set appropriate processing steps based on file type
-      if (file.type === 'application/pdf') {
-        setProcessingStep('Converting PDF pages to images...');
-      } else {
-        setProcessingStep('Converting file to base64...');
-      }
-      
       console.log('Converting file to base64...');
       
       const reader = new FileReader();
@@ -122,9 +121,9 @@ const GoogleVisionExtractor: React.FC = () => {
       console.log(`Base64 conversion complete, length: ${base64Data.length}`);
       
       if (file.type === 'application/pdf') {
-        setProcessingStep('Processing PDF pages with Google Vision API...');
+        setProcessingStep('Processing PDF with advanced image conversion...');
       } else {
-        setProcessingStep('Sending to Google Vision API...');
+        setProcessingStep('Analyzing image with Google Vision API...');
       }
       
       const jsonPayload = {
@@ -162,8 +161,8 @@ const GoogleVisionExtractor: React.FC = () => {
         console.log('Text extraction successful!');
         
         const successMessage = file.type === 'application/pdf' 
-          ? `Extracted text from ${result.pageCount || 1} page(s) of ${file.name}`
-          : `Extracted ${result.extractedText?.length || 0} characters from ${file.name}`;
+          ? `Successfully extracted text from ${result.pageCount || 1} page(s) of ${file.name} using advanced PDF-to-image conversion`
+          : `Successfully extracted ${result.extractedText?.length || 0} characters from ${file.name}`;
         
         toast({
           title: "Success!",
@@ -214,6 +213,9 @@ const GoogleVisionExtractor: React.FC = () => {
         <p className="text-gray-600">Upload PDFs or images to extract text using Google Cloud Vision API with advanced document analysis</p>
         <div className="mt-2 text-sm text-gray-500">
           Maximum file size: {MAX_FILE_SIZE / 1024 / 1024}MB | Supports: PDF, JPEG, PNG, GIF, WebP
+        </div>
+        <div className="mt-1 text-xs text-blue-600 font-medium">
+          ✨ PDFs are now processed using advanced page-to-image conversion for superior text extraction
         </div>
       </div>
 
@@ -268,7 +270,7 @@ const GoogleVisionExtractor: React.FC = () => {
             {isProcessing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {file.type === 'application/pdf' ? 'Processing PDF...' : 'Processing...'}
+                {file.type === 'application/pdf' ? 'Converting PDF Pages...' : 'Processing...'}
               </>
             ) : (
               <>
@@ -288,9 +290,14 @@ const GoogleVisionExtractor: React.FC = () => {
             <p className="text-blue-700 font-medium">{processingStep}</p>
           </div>
           {file?.type === 'application/pdf' && (
-            <p className="text-sm text-blue-600 mt-1">
-              PDF files may take longer to process as each page is converted to an image
-            </p>
+            <div className="mt-2 space-y-1">
+              <p className="text-sm text-blue-600">
+                📄 Converting each PDF page to high-quality images for optimal text extraction
+              </p>
+              <p className="text-xs text-blue-500">
+                This ensures the best possible OCR results, especially for scanned documents
+              </p>
+            </div>
           )}
         </div>
       )}

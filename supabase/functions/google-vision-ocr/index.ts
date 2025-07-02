@@ -61,20 +61,72 @@ function validateFileSize(size: number): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
-// Simple PDF.js replacement for Deno
-class SimplePDFProcessor {
+// PDF.js implementation for Deno
+class PDFProcessor {
   static async processBuffer(buffer: ArrayBuffer): Promise<string[]> {
-    console.log('Processing PDF buffer with simple PDF processor...');
+    console.log('🔄 Processing PDF buffer with PDF.js...');
     
-    // For now, we'll convert the entire PDF to a single image
-    // This is a simplified approach - in a real implementation, 
-    // you'd use a proper PDF library to extract individual pages
-    
-    const base64 = arrayBufferToBase64(buffer);
-    console.log('PDF converted to base64 for processing');
-    
-    // Return as single page for now
-    return [base64];
+    try {
+      // Import PDF.js for Deno
+      const pdfjs = await import('https://cdn.skypack.dev/pdfjs-dist@3.11.174');
+      
+      // Set up PDF.js worker
+      pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdn.skypack.dev/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+      
+      console.log('📄 Loading PDF document...');
+      const loadingTask = pdfjs.getDocument({ data: buffer });
+      const pdf = await loadingTask.promise;
+      
+      const numPages = pdf.numPages;
+      console.log(`📊 PDF has ${numPages} pages`);
+      
+      const pageImages: string[] = [];
+      
+      // Process each page
+      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+        console.log(`🔍 Processing page ${pageNum}/${numPages}...`);
+        
+        try {
+          const page = await pdf.getPage(pageNum);
+          const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR
+          
+          // Create canvas using OffscreenCanvas for Deno
+          const canvas = new OffscreenCanvas(viewport.width, viewport.height);
+          const context = canvas.getContext('2d');
+          
+          if (!context) {
+            throw new Error('Failed to get canvas context');
+          }
+          
+          // Render page to canvas
+          const renderContext = {
+            canvasContext: context,
+            viewport: viewport,
+          };
+          
+          await page.render(renderContext).promise;
+          
+          // Convert canvas to blob then to base64
+          const blob = await canvas.convertToBlob({ type: 'image/png' });
+          const arrayBuffer = await blob.arrayBuffer();
+          const base64 = arrayBufferToBase64(arrayBuffer);
+          
+          pageImages.push(base64);
+          console.log(`✅ Page ${pageNum} converted to image (${base64.length} chars)`);
+          
+        } catch (pageError) {
+          console.error(`❌ Error processing page ${pageNum}:`, pageError);
+          throw new Error(`Failed to process page ${pageNum}: ${pageError.message}`);
+        }
+      }
+      
+      console.log(`✅ Successfully converted ${pageImages.length} PDF pages to images`);
+      return pageImages;
+      
+    } catch (error) {
+      console.error('❌ PDF processing failed:', error);
+      throw new Error(`PDF processing failed: ${error.message}`);
+    }
   }
 }
 
@@ -83,8 +135,7 @@ async function processPDFToImages(buffer: ArrayBuffer): Promise<string[]> {
   console.log('🔄 Starting PDF to images conversion...');
   
   try {
-    // Use our simple PDF processor
-    const pageImages = await SimplePDFProcessor.processBuffer(buffer);
+    const pageImages = await PDFProcessor.processBuffer(buffer);
     console.log(`✅ PDF converted to ${pageImages.length} page images`);
     return pageImages;
   } catch (error) {
