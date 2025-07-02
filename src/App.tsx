@@ -19,6 +19,7 @@ import TestPdfExtraction from './pages/TestPdfExtraction';
 import TestPredictions from './pages/TestPredictions';
 import TextExtractionTest from './pages/TextExtractionTest';
 import GoogleVisionTest from './pages/GoogleVisionTest';
+import GoogleVisionApiTestPage from './pages/GoogleVisionApiTest';
 import Waitlist from './pages/Waitlist';
 import ProtectedRoute from './components/ProtectedRoute';
 import SEO from './components/SEO';
