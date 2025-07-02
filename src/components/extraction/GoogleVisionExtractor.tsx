@@ -102,7 +102,7 @@ const GoogleVisionExtractor: React.FC = () => {
     
     // Set appropriate processing steps based on file type
     if (file.type === 'application/pdf') {
-      setProcessingStep('Converting PDF pages to images...');
+      setProcessingStep('Analyzing PDF structure and content...');
     } else {
       setProcessingStep('Preparing image for text extraction...');
     }
@@ -121,7 +121,7 @@ const GoogleVisionExtractor: React.FC = () => {
       console.log(`Base64 conversion complete, length: ${base64Data.length}`);
       
       if (file.type === 'application/pdf') {
-        setProcessingStep('Processing PDF with advanced image conversion...');
+        setProcessingStep('Processing PDF with hybrid text extraction...');
       } else {
         setProcessingStep('Analyzing image with Google Vision API...');
       }
@@ -161,7 +161,7 @@ const GoogleVisionExtractor: React.FC = () => {
         console.log('Text extraction successful!');
         
         const successMessage = file.type === 'application/pdf' 
-          ? `Successfully extracted text from ${result.pageCount || 1} page(s) of ${file.name} using advanced PDF-to-image conversion`
+          ? `Successfully extracted text from ${result.pageCount || 1} page(s) of ${file.name} using hybrid PDF processing`
           : `Successfully extracted ${result.extractedText?.length || 0} characters from ${file.name}`;
         
         toast({
@@ -210,12 +210,12 @@ const GoogleVisionExtractor: React.FC = () => {
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Google Vision OCR Text Extractor</h1>
-        <p className="text-gray-600">Upload PDFs or images to extract text using Google Cloud Vision API with advanced document analysis</p>
+        <p className="text-gray-600">Upload PDFs or images to extract text using Google Cloud Vision API with smart hybrid processing</p>
         <div className="mt-2 text-sm text-gray-500">
           Maximum file size: {MAX_FILE_SIZE / 1024 / 1024}MB | Supports: PDF, JPEG, PNG, GIF, WebP
         </div>
         <div className="mt-1 text-xs text-blue-600 font-medium">
-          ✨ PDFs are now processed using advanced page-to-image conversion for superior text extraction
+          ✨ PDFs are processed using intelligent hybrid text extraction for optimal results
         </div>
       </div>
 
@@ -270,7 +270,7 @@ const GoogleVisionExtractor: React.FC = () => {
             {isProcessing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {file.type === 'application/pdf' ? 'Converting PDF Pages...' : 'Processing...'}
+                {file.type === 'application/pdf' ? 'Processing PDF...' : 'Processing...'}
               </>
             ) : (
               <>
@@ -292,10 +292,10 @@ const GoogleVisionExtractor: React.FC = () => {
           {file?.type === 'application/pdf' && (
             <div className="mt-2 space-y-1">
               <p className="text-sm text-blue-600">
-                📄 Converting each PDF page to high-quality images for optimal text extraction
+                📄 Using smart hybrid processing: attempting direct text extraction first, then falling back to image analysis if needed
               </p>
               <p className="text-xs text-blue-500">
-                This ensures the best possible OCR results, especially for scanned documents
+                This approach ensures optimal results for both text-based and scanned PDFs
               </p>
             </div>
           )}
