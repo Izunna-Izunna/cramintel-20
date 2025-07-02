@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,6 +32,7 @@ serve(async (req) => {
     const contentType = req.headers.get('content-type') || '';
     console.log('Content type:', contentType);
     
+    // Handle different content types
     if (contentType.includes('multipart/form-data')) {
       console.log('Processing FormData...');
       const formData = await req.formData();
@@ -76,7 +76,7 @@ serve(async (req) => {
       throw new Error('Google Cloud Vision API key not configured');
     }
 
-    // Call Google Vision API
+    // Call Google Vision API - same approach for all file types
     console.log('Calling Google Vision API...');
     const visionUrl = `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`;
     
