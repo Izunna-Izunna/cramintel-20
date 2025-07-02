@@ -1,10 +1,19 @@
 
 import { createWorker } from 'tesseract.js';
 
-export async function extractTextFromImage(imageData: string, language: string = 'eng'): Promise<string> {
-  // Use v6 API - create worker with language directly
-  const worker = await createWorker(language);
+export async function extractTextFromImage(imageData: string | File, language: string = 'eng'): Promise<string> {
+  // Create Tesseract worker
+  const worker = await createWorker();
+  
+  // Load and initialize the specified language
+  await worker.loadLanguage(language);
+  await worker.initialize(language);
+  
+  // Perform OCR on the image data
   const { data: { text } } = await worker.recognize(imageData);
-  await worker.terminate(); // Always terminate to free memory
+  
+  // Clean up worker to free memory
+  await worker.terminate();
+  
   return text;
 }
