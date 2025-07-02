@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Copy, FileText, Image, Loader2, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
 
 interface ExtractionResult {
@@ -17,6 +18,7 @@ interface ExtractionResult {
 }
 
 const GoogleVisionExtractor: React.FC = () => {
+  const { user } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [extractedText, setExtractedText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -44,9 +46,13 @@ const GoogleVisionExtractor: React.FC = () => {
   };
 
   const uploadFileToStorage = async (file: File): Promise<string> => {
+    if (!user) {
+      throw new Error('User must be authenticated to upload files');
+    }
+
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `google-vision/${fileName}`;
+    const filePath = `${user.id}/google-vision/${fileName}`;
 
     const { error } = await supabase.storage
       .from('cramintel-materials')
@@ -60,6 +66,11 @@ const GoogleVisionExtractor: React.FC = () => {
   };
 
   const handleExtractText = async () => {
+    if (!user) {
+      toast.error('Please sign in to use text extraction');
+      return;
+    }
+
     if (!selectedFile) {
       toast.error('Please select a file first');
       return;
@@ -134,6 +145,28 @@ const GoogleVisionExtractor: React.FC = () => {
     }
     return <FileText className="w-8 h-8 text-red-500" />;
   };
+
+  // Show sign-in message if user is not authenticated
+  if (!user) {
+    return (
+      <Card className="w-full max-w-4xl mx-auto">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Image className="w-6 h-6" />
+            Google Cloud Vision Text Extractor
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-center">
+          <p className="text-gray-600 mb-4">
+            Please sign in to use the Google Cloud Vision text extraction feature.
+          </p>
+          <Button onClick={() => window.location.href = '/auth'}>
+            Sign In
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
