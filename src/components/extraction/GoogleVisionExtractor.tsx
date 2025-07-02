@@ -1,353 +1,278 @@
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Upload, FileText, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import toast from 'react-hot-toast';
+import { Upload, FileText, Download, Loader2, AlertCircle } from 'lucide-react';
 
-interface PageResult {
-  pageNumber: number;
-  text: string;
-  confidence?: number;
-}
-
-interface ProcessingResult {
-  success: boolean;
-  extractedText: string;
-  totalPages: number;
-  pageResults: PageResult[];
-  metadata: {
-    processedAt: string;
-    fileType: string;
-    confidence?: number;
-  };
-  error?: string;
-}
+// Configuration - using your actual Supabase values
+const SUPABASE_URL = 'https://bccelkcfjpiuabvkcytj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjY2Vsa2NmanBpdWFidmtjeXRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE4ODIxODcsImV4cCI6MjA1NzQ1ODE4N30.Y39av86ORWxMQZ_xgoFNqX9YYj25owKimduR4ek1ZTs';
 
 const GoogleVisionExtractor: React.FC = () => {
-  const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
-  const [processing, setProcessing] = useState(false);
-  const [result, setResult] = useState<ProcessingResult | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [extractedText, setExtractedText] = useState('');
   const [error, setError] = useState('');
-  const [progress, setProgress] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
       // Validate file type
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-      if (!validTypes.includes(selectedFile.type)) {
-        setError('Please select a valid image (JPEG, PNG) or PDF file');
-        setFile(null);
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(selectedFile.type)) {
+        setError('Please select a PDF, JPEG, PNG, GIF, or WebP file.');
         return;
       }
       
       // Validate file size (max 10MB)
       if (selectedFile.size > 10 * 1024 * 1024) {
-        setError('File size must be less than 10MB');
-        setFile(null);
+        setError('File size must be less than 10MB.');
         return;
       }
       
       setFile(selectedFile);
       setError('');
-      setResult(null);
-      toast.success('File selected successfully');
+      setExtractedText('');
     }
   };
 
-  const uploadFileToStorage = async (file: File): Promise<string> => {
-    if (!user) {
-      throw new Error('User must be authenticated to upload files');
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    const droppedFile = event.dataTransfer.files[0];
+    if (droppedFile) {
+      const fakeEvent = { target: { files: [droppedFile] } } as React.ChangeEvent<HTMLInputElement>;
+      handleFileChange(fakeEvent);
     }
-
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `${user.id}/google-vision/${fileName}`;
-
-    const { error } = await supabase.storage
-      .from('cramintel-materials')
-      .upload(filePath, file);
-
-    if (error) {
-      throw new Error(`Upload failed: ${error.message}`);
-    }
-
-    return filePath;
   };
 
-  const handleUpload = async () => {
-    if (!user) {
-      setError('Please sign in to use text extraction');
-      return;
-    }
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
+  };
 
+  const uploadFile = async () => {
     if (!file) {
-      setError('Please select a file first');
+      setError('Please select a file first.');
       return;
     }
 
-    setProcessing(true);
+    setIsUploading(true);
     setError('');
-    setResult(null);
-    setProgress('Uploading file...');
+    setUploadProgress(0);
 
     try {
-      // Upload file to storage
-      setProgress('Uploading to storage...');
-      const filePath = await uploadFileToStorage(file);
-
-      setProgress('Converting and processing with OCR...');
+      console.log('Starting upload process...');
       
-      // Call the edge function
-      const { data, error: functionError } = await supabase.functions.invoke('google-vision-ocr', {
-        body: { filePath }
+      // Method 1: Try with FormData first (recommended)
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      setUploadProgress(25);
+      
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/google-vision-ocr`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          // Don't set Content-Type header - let browser set it with boundary for FormData
+        },
+        body: formData,
       });
 
-      if (functionError) {
-        throw new Error(functionError.message || 'Failed to extract text');
+      setUploadProgress(75);
+
+      if (!response.ok) {
+        // If FormData fails, try with base64 JSON method
+        console.log('FormData method failed, trying base64 method...');
+        const base64Response = await uploadAsBase64();
+        if (base64Response) return; // Success with base64 method
+        
+        throw new Error(`Server responded with status ${response.status}`);
       }
 
-      if (data.error) {
-        throw new Error(data.error);
+      const result = await response.json();
+      setUploadProgress(100);
+
+      if (result.success) {
+        setExtractedText(result.extractedText || '');
+        console.log('Text extraction successful!');
+      } else {
+        throw new Error(result.error || 'Failed to extract text');
       }
 
-      // Transform the response to match our interface
-      const transformedResult: ProcessingResult = {
-        success: true,
-        extractedText: data.extractedText || '',
-        totalPages: data.pages || 1,
-        pageResults: data.pages > 1 ? 
-          // For multi-page PDFs, split by page markers
-          data.extractedText.split('--- Page ').slice(1).map((pageText: string, index: number) => ({
-            pageNumber: index + 1,
-            text: pageText.replace(/^\d+ ---\n/, '').trim(),
-            confidence: data.confidence
-          })) :
-          // For single page or images
-          [{
-            pageNumber: 1,
-            text: data.extractedText || '',
-            confidence: data.confidence
-          }],
-        metadata: {
-          processedAt: new Date().toISOString(),
-          fileType: data.fileType || (file.type === 'application/pdf' ? 'pdf' : 'image'),
-          confidence: data.confidence
-        }
-      };
-
-      setResult(transformedResult);
-      setProgress('');
-      toast.success('Text extracted successfully!');
     } catch (err) {
       console.error('Upload error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to extract text';
-      setError(`Error: ${errorMessage}`);
-      toast.error(errorMessage);
+      setError(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
-      setProcessing(false);
-      setProgress('');
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  // Fallback method using base64 encoding
+  const uploadAsBase64 = async (): Promise<boolean> => {
+    try {
+      console.log('Converting file to base64...');
+      
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file!);
+      });
+      
+      const base64Data = await base64Promise;
+      
+      const jsonPayload = {
+        file: base64Data,
+        fileName: file!.name,
+        fileType: file!.type
+      };
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/google-vision-ocr`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(jsonPayload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Base64 upload failed with status ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setExtractedText(result.extractedText || '');
+        console.log('Base64 text extraction successful!');
+        return true;
+      } else {
+        throw new Error(result.error || 'Base64 extraction failed');
+      }
+      
+    } catch (err) {
+      console.error('Base64 upload error:', err);
+      return false;
     }
   };
 
   const downloadText = () => {
-    if (!result?.extractedText) return;
+    if (!extractedText) return;
     
-    const blob = new Blob([result.extractedText], { type: 'text/plain' });
+    const blob = new Blob([extractedText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${file?.name.replace(/\.[^/.]+$/, '') || 'extracted'}_text.txt`;
+    a.download = `${file!.name.replace(/\.[^/.]+$/, '')}_extracted_text.txt`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success('Text file downloaded!');
   };
-
-  const handleClear = () => {
-    setFile(null);
-    setResult(null);
-    setError('');
-    setProgress('');
-    // Reset file input
-    const fileInput = document.getElementById('file-input') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
-    toast.success('Cleared successfully');
-  };
-
-  // Show sign-in message if user is not authenticated
-  if (!user) {
-    return (
-      <Card className="w-full max-w-4xl mx-auto">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="w-6 h-6" />
-            Google Cloud Vision Text Extractor
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-center">
-          <p className="text-gray-600 mb-4">
-            Please sign in to use the Google Cloud Vision text extraction feature.
-          </p>
-          <Button onClick={() => window.location.href = '/auth'}>
-            Sign In
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">PDF OCR Processor</h1>
-        <p className="text-gray-600">Convert PDF documents and images to text using Google Cloud Vision OCR</p>
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">PDF OCR Text Extractor</h1>
+        <p className="text-gray-600">Upload a PDF or image to extract text using Google Cloud Vision</p>
       </div>
 
-      {/* File Upload */}
-      <div className="mb-6">
-        <div className="flex items-center justify-center w-full">
-          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-              <Upload className="w-8 h-8 mb-2 text-gray-500" />
-              <p className="mb-2 text-sm text-gray-500">
-                <span className="font-semibold">Click to upload</span> or drag and drop
-              </p>
-              <p className="text-xs text-gray-500">PDF, JPEG, PNG files (max 10MB)</p>
-            </div>
-            <input
-              id="file-input"
-              type="file"
-              className="hidden"
-              accept=".pdf,.jpeg,.jpg,.png"
-              onChange={handleFileSelect}
-            />
-          </label>
-        </div>
+      {/* File Upload Area */}
+      <div 
+        className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors"
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+      >
+        <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <p className="text-lg text-gray-600 mb-2">Click to upload or drag and drop</p>
+        <p className="text-sm text-gray-500 mb-4">PDF, JPEG, PNG, GIF, WebP files only (max 10MB)</p>
         
+        <input
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+          onChange={handleFileChange}
+          className="hidden"
+          id="file-upload"
+        />
+        <label
+          htmlFor="file-upload"
+          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 cursor-pointer transition-colors"
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          Choose File
+        </label>
+
         {file && (
-          <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-            <div className="flex items-center">
-              <FileText className="w-5 h-5 text-blue-600 mr-2" />
-              <span className="text-sm text-blue-800">{file.name}</span>
-              <span className="text-xs text-blue-600 ml-2">
-                ({(file.size / 1024 / 1024).toFixed(2)} MB)
-              </span>
-            </div>
+          <div className="mt-4 p-3 bg-gray-50 rounded-md">
+            <p className="text-sm text-gray-700">
+              📄 {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+            </p>
           </div>
         )}
       </div>
 
-      {/* Action Buttons */}
-      <div className="mb-6 flex gap-4">
-        <button
-          onClick={handleUpload}
-          disabled={!file || processing}
-          className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center"
-        >
-          {processing ? (
-            <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              <FileText className="w-5 h-5 mr-2" />
-              Extract Text
-            </>
-          )}
-        </button>
-        <Button
-          variant="outline"
-          onClick={handleClear}
-          disabled={processing}
-          className="px-6"
-        >
-          Clear
-        </Button>
-      </div>
+      {/* Upload Button */}
+      {file && (
+        <div className="mt-6 text-center">
+          <button
+            onClick={uploadFile}
+            disabled={isUploading}
+            className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          >
+            {isUploading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <FileText className="h-4 w-4 mr-2" />
+                Extract Text from {file.type.includes('pdf') ? 'PDF' : 'Image'}
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
-      {/* Progress */}
-      {progress && (
-        <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-          <div className="flex items-center">
-            <Loader2 className="w-4 h-4 text-blue-600 mr-2 animate-spin" />
-            <span className="text-sm text-blue-800">{progress}</span>
+      {/* Progress Bar */}
+      {isUploading && (
+        <div className="mt-4">
+          <div className="bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
           </div>
+          <p className="text-sm text-gray-600 mt-1 text-center">{uploadProgress}% complete</p>
         </div>
       )}
 
       {/* Error Display */}
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
           <div className="flex items-center">
-            <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-            <span className="text-sm text-red-800">{error}</span>
+            <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+            <p className="text-red-700">{error}</p>
           </div>
         </div>
       )}
 
-      {/* Success Result */}
-      {result && (
-        <div className="space-y-4">
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-center mb-2">
-              <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-              <span className="font-semibold text-green-800">Processing Complete!</span>
-            </div>
-            <div className="text-sm text-green-700">
-              <p>Total pages processed: {result.totalPages}</p>
-              <p>Processed at: {new Date(result.metadata.processedAt).toLocaleString()}</p>
-              {result.metadata.confidence && (
-                <p>Average confidence: {Math.round(result.metadata.confidence * 100)}%</p>
-              )}
-            </div>
+      {/* Extracted Text Display */}
+      {extractedText && (
+        <div className="mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-gray-800">Extracted Text</h2>
+            <button
+              onClick={downloadText}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download Text
+            </button>
           </div>
-
-          {/* Page Results Summary */}
-          {result.pageResults.length > 1 && (
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-gray-800 mb-3">Page Results:</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                {result.pageResults.map((page) => (
-                  <div key={page.pageNumber} className="bg-white p-3 rounded border">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">Page {page.pageNumber}</span>
-                      <span className="text-sm text-gray-500">
-                        {page.text.length} chars
-                      </span>
-                    </div>
-                    {page.confidence && (
-                      <div className="text-xs text-gray-600">
-                        Confidence: {(page.confidence * 100).toFixed(1)}%
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Extracted Text */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-semibold text-gray-800">Extracted Text:</h3>
-              <button
-                onClick={downloadText}
-                className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded transition-colors"
-              >
-                Download Text
-              </button>
-            </div>
-            <div className="bg-white p-4 rounded border max-h-96 overflow-y-auto">
-              <pre className="text-sm text-gray-800 whitespace-pre-wrap font-mono">
-                {result.extractedText || 'No text extracted'}
-              </pre>
-            </div>
+          <div className="border rounded-md p-4 bg-gray-50 max-h-96 overflow-y-auto">
+            <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono">
+              {extractedText}
+            </pre>
           </div>
         </div>
       )}
