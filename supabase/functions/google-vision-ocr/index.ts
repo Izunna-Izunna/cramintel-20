@@ -14,18 +14,70 @@ interface ApiResponse {
   details?: string;
 }
 
+// Constants for file processing
+const MAX_FILE_SIZE = 8 * 1024 * 1024; // 8MB server-side limit
+const CHUNK_SIZE = 32 * 1024; // 32KB chunks for base64 conversion
+
+// Optimized base64 conversion to avoid stack overflow
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  console.log(`Converting buffer of size ${buffer.byteLength} to base64...`);
+  const startTime = Date.now();
+  
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  
+  // Process in chunks to avoid stack overflow
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.slice(i, i + CHUNK_SIZE);
+    const chunkString = Array.from(chunk, byte => String.fromCharCode(byte)).join('');
+    binary += chunkString;
+  }
+  
+  const base64 = btoa(binary);
+  const conversionTime = Date.now() - startTime;
+  console.log(`Base64 conversion completed in ${conversionTime}ms, result length: ${base64.length}`);
+  
+  return base64;
+}
+
+// Validate file type
+function isValidFileType(fileType: string): boolean {
+  const allowedTypes = [
+    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+    'application/pdf'
+  ];
+  return allowedTypes.includes(fileType.toLowerCase());
+}
+
+// Validate file size
+function validateFileSize(size: number): { valid: boolean; error?: string } {
+  if (size > MAX_FILE_SIZE) {
+    return {
+      valid: false,
+      error: `File size (${(size / 1024 / 1024).toFixed(2)}MB) exceeds maximum allowed size of ${MAX_FILE_SIZE / 1024 / 1024}MB`
+    };
+  }
+  return { valid: true };
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log('Google Vision OCR function called');
+  console.log('=== Google Vision OCR Function Started ===');
+  console.log(`Request method: ${req.method}`);
+  console.log(`Request URL: ${req.url}`);
+  console.log(`Request headers:`, Object.fromEntries(req.headers.entries()));
+
+  const startTime = Date.now();
 
   try {
+    // Check API key first
     const apiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY');
     if (!apiKey) {
-      console.error('Google Cloud Vision API key not found');
+      console.error('❌ Google Cloud Vision API key not found in environment');
       return new Response(JSON.stringify({
         success: false,
         error: 'Google Cloud Vision API key not configured'
@@ -34,141 +86,277 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
+    console.log('✅ API key found');
 
-    console.log('API key found, processing request');
     let fileBuffer: ArrayBuffer;
     let fileName: string;
     let fileType: string;
 
-    // Check content type to determine how to process the request
+    // Determine request type and process accordingly
     const contentType = req.headers.get('content-type') || '';
+    console.log(`Content-Type: ${contentType}`);
     
     if (contentType.includes('multipart/form-data')) {
-      console.log('Processing FormData request');
-      const formData = await req.formData();
-      const file = formData.get('file') as File;
+      console.log('📄 Processing FormData request...');
       
-      if (!file) {
+      try {
+        const formData = await req.formData();
+        const file = formData.get('file') as File;
+        
+        if (!file) {
+          console.error('❌ No file found in FormData');
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'No file provided in FormData'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        fileName = file.name;
+        fileType = file.type;
+        console.log(`📄 File details: name="${fileName}", type="${fileType}", size=${file.size} bytes`);
+        
+        // Validate file size
+        const sizeValidation = validateFileSize(file.size);
+        if (!sizeValidation.valid) {
+          console.error(`❌ File size validation failed: ${sizeValidation.error}`);
+          return new Response(JSON.stringify({
+            success: false,
+            error: sizeValidation.error
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        fileBuffer = await file.arrayBuffer();
+        console.log(`✅ File loaded into ArrayBuffer, size: ${fileBuffer.byteLength} bytes`);
+        
+      } catch (formDataError) {
+        console.error('❌ Error processing FormData:', formDataError);
         return new Response(JSON.stringify({
           success: false,
-          error: 'No file provided in FormData'
+          error: 'Failed to process FormData',
+          details: formDataError.message
         }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
-
-      fileBuffer = await file.arrayBuffer();
-      fileName = file.name;
-      fileType = file.type;
+      
     } else {
-      console.log('Processing JSON request');
-      const jsonData = await req.json();
+      console.log('🔧 Processing JSON request...');
       
-      if (!jsonData.file) {
+      try {
+        const jsonData = await req.json();
+        console.log('📄 JSON data keys:', Object.keys(jsonData));
+        
+        if (!jsonData.file) {
+          console.error('❌ No file data in JSON payload');
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'No file data provided in JSON'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        fileName = jsonData.fileName || 'uploaded-file';
+        fileType = jsonData.fileType || 'application/octet-stream';
+        console.log(`📄 JSON file details: name="${fileName}", type="${fileType}"`);
+
+        // Extract base64 data (remove data URL prefix if present)
+        const base64Data = jsonData.file.includes(',') ? jsonData.file.split(',')[1] : jsonData.file;
+        console.log(`📄 Base64 data length: ${base64Data.length} characters`);
+        
+        try {
+          // Convert base64 to ArrayBuffer
+          const binaryString = atob(base64Data);
+          console.log(`📄 Decoded binary string length: ${binaryString.length} bytes`);
+          
+          // Validate size before creating ArrayBuffer
+          const sizeValidation = validateFileSize(binaryString.length);
+          if (!sizeValidation.valid) {
+            console.error(`❌ File size validation failed: ${sizeValidation.error}`);
+            return new Response(JSON.stringify({
+              success: false,
+              error: sizeValidation.error
+            }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          fileBuffer = bytes.buffer;
+          console.log(`✅ ArrayBuffer created, size: ${fileBuffer.byteLength} bytes`);
+          
+        } catch (base64Error) {
+          console.error('❌ Error processing base64 data:', base64Error);
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Invalid base64 data',
+            details: base64Error.message
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        
+      } catch (jsonError) {
+        console.error('❌ Error processing JSON:', jsonError);
         return new Response(JSON.stringify({
           success: false,
-          error: 'No file data provided in JSON'
+          error: 'Failed to process JSON data',
+          details: jsonError.message
         }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
-
-      // Handle base64 data
-      const base64Data = jsonData.file.split(',')[1] || jsonData.file;
-      const binaryString = atob(base64Data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      fileBuffer = bytes.buffer;
-      fileName = jsonData.fileName || 'uploaded-file';
-      fileType = jsonData.fileType || 'application/octet-stream';
     }
 
-    console.log(`Processing file: ${fileName}, type: ${fileType}, size: ${fileBuffer.byteLength}`);
-
     // Validate file type
-    const allowedTypes = [
-      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
-      'application/pdf'
-    ];
-    
-    if (!allowedTypes.includes(fileType)) {
+    if (!isValidFileType(fileType)) {
+      console.error(`❌ Invalid file type: ${fileType}`);
       return new Response(JSON.stringify({
         success: false,
-        error: `Unsupported file type: ${fileType}`
+        error: `Unsupported file type: ${fileType}. Supported types: PDF, JPEG, PNG, GIF, WebP`
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
+    console.log(`✅ File type validation passed: ${fileType}`);
 
-    // Convert file to base64 for Google Vision API
-    const base64Content = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
+    // Convert to base64 for Google Vision API using optimized method
+    console.log('🔄 Converting file to base64 for Google Vision API...');
+    let base64Content: string;
     
-    console.log('Calling Google Vision API');
-    
-    // Call Google Vision API
-    const visionResponse = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        requests: [{
-          image: {
-            content: base64Content
-          },
-          features: [{
-            type: 'DOCUMENT_TEXT_DETECTION',
-            maxResults: 1
-          }]
-        }]
-      })
-    });
-
-    console.log('Google Vision API response status:', visionResponse.status);
-
-    if (!visionResponse.ok) {
-      const errorText = await visionResponse.text();
-      console.error('Google Vision API error:', errorText);
+    try {
+      base64Content = arrayBufferToBase64(fileBuffer);
+      console.log(`✅ Base64 conversion successful, length: ${base64Content.length}`);
+    } catch (conversionError) {
+      console.error('❌ Base64 conversion failed:', conversionError);
       return new Response(JSON.stringify({
         success: false,
-        error: 'Google Vision API request failed',
-        details: errorText
+        error: 'Failed to convert file to base64',
+        details: conversionError.message
       }), {
-        status: visionResponse.status,
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Call Google Vision API
+    console.log('🚀 Calling Google Vision API...');
+    const visionApiStartTime = Date.now();
+    
+    try {
+      const visionResponse = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requests: [{
+            image: {
+              content: base64Content
+            },
+            features: [{
+              type: 'DOCUMENT_TEXT_DETECTION',
+              maxResults: 1
+            }]
+          }]
+        })
+      });
+
+      const visionApiTime = Date.now() - visionApiStartTime;
+      console.log(`📊 Google Vision API responded in ${visionApiTime}ms with status: ${visionResponse.status}`);
+
+      if (!visionResponse.ok) {
+        const errorText = await visionResponse.text();
+        console.error('❌ Google Vision API error response:', errorText);
+        return new Response(JSON.stringify({
+          success: false,
+          error: `Google Vision API request failed (${visionResponse.status})`,
+          details: errorText
+        }), {
+          status: visionResponse.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const visionData = await visionResponse.json();
+      console.log('📄 Google Vision API response structure:', {
+        hasResponses: !!visionData.responses,
+        responseCount: visionData.responses?.length || 0,
+        firstResponseKeys: visionData.responses?.[0] ? Object.keys(visionData.responses[0]) : []
+      });
+
+      // Extract text from response
+      let extractedText = '';
+      if (visionData.responses && visionData.responses[0]) {
+        const response = visionData.responses[0];
+        
+        if (response.error) {
+          console.error('❌ Google Vision API returned error:', response.error);
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Google Vision API processing error',
+            details: response.error.message
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        
+        if (response.fullTextAnnotation) {
+          extractedText = response.fullTextAnnotation.text || '';
+          console.log(`✅ Extracted text from fullTextAnnotation, length: ${extractedText.length}`);
+        } else if (response.textAnnotations && response.textAnnotations.length > 0) {
+          extractedText = response.textAnnotations[0].description || '';
+          console.log(`✅ Extracted text from textAnnotations, length: ${extractedText.length}`);
+        } else {
+          console.log('⚠️ No text detected in the image/document');
+        }
+      }
+
+      const totalTime = Date.now() - startTime;
+      console.log(`🎉 Processing completed successfully in ${totalTime}ms`);
+      console.log(`📊 Final result: ${extractedText.length} characters extracted`);
+      console.log('=== Google Vision OCR Function Completed ===');
+
+      return new Response(JSON.stringify({
+        success: true,
+        extractedText: extractedText
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+
+    } catch (apiError) {
+      console.error('❌ Error calling Google Vision API:', apiError);
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Failed to call Google Vision API',
+        details: apiError.message
+      }), {
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    const visionData = await visionResponse.json();
-    console.log('Google Vision API response received');
-
-    // Extract text from response
-    let extractedText = '';
-    if (visionData.responses && visionData.responses[0]) {
-      const response = visionData.responses[0];
-      if (response.fullTextAnnotation) {
-        extractedText = response.fullTextAnnotation.text || '';
-      } else if (response.textAnnotations && response.textAnnotations.length > 0) {
-        extractedText = response.textAnnotations[0].description || '';
-      }
-    }
-
-    console.log(`Extracted text length: ${extractedText.length}`);
-
-    return new Response(JSON.stringify({
-      success: true,
-      extractedText: extractedText
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-
   } catch (error) {
-    console.error('Error in Google Vision OCR function:', error);
+    const totalTime = Date.now() - startTime;
+    console.error(`❌ Unexpected error after ${totalTime}ms:`, error);
+    console.error('Error stack:', error.stack);
+    
     return new Response(JSON.stringify({
       success: false,
       error: 'Internal server error',
