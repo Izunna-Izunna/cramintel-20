@@ -47,6 +47,7 @@ function App() {
               <Route path="/test-pdf" element={<TestPdfExtraction />} />
               <Route path="/test-extraction" element={<TextExtractionTest />} />
               <Route path="/google-vision-test" element={<GoogleVisionTest />} />
+              <Route path="/api-key-test" element={<GoogleVisionApiTestPage />} />
               <Route path="/test-predictions" element={<ProtectedRoute><TestPredictions /></ProtectedRoute>} />
               <Route 
                 path="/dashboard" 
