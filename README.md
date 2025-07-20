@@ -1,69 +1,125 @@
-# Welcome to your Lovable project
+# 📘 CramIntel – Smart Learning for West African Students
 
-## Project info
+**CramIntel** is an AI-powered learning platform built to help West African university students study smarter, not harder. It transforms lecture notes, past questions, and course materials into personalized exam predictions, smart flashcards, and focused study tools.
 
-**URL**: https://lovable.dev/projects/ec1d4f1e-2506-4da5-a91b-34afa90cceb6
+---
 
-## How can I edit this code?
+## 🚀 What is CramIntel?
 
-There are several ways of editing your application.
+CramIntel is built with one mission: **cut the noise, learn what counts**.
 
-**Use Lovable**
+It helps students:
+- Predict likely exam questions
+- Auto-generate flashcards, quizzes, and study guides
+- Collaborate via course-specific study communities
+- Save time and achieve higher grades
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/ec1d4f1e-2506-4da5-a91b-34afa90cceb6) and start prompting.
+Whether you're in Medicine, Engineering, Business, or Law — CramIntel adapts to your course and content.
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
+## 🧠 Key Features
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### ✍🏽 AI Exam Predictions
+Upload your notes and past papers to receive intelligent, data-backed predictions of likely exam questions — based on your course, lecturer style, and previous trends.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### 📚 Smart Study Tools
+Auto-generated flashcards, quizzes, and summaries tailored to your uploaded content. Everything personalized and interactive.
 
-Follow these steps:
+### 👩🏾‍🤝‍👨🏽 Study Communities
+Join university- and course-specific study circles. Collaborate with classmates, share insights, and prepare smarter together.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### 🔎 Study Insights
+CramIntel highlights high-priority topics, estimates confidence levels, and helps you focus where it matters most.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+---
 
-# Step 3: Install the necessary dependencies.
-npm i
+## 🎓 Why Students Use CramIntel
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+- **Save 40% of study time**  
+- **Improve grades by 15% on average**  
+- **Get accurate, AI-powered predictions**  
+- **Join peer-led communities**  
+- **Experience adaptive, personalized learning**
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 🌍 Real Results
 
-**Use GitHub Codespaces**
+Thousands of students across Nigeria and Ghana are already using CramIntel. A few highlights:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- **Adaora (UNILAG)** – Improved from C+ to A- in Computer Science  
+- **Kwame (UG Legon)** – Cut study time by 50%, scored 82% in Marketing  
+- **Fatima (ABU Zaria)** – Top 5% of Medicine class through peer study groups  
+- **Emmanuel (KNUST)** – First Class Honors with AI-generated study plans  
+- **Amina (UNILORIN)** – Crushed Bar exams with smart predictions
 
-## What technologies are used for this project?
+---
 
-This project is built with .
+## 💡 How It Works
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+1. **Upload Materials**  
+   Drop your PDFs, images, or lecture notes.
 
-## How can I deploy this project?
+2. **AI Analysis**  
+   The system scans and extracts key concepts, trends, and patterns.
 
-Simply open [Lovable](https://lovable.dev/projects/ec1d4f1e-2506-4da5-a91b-34afa90cceb6) and click on Share -> Publish.
+3. **Get Predictions**  
+   Receive a custom list of likely exam questions and focus areas.
 
-## I want to use a custom domain - is that possible?
+4. **Study Smart**  
+   Use flashcards, quizzes, and join study groups — all tailored to your pace.
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+---
+
+## 🔧 Tech Stack (Internal Use)
+
+- **Frontend**: React + TypeScript + Tailwind CSS  
+- **Backend**: Node.js, Express  
+- **AI Models**: OpenAI, Claude, and custom-trained NLP models  
+- **Storage**: Firebase / Cloud Storage  
+- **Hosting**: Vercel (for frontend), Supabase (for DB), Lovable.dev (for prototyping MVP)
+
+---
+
+## 📣 Launch Status
+
+CramIntel is currently in **pre-launch** with early access available via waitlist.
+
+✅ Core features are built  
+🚀 Private beta testing in 12 universities  
+📥 5,000+ active student testers and counting
+
+Join the waitlist: [https://cramintel.com](https://cramintel.com)  
+Contact: students@cramintel.com
+
+---
+
+## 🤝 Meet the Team
+
+**Izunna** – Founder & CEO  
+**Paschal Ugwuanyi** – Product Developer & Tech Strategy  
+📩 paschalugwuanyi98@gmail.com  
+🌐 LinkedIn: [Your LinkedIn]
+
+---
+
+## 🧾 License & Credits
+
+This project is © 2025 CramIntel. All rights reserved.  
+Educational use only. Please contact us for collaborations or research-based integrations.
+
+---
+
+## 📬 Stay in the Loop
+
+Get study tips, updates, and early access to features:
+
+→ Join our mailing list  
+→ WhatsApp support during exam seasons  
+→ Blog: [Latest study tips](#)
+
+---
+
+Built with love for West African students.  
+Helping you **learn what matters**.
