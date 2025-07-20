@@ -1,125 +1,114 @@
 # 📘 CramIntel – Smart Learning for West African Students
 
-**CramIntel** is an AI-powered learning platform built to help West African university students study smarter, not harder. It transforms lecture notes, past questions, and course materials into personalized exam predictions, smart flashcards, and focused study tools.
+**CramIntel** is an AI-powered learning platform that helps West African university students study smarter and excel in exams. Built to reduce wasted time and increase academic success, CramIntel turns raw notes, past papers, and assignments into predicted questions, flashcards, quizzes, and community-driven tools.
+
+🌍 **Live Website**: [https://cramintel.netlify.app](https://cramintel.netlify.app)
 
 ---
 
 ## 🚀 What is CramIntel?
 
-CramIntel is built with one mission: **cut the noise, learn what counts**.
+CramIntel cuts the noise and helps you **learn what counts**.
 
-It helps students:
-- Predict likely exam questions
-- Auto-generate flashcards, quizzes, and study guides
-- Collaborate via course-specific study communities
-- Save time and achieve higher grades
-
-Whether you're in Medicine, Engineering, Business, or Law — CramIntel adapts to your course and content.
+With our platform, students can:
+- Upload notes and past exam papers
+- Get AI-generated predictions of likely exam questions
+- Use smart flashcards, quizzes, and study guides
+- Join course-specific study communities
+- Improve grades while saving study time
 
 ---
 
-## 🧠 Key Features
+## 🧠 Core Features
 
-### ✍🏽 AI Exam Predictions
-Upload your notes and past papers to receive intelligent, data-backed predictions of likely exam questions — based on your course, lecturer style, and previous trends.
+### ✨ AI Exam Predictions
+Instantly analyze uploaded course materials and receive accurate exam predictions based on patterns from lecturers and past papers.
 
 ### 📚 Smart Study Tools
-Auto-generated flashcards, quizzes, and summaries tailored to your uploaded content. Everything personalized and interactive.
+Generate flashcards, quizzes, and summaries directly from your notes for more focused learning.
 
-### 👩🏾‍🤝‍👨🏽 Study Communities
-Join university- and course-specific study circles. Collaborate with classmates, share insights, and prepare smarter together.
+### 👥 Study Communities
+Join study circles tailored to your course, share insights, and collaborate with peers.
 
-### 🔎 Study Insights
-CramIntel highlights high-priority topics, estimates confidence levels, and helps you focus where it matters most.
-
----
-
-## 🎓 Why Students Use CramIntel
-
-- **Save 40% of study time**  
-- **Improve grades by 15% on average**  
-- **Get accurate, AI-powered predictions**  
-- **Join peer-led communities**  
-- **Experience adaptive, personalized learning**
+### 📈 Performance Insights
+Get confidence ratings, focus areas, and smart prioritization to manage your time more effectively.
 
 ---
 
-## 🌍 Real Results
+## 🎓 Real Results from Real Students
 
-Thousands of students across Nigeria and Ghana are already using CramIntel. A few highlights:
+Over 5,000 students from 12+ universities have used CramIntel. Examples:
 
-- **Adaora (UNILAG)** – Improved from C+ to A- in Computer Science  
-- **Kwame (UG Legon)** – Cut study time by 50%, scored 82% in Marketing  
-- **Fatima (ABU Zaria)** – Top 5% of Medicine class through peer study groups  
-- **Emmanuel (KNUST)** – First Class Honors with AI-generated study plans  
-- **Amina (UNILORIN)** – Crushed Bar exams with smart predictions
+- **Adaora (UNILAG)** – From C+ to A- in Computer Science  
+- **Kwame (University of Ghana)** – 50% less study time, 80% prediction match  
+- **Fatima (ABU)** – Top 5% of her class  
+- **Emmanuel (KNUST)** – First-class with AI-powered prep  
+- **Amina (UNILORIN)** – Crushed Bar exams using predictions
 
 ---
 
 ## 💡 How It Works
 
 1. **Upload Materials**  
-   Drop your PDFs, images, or lecture notes.
+   Upload PDFs, images, lecture notes, past questions
 
 2. **AI Analysis**  
-   The system scans and extracts key concepts, trends, and patterns.
+   CramIntel identifies important topics, trends, and concepts
 
 3. **Get Predictions**  
-   Receive a custom list of likely exam questions and focus areas.
+   Receive intelligent question predictions with confidence ratings
 
-4. **Study Smart**  
-   Use flashcards, quizzes, and join study groups — all tailored to your pace.
-
----
-
-## 🔧 Tech Stack (Internal Use)
-
-- **Frontend**: React + TypeScript + Tailwind CSS  
-- **Backend**: Node.js, Express  
-- **AI Models**: OpenAI, Claude, and custom-trained NLP models  
-- **Storage**: Firebase / Cloud Storage  
-- **Hosting**: Vercel (for frontend), Supabase (for DB), Lovable.dev (for prototyping MVP)
+4. **Study Smarter**  
+   Use generated flashcards, quizzes, and peer study groups
 
 ---
 
-## 📣 Launch Status
+## 🧑🏽‍💻 Tech Stack (Dev Notes)
 
-CramIntel is currently in **pre-launch** with early access available via waitlist.
-
-✅ Core features are built  
-🚀 Private beta testing in 12 universities  
-📥 5,000+ active student testers and counting
-
-Join the waitlist: [https://cramintel.com](https://cramintel.com)  
-Contact: students@cramintel.com
+- **Frontend**: React + TypeScript  
+- **Styling**: Tailwind CSS  
+- **Backend**: Node.js + Express  
+- **AI Layer**: GPT-4, Claude, Custom NLP  
+- **Storage**: Firebase / Supabase  
+- **Prototyping**: Lovable.dev  
+- **Hosting**: Netlify (Live App)
 
 ---
 
-## 🤝 Meet the Team
+## 🎯 Target Audience
 
-**Izunna** – Founder & CEO  
-**Paschal Ugwuanyi** – Product Developer & Tech Strategy  
+- University students across West Africa  
+- First-year to final-year students needing guided study  
+- Students preparing for WAEC, exams, and bar/medical boards  
+- Study groups and academic support units
+
+---
+
+## 📬 Contact & Team
+
+**Izunna Ugwuanyi**  
+Founder & CEO  
 📩 paschalugwuanyi98@gmail.com  
-🌐 LinkedIn: [Your LinkedIn]
+🔗 [LinkedIn](https://www.linkedin.com/in/izunna-ugwuanyi-791136355)
 
 ---
 
-## 🧾 License & Credits
+## 📥 Join the Movement
 
-This project is © 2025 CramIntel. All rights reserved.  
-Educational use only. Please contact us for collaborations or research-based integrations.
+Want early access, study tips, or to become a campus rep?
 
----
-
-## 📬 Stay in the Loop
-
-Get study tips, updates, and early access to features:
-
-→ Join our mailing list  
-→ WhatsApp support during exam seasons  
-→ Blog: [Latest study tips](#)
+- Visit: [cramintel.netlify.app](https://cramintel.netlify.app)  
+- Join the waitlist or community  
+- Follow our blog for proven AI learning tips
 
 ---
 
-Built with love for West African students.  
-Helping you **learn what matters**.
+## 🔒 License & Legal
+
+© 2025 CramIntel. All rights reserved.  
+Use of this platform is governed by our [Privacy Policy](https://cramintel.netlify.app) and Terms of Service.  
+All content is for academic enhancement purposes.
+
+---
+
+**CramIntel – Helping students learn what counts.**
