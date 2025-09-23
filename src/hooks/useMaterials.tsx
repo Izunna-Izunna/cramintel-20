@@ -35,9 +35,7 @@ export function useMaterials() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [materialGroups, setMaterialGroups] = useState<MaterialGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Only use auth when not in mock mode
-  const { user } = shouldUseMockData() ? { user: null } : useAuth();
+  const { user } = useAuth();
 
   const fetchMaterials = async () => {
     // Use mock data in demo mode

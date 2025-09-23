@@ -24,6 +24,7 @@ interface DashboardStats {
 }
 
 export function useDashboardData() {
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     weeklyUploads: 0,
     weeklyTarget: 5,
@@ -34,9 +35,6 @@ export function useDashboardData() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Only use auth when not in mock mode
-  const { user } = shouldUseMockData() ? { user: null } : useAuth();
 
   const fetchDashboardData = async () => {
     // Use mock data in demo mode

@@ -36,9 +36,7 @@ export interface Flashcard {
 export const useFlashcardDecks = () => {
   const [decks, setDecks] = useState<FlashcardDeck[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Only use auth when not in mock mode
-  const { user } = shouldUseMockData() ? { user: null } : useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const fetchDecks = async () => {
@@ -279,9 +277,7 @@ export const useFlashcardDecks = () => {
 export const useFlashcards = (deckId: string) => {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Only use auth when not in mock mode
-  const { user } = shouldUseMockData() ? { user: null } : useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const fetchFlashcards = async () => {
