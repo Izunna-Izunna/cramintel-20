@@ -40,12 +40,15 @@ export const useFlashcardDecks = () => {
   const { toast } = useToast();
 
   const fetchDecks = async () => {
-    if (!user) return;
-
     // Use mock data in demo mode
     if (shouldUseMockData()) {
       await mockDelay();
       setDecks(mockFlashcardDecks);
+      setLoading(false);
+      return;
+    }
+
+    if (!user) {
       setLoading(false);
       return;
     }

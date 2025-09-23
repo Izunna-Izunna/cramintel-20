@@ -21,12 +21,15 @@ export function usePredictions() {
   const { user } = useAuth();
 
   const fetchPredictions = async () => {
-    if (!user) return;
-
     // Use mock data in demo mode
     if (shouldUseMockData()) {
       await mockDelay();
       setPredictions(mockPredictions);
+      setLoading(false);
+      return;
+    }
+
+    if (!user) {
       setLoading(false);
       return;
     }

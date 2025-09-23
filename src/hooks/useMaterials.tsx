@@ -38,13 +38,16 @@ export function useMaterials() {
   const { user } = useAuth();
 
   const fetchMaterials = async () => {
-    if (!user) return;
-
     // Use mock data in demo mode
     if (shouldUseMockData()) {
       await mockDelay();
       setMaterials(mockMaterials);
       setMaterialGroups(mockMaterialGroups);
+      setLoading(false);
+      return;
+    }
+
+    if (!user) {
       setLoading(false);
       return;
     }

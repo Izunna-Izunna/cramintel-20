@@ -30,15 +30,15 @@ export function useUserProfile() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchProfile = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     // Use mock data in demo mode
     if (shouldUseMockData()) {
       await mockDelay();
       setProfile(mockUserProfile);
+      setLoading(false);
+      return;
+    }
+
+    if (!user) {
       setLoading(false);
       return;
     }

@@ -37,15 +37,15 @@ export function useDashboardData() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchDashboardData = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     // Use mock data in demo mode
     if (shouldUseMockData()) {
       await mockDelay();
       setStats(mockDashboardStats);
+      setLoading(false);
+      return;
+    }
+
+    if (!user) {
       setLoading(false);
       return;
     }

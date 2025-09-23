@@ -26,12 +26,15 @@ export const useStudyAnalytics = () => {
   const { user } = useAuth();
 
   const fetchStats = async () => {
-    if (!user) return;
-
     // Use mock data in demo mode
     if (shouldUseMockData()) {
       await mockDelay();
       setStats(mockStudyStats);
+      setLoading(false);
+      return;
+    }
+
+    if (!user) {
       setLoading(false);
       return;
     }
