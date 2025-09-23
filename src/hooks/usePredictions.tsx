@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { shouldUseMockData, mockPredictions, mockDelay } from '@/services/mockDataService';
 
 export interface Prediction {
   id: string;
@@ -21,6 +22,14 @@ export function usePredictions() {
 
   const fetchPredictions = async () => {
     if (!user) return;
+
+    // Use mock data in demo mode
+    if (shouldUseMockData()) {
+      await mockDelay();
+      setPredictions(mockPredictions);
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase
@@ -62,6 +71,19 @@ export function usePredictions() {
     exam_date?: string;
   }) => {
     if (!user) return null;
+
+    // Use mock data in demo mode
+    if (shouldUseMockData()) {
+      await mockDelay();
+      const newPrediction = {
+        id: `pred-${Date.now()}`,
+        ...predictionData,
+        generated_at: new Date().toISOString(),
+        status: 'completed'
+      };
+      setPredictions(prev => [newPrediction, ...prev]);
+      return newPrediction;
+    }
 
     try {
       const { data, error } = await supabase

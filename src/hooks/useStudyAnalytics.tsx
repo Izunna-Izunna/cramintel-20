@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { shouldUseMockData, mockStudyStats, mockDelay } from '@/services/mockDataService';
 
 export interface StudyStats {
   flashcards_studied_today: number;
@@ -26,6 +27,14 @@ export const useStudyAnalytics = () => {
 
   const fetchStats = async () => {
     if (!user) return;
+
+    // Use mock data in demo mode
+    if (shouldUseMockData()) {
+      await mockDelay();
+      setStats(mockStudyStats);
+      setLoading(false);
+      return;
+    }
 
     try {
       const today = new Date().toISOString().split('T')[0];

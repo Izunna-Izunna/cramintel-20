@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { shouldUseMockData, mockFlashcardDecks, mockFlashcards, mockDelay } from '@/services/mockDataService';
 
 export interface FlashcardDeck {
   id: string;
@@ -40,6 +41,14 @@ export const useFlashcardDecks = () => {
 
   const fetchDecks = async () => {
     if (!user) return;
+
+    // Use mock data in demo mode
+    if (shouldUseMockData()) {
+      await mockDelay();
+      setDecks(mockFlashcardDecks);
+      setLoading(false);
+      return;
+    }
 
     try {
       console.log('Fetching decks for user:', user.id);
@@ -270,6 +279,18 @@ export const useFlashcards = (deckId: string) => {
 
   const fetchFlashcards = async () => {
     if (!user || !deckId) return;
+
+    // Use mock data in demo mode
+    if (shouldUseMockData()) {
+      await mockDelay();
+      // Filter mock flashcards for the specific deck (simple implementation)
+      const deckFlashcards = mockFlashcards.filter(card => 
+        mockFlashcardDecks.find(deck => deck.id === deckId)?.course === card.course
+      );
+      setFlashcards(deckFlashcards);
+      setLoading(false);
+      return;
+    }
 
     try {
       console.log('🔍 Fetching flashcards for deck:', deckId);

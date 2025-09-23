@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { shouldUseMockData, mockMaterials, mockMaterialGroups, mockDelay } from '@/services/mockDataService';
 
 export interface Material {
   id: string;
@@ -38,6 +39,15 @@ export function useMaterials() {
 
   const fetchMaterials = async () => {
     if (!user) return;
+
+    // Use mock data in demo mode
+    if (shouldUseMockData()) {
+      await mockDelay();
+      setMaterials(mockMaterials);
+      setMaterialGroups(mockMaterialGroups);
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { shouldUseMockData, mockDashboardStats, mockDelay } from '@/services/mockDataService';
 
 interface DashboardStats {
   weeklyUploads: number;
@@ -37,6 +38,14 @@ export function useDashboardData() {
 
   const fetchDashboardData = async () => {
     if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    // Use mock data in demo mode
+    if (shouldUseMockData()) {
+      await mockDelay();
+      setStats(mockDashboardStats);
       setLoading(false);
       return;
     }

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { shouldUseMockData, mockUserProfile, mockDelay } from '@/services/mockDataService';
 
 interface Lecturer {
   name: string;
@@ -30,6 +31,14 @@ export function useUserProfile() {
 
   const fetchProfile = async () => {
     if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    // Use mock data in demo mode
+    if (shouldUseMockData()) {
+      await mockDelay();
+      setProfile(mockUserProfile);
       setLoading(false);
       return;
     }

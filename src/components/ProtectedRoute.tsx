@@ -21,12 +21,12 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   if (bypassAuth) {
     // Store mock user data in localStorage for dashboard components
     const mockUser = {
-      firstName: 'Dev',
-      lastName: 'User', 
-      email: 'dev@example.com',
-      school: 'Development University',
-      department: 'Computer Science',
-      courses: ['React Development', 'TypeScript']
+      firstName: 'Sarah',
+      lastName: 'Chen', 
+      email: 'sarah.chen@mit.edu',
+      school: 'Massachusetts Institute of Technology',
+      department: 'Computer Science & Engineering',
+      courses: ['Data Structures & Algorithms', 'Machine Learning', 'Computer Networks', 'Database Systems']
     };
     
     if (!localStorage.getItem('cramIntelUser')) {
@@ -35,12 +35,22 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
     return (
       <>
-        <Alert className="fixed top-4 left-4 z-50 w-auto bg-yellow-50 border-yellow-200">
-          <Code className="h-4 w-4 text-yellow-600" />
-          <AlertDescription className="text-yellow-800 font-medium">
-            Development Mode - Auth Bypassed
-          </AlertDescription>
-        </Alert>
+        {import.meta.env.VITE_USE_MOCK_DATA === 'true' && (
+          <Alert className="fixed top-4 right-4 z-50 w-auto bg-blue-50 border-blue-200">
+            <Code className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800 font-medium">
+              DEMO MODE - Mock Data Active
+            </AlertDescription>
+          </Alert>
+        )}
+        {!import.meta.env.VITE_USE_MOCK_DATA && (
+          <Alert className="fixed top-4 left-4 z-50 w-auto bg-yellow-50 border-yellow-200">
+            <Code className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-800 font-medium">
+              Development Mode - Auth Bypassed
+            </AlertDescription>
+          </Alert>
+        )}
         {children}
       </>
     );
