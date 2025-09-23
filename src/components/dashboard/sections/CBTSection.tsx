@@ -52,22 +52,16 @@ export function CBTSection() {
   const getExistingQuestions = (course: string): GeneratedQuestion[] => {
     const coursePredictions = predictions.filter(
       p => p.course === course && 
-      (p.prediction_type === 'objective_bulk' || p.prediction_type === 'quiz' || p.prediction_type === 'mixed' || p.prediction_type === 'midterm' || p.prediction_type === 'final') && 
-      (p.status === 'active' || p.status === 'completed')
+      p.prediction_type === 'objective_bulk' && 
+      p.status === 'active'
     );
 
     const questions: GeneratedQuestion[] = [];
     coursePredictions.forEach(prediction => {
       if (Array.isArray(prediction.questions)) {
         prediction.questions.forEach(q => {
-          if (q.options && (q.correct_answer !== undefined && q.correct_answer !== null)) {
-            questions.push({
-              question: q.question,
-              options: q.options,
-              correct_answer: typeof q.correct_answer === 'number' ? q.options[q.correct_answer] : q.correct_answer,
-              topic: q.topics?.[0] || q.topic || 'General',
-              difficulty: q.difficulty || 'medium'
-            });
+          if (q.options && q.correct_answer) {
+            questions.push(q);
           }
         });
       }
