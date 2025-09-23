@@ -12,7 +12,6 @@ import { useFlashcardDecks, FlashcardDeck } from '@/hooks/useFlashcardDecks';
 import { useStudyAnalytics } from '@/hooks/useStudyAnalytics';
 import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
-import { shouldUseMockData } from '@/services/mockDataService';
 
 export function EnhancedFlashcardsSection() {
   const [showCreateDeck, setShowCreateDeck] = useState(false);
@@ -74,7 +73,7 @@ export function EnhancedFlashcardsSection() {
     await updateDeckLastStudied(deck.id);
   };
 
-  if (!user && !shouldUseMockData()) {
+  if (!user) {
     return (
       <div className="flex items-center justify-center p-8">
         <p className="text-gray-600">Please log in to access your flashcards.</p>
