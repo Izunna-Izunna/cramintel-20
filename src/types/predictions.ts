@@ -22,6 +22,7 @@ export interface GeneratedQuestion {
   options?: string[];
   correct_answer?: string;
   topic?: string;
+  explanation?: string;
 }
 
 export interface ExamSection {
