@@ -23,7 +23,9 @@ export const useStudyAnalytics = () => {
     accuracy_rate_today: 0
   });
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  
+  // Only use auth when not in mock mode
+  const { user } = shouldUseMockData() ? { user: null } : useAuth();
 
   const fetchStats = async () => {
     // Use mock data in demo mode

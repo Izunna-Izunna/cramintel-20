@@ -18,7 +18,9 @@ export interface Prediction {
 export function usePredictions() {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  
+  // Only use auth when not in mock mode
+  const { user } = shouldUseMockData() ? { user: null } : useAuth();
 
   const fetchPredictions = async () => {
     // Use mock data in demo mode

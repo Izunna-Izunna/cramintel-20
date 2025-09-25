@@ -24,10 +24,12 @@ interface UserProfile {
 }
 
 export function useUserProfile() {
-  const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Only use auth when not in mock mode  
+  const { user } = shouldUseMockData() ? { user: null } : useAuth();
 
   const fetchProfile = async () => {
     // Use mock data in demo mode
